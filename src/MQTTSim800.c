@@ -161,6 +161,25 @@ int SIM800_SendCommand(char *command, char *reply, uint16_t delay)
     return 1;
 }
 
+
+/**
+ * Deinitialization SIM800.
+ * @param NONE
+ * @return error status, 0 - OK
+ */
+int MQTT_Deinit(void)
+{
+    SIM800.mqttServer.connect = 0;
+    int error = 0;
+    HAL_UART_Receive_IT(UART_SIM800, &rx_data, 1);
+
+    error += SIM800_SendCommand("AT+CGATT=0\r\n", "OK\r\n", CMD_DELAY);
+    error += SIM800_SendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY);
+    return error;
+}
+
+
+
 /**
  * initialization SIM800.
  * @param NONE
@@ -184,17 +203,10 @@ int MQTT_Init(void)
     error += SIM800_SendCommand(str, "OK\r\n", CMD_DELAY);
 
     error += SIM800_SendCommand("AT+CIICR\r\n", "OK\r\n", CMD_DELAY);
-    SIM800_SendCommand("AT+CIFSR\r\n", "", CMD_DELAY);
-    if (error == 0)
-    {
-        MQTT_Connect();
-        return error;
-    }
-    else
-    {
-        return error;
-    }
+    error += SIM800_SendCommand("AT+CIFSR\r\n", "", CMD_DELAY);
+    return error;
 }
+
 
 /**
  * Connect to MQTT server in Internet over TCP.

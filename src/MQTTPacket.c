@@ -368,6 +368,7 @@ int MQTTPacket_readnb(unsigned char* buf, int buflen, MQTTTransport *trp)
 	default:
 		trp->state = 0;
 		/*FALLTHROUGH*/
+    // no break
 	case 0:
 		/* read the header byte.  This has the packet type in it */
 		if ((frc=(*trp->getfn)(trp->sck, buf, 1)) == -1)
@@ -378,6 +379,7 @@ int MQTTPacket_readnb(unsigned char* buf, int buflen, MQTTTransport *trp)
 		++trp->state;
 		/*FALLTHROUGH*/
 		/* read the remaining length.  This is variable in itself */
+    // no break
 	case 1:
 		if((frc=MQTTPacket_decodenb(trp)) == MQTTPACKET_READ_ERROR)
 			goto exit;
@@ -388,6 +390,7 @@ int MQTTPacket_readnb(unsigned char* buf, int buflen, MQTTTransport *trp)
 			goto exit;
 		++trp->state;
 		/*FALLTHROUGH*/
+    // no break
 	case 2:
 		if(trp->rem_len){
 			/* read the rest of the buffer using a callback to supply the rest of the data */

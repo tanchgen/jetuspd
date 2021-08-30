@@ -24,6 +24,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
 #include <stdlib.h>
 #include "MQTTSim800.h"
 /* USER CODE END Includes */
@@ -43,6 +44,7 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+RCC_ClocksTypeDef RCC_Clocks;
 
 /* USER CODE BEGIN PV */
 SIM800_t SIM800;
@@ -50,6 +52,7 @@ SIM800_t SIM800;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+int ntpInit(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -115,6 +118,8 @@ int main(void)
 
     MQTT_Init();
 
+    ntpInit();
+
     uint8_t sub = 0;
 
     //Test data
@@ -129,31 +134,31 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
     while (1) {
-        if (SIM800.mqttServer.connect == 0) {
-            MQTT_Init();
-            sub = 0;
+      if (SIM800.mqttServer.connect == 0) {
+        MQTT_Connect();
+        sub = 0;
+      }
+      if( SIM800.mqttServer.connect == 1 ) {
+        if( sub == 0 ){
+          MQTT_Sub("test");
+          sub = 1;
         }
-        if (SIM800.mqttServer.connect == 1) {
-            if(sub == 0){
-                MQTT_Sub("test");
-                sub = 1;
-            }
 
-            MQTT_Pub("STM32/string", "string");
-            MQTT_PubUint8("STM32/uint8", pub_uint8);
-            MQTT_PubUint16("STM32/uint16", pub_uint16);
-            MQTT_PubUint32("STM32/uint32", pub_uint32);
-            MQTT_PubFloat("STM32/float", pub_float);
-            MQTT_PubDouble("STM32/double", pub_double);
+        MQTT_Pub( "imei/test/string", "string" );
+        MQTT_PubUint8( "imei/test/uint8", pub_uint8 );
+        MQTT_PubUint16( "imei/test/uint16", pub_uint16 );
+        MQTT_PubUint32( "imei/test/uint32", pub_uint32 );
+        MQTT_PubFloat( "imei/test/float", pub_float );
+        MQTT_PubDouble( "imei/test/double", pub_double );
 
-            if(SIM800.mqttReceive.newEvent) {
-                unsigned char *topic = SIM800.mqttReceive.topic;
-                int payload = atoi((char*)SIM800.mqttReceive.payload);
-                SIM800.mqttReceive.newEvent = 0;
-                trace_printf("mqttReceive: %s: %d\n", topic, payload );
-            }
+        if( SIM800.mqttReceive.newEvent ){
+          unsigned char *topic = SIM800.mqttReceive.topic;
+          int payload = atoi( (char*)SIM800.mqttReceive.payload );
+          SIM800.mqttReceive.newEvent = 0;
+          trace_printf( "mqttReceive: %s: %d\n", topic, payload );
         }
-        HAL_Delay(1000);
+      }
+      HAL_Delay( 1000 );
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -198,6 +203,12 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+
+  RCC_Clocks.SYSCLK_Frequency = HAL_RCC_GetSysClockFreq();
+  RCC_Clocks.HCLK_Frequency = HAL_RCC_GetHCLKFreq();
+  RCC_Clocks.PCLK1_Frequency = HAL_RCC_GetPCLK1Freq();
+  RCC_Clocks.PCLK2_Frequency = HAL_RCC_GetPCLK2Freq();
+
 }
 
 /* USER CODE BEGIN 4 */
@@ -217,6 +228,65 @@ void Error_Handler(void)
     }
   /* USER CODE END Error_Handler_Debug */
 }
+
+/**
+ * initialization SNTP.
+ * @param NONE
+ * @return error status, 0 - OK
+ */
+int ntpInit(void) {
+  uint8_t errCount = 0;
+  uint8_t ntpFlag = 0;
+  int8_t tz;
+  SIM800.mqttServer.connect = 0;
+  int error = 0;
+
+  timeInit();
+
+  while( ntpFlag == RESET ){
+    SIM800_SendCommand("AT+CNTPCID=1\r\n", "OK\r\n", CMD_DELAY);
+    SIM800_SendCommand("AT+CNTP=\"91.207.136.50\",32\r\n", "OK\r\n", CMD_DELAY);
+    error += SIM800_SendCommand("AT+CNTP\r\n", "+CNTP: 1\r\n", CMD_DELAY * 3);
+    error += SIM800_SendCommand("AT+CCLK?\r\n", "OK\r\n", CMD_DELAY * 3);
+    if( error == 0 ){
+      // Получили дату-время
+      sscanf(mqtt_buffer, "[^:]*: \"%u/%u/%u,%u:%u:%u%d\"", \
+                           (unsigned int*)&rtc.date, (unsigned int*)&rtc.month, (unsigned int*)&rtc.year, \
+                           (unsigned int*)&rtc.hour, (unsigned int*)&rtc.min, (unsigned int*)&rtc.sec, (int *)&tz );
+      tz /= 4;
+      // Переходим в Локальное время
+      setRtcTime( getRtcTime() + tz * 3600 );
+      ntpFlag = SET;
+    }
+    else {
+      if( ++errCount >= 3 ){
+        while(1) {
+          error = MQTT_Deinit();
+          if( error == 0 ){
+            error = MQTT_Init();
+          }
+          if( error ){
+            if( ++errCount == 4 ){
+              // Никак не получается включить GPRS
+              errCount = 0;
+              // On SIM800 power if use
+              HAL_GPIO_WritePin(SIM_PWR_GPIO_Port, SIM_PWR_Pin, GPIO_PIN_RESET);
+              HAL_Delay(3000);
+              HAL_GPIO_WritePin(SIM_PWR_GPIO_Port, SIM_PWR_Pin, GPIO_PIN_SET);
+              HAL_Delay(10000);
+            }
+          }
+          else {
+            break;
+          }
+        }
+        errCount = 0;
+      }
+    }
+  }
+  return error;
+}
+
 
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

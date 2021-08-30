@@ -33,6 +33,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "my_time.h"
 
 /* USER CODE END Includes */
 
@@ -59,9 +60,11 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+/* USER CODE BEGIN Private defines */
 #define SIM_PWR_Pin GPIO_PIN_0
 #define SIM_PWR_GPIO_Port GPIOB
-/* USER CODE BEGIN Private defines */
+
+extern RCC_ClocksTypeDef RCC_Clocks;
 
 /* USER CODE END Private defines */
 

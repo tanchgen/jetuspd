@@ -180,6 +180,7 @@ char* MQTTFormat_toClientString(char* strbuf, int strbuflen, unsigned char* buf,
 		strindex = snprintf(strbuf, strbuflen, "%s", MQTTPacket_names[header.bits.type]);
 		break;
 	}
+	(void)strindex;
 	return strbuf;
 }
 #endif

@@ -21,6 +21,7 @@
 #include "main.h"
 #include "usart.h"
 #include "gpio.h"
+#include "isens.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -119,6 +120,8 @@ int main(void)
     MQTT_Init();
 
     ntpInit();
+
+    isensInit( &iSens );
 
     uint8_t sub = 0;
 

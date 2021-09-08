@@ -19,6 +19,9 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "adc.h"
+#include "dma.h"
+#include "rtc.h"
 #include "usart.h"
 #include "gpio.h"
 #include "isens.h"
@@ -37,6 +40,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+/* ADC parameters */
+#define ADCCONVERTEDVALUES_BUFFER_SIZE ((uint32_t)    5)    /* Size of array containing ADC converted values: set to ADC sequencer number of ranks converted, to have a rank in each address */
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,6 +51,9 @@
 
 /* Private variables ---------------------------------------------------------*/
 RCC_ClocksTypeDef RCC_Clocks;
+
+/* Variable containing ADC conversions results */
+__IO uint16_t   aADCxConvertedValues[ADCCONVERTEDVALUES_BUFFER_SIZE];
 
 /* USER CODE BEGIN PV */
 SIM800_t SIM800;
@@ -96,14 +104,28 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_USART2_UART_Init();
+  MX_DMA_Init();
+  MX_USART3_UART_Init();
+  MX_ADC_Init();
+  MX_RTC_Init();
   /* USER CODE BEGIN 2 */
 
+  if (HAL_ADC_Start_DMA(&hadc,
+                         (uint32_t *)aADCxConvertedValues,
+                         ADCCONVERTEDVALUES_BUFFER_SIZE
+                        ) != HAL_OK)
+   {
+     /* Start Error */
+     Error_Handler();
+   }
+
     // On SIM800 power if use
-    HAL_GPIO_WritePin(SIM_PWR_GPIO_Port, SIM_PWR_Pin, GPIO_PIN_RESET);
-    HAL_Delay(3000);
-    HAL_GPIO_WritePin(SIM_PWR_GPIO_Port, SIM_PWR_Pin, GPIO_PIN_SET);
-    HAL_Delay(10000);
+  	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
+  	HAL_Delay(15000);
+//    HAL_GPIO_WritePin(SIM_PWR_GPIO_Port, SIM_PWR_Pin, GPIO_PIN_SET);
+//    HAL_Delay(2000);
+//    HAL_GPIO_WritePin(SIM_PWR_GPIO_Port, SIM_PWR_Pin, GPIO_PIN_RESET);
+//    HAL_Delay(10000);
 
     // MQQT settings
     SIM800.sim.apn = "internet";
@@ -121,7 +143,9 @@ int main(void)
 
     ntpInit();
 
-    isensInit( &iSens );
+    for( uint8_t i = 0; i < ISENS_NUM; i++ ){
+      isensInit( &(iSens[i]) );
+    }
 
     uint8_t sub = 0;
 
@@ -143,7 +167,7 @@ int main(void)
       }
       if( SIM800.mqttServer.connect == 1 ) {
         if( sub == 0 ){
-          MQTT_Sub("test");
+          MQTT_Sub("imei/test");
           sub = 1;
         }
 
@@ -153,6 +177,7 @@ int main(void)
         MQTT_PubUint32( "imei/test/uint32", pub_uint32 );
         MQTT_PubFloat( "imei/test/float", pub_float );
         MQTT_PubDouble( "imei/test/double", pub_double );
+        MQTT_PubUint32( "imei/test/isens", iSens[ISENS_SB1].isensCount );
 
         if( SIM800.mqttReceive.newEvent ){
           unsigned char *topic = SIM800.mqttReceive.topic;
@@ -161,6 +186,7 @@ int main(void)
           trace_printf( "mqttReceive: %s: %d\n", topic, payload );
         }
       }
+
       HAL_Delay( 1000 );
     /* USER CODE END WHILE */
 
@@ -177,18 +203,22 @@ void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
 
   /** Configure the main internal regulator output voltage
   */
-  __HAL_RCC_PWR_CLK_ENABLE();
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE2);
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL4;
+  RCC_OscInitStruct.PLL.PLLDIV = RCC_PLL_DIV2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -197,21 +227,21 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
   {
     Error_Handler();
   }
-
-  RCC_Clocks.SYSCLK_Frequency = HAL_RCC_GetSysClockFreq();
-  RCC_Clocks.HCLK_Frequency = HAL_RCC_GetHCLKFreq();
-  RCC_Clocks.PCLK1_Frequency = HAL_RCC_GetPCLK1Freq();
-  RCC_Clocks.PCLK2_Frequency = HAL_RCC_GetPCLK2Freq();
-
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC;
+  PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /* USER CODE BEGIN 4 */
@@ -227,6 +257,7 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
     /* User can add his own implementation to report the HAL error return state */
     __disable_irq();
+    GPIOB->BSRR = GPIO_PIN_9;
     while (1) {
     }
   /* USER CODE END Error_Handler_Debug */
@@ -247,10 +278,11 @@ int ntpInit(void) {
   timeInit();
 
   while( ntpFlag == RESET ){
-    SIM800_SendCommand("AT+CNTPCID=1\r\n", "OK\r\n", CMD_DELAY);
-    SIM800_SendCommand("AT+CNTP=\"91.207.136.50\",32\r\n", "OK\r\n", CMD_DELAY);
-    error += SIM800_SendCommand("AT+CNTP\r\n", "+CNTP: 1\r\n", CMD_DELAY * 3);
-    error += SIM800_SendCommand("AT+CCLK?\r\n", "OK\r\n", CMD_DELAY * 3);
+    error = SIM800_SendCommand("AT+CNTPCID=1\r\n", "OK\r\n", CMD_DELAY_5);
+    error += SIM800_SendCommand("AT+CNTP=\"37.230.228.40\",32\r\n", "OK\r\n", CMD_DELAY_5);
+    error += SIM800_SendCommand("AT+CNTP\r\n", "+CNTP: 1\r\n", CMD_DELAY_50);
+    error += SIM800_SendCommand("AT+CCLK?\r\n", "+CCLK: \"", CMD_DELAY_30);
+    error = 0;
     if( error == 0 ){
       // Получили дату-время
       sscanf(mqtt_buffer, "[^:]*: \"%u/%u/%u,%u:%u:%u%d\"", \
@@ -258,7 +290,7 @@ int ntpInit(void) {
                            (unsigned int*)&rtc.hour, (unsigned int*)&rtc.min, (unsigned int*)&rtc.sec, (int *)&tz );
       tz /= 4;
       // Переходим в Локальное время
-      setRtcTime( getRtcTime() + tz * 3600 );
+      setRtcTime( xTm2Utime( &rtc ) + tz * 3600 );
       ntpFlag = SET;
     }
     else {

@@ -1,7 +1,7 @@
 /*
  * This file is part of the µOS++ distribution.
  *   (https://github.com/micro-os-plus)
- * Copyright (c) 2015 Liviu Ionescu.
+ * Copyright (c) 2014 Liviu Ionescu.
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -25,9 +25,9 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef STM32F4_CMSIS_DEVICE_H_
-#define STM32F4_CMSIS_DEVICE_H_
+#ifndef STM32F1_CMSIS_DEVICE_H_
+#define STM32F1_CMSIS_DEVICE_H_
 
-#include "stm32f4xx.h"
+#include "stm32l1xx.h"
 
-#endif // STM32F4_CMSIS_DEVICE_H_
+#endif // STM32F1_CMSIS_DEVICE_H_

@@ -44,6 +44,8 @@
 
 extern SIM800_t SIM800;
 
+uint8_t tx_buffer[256] = {0};
+
 uint8_t rx_data = 0;
 uint8_t rx_buffer[1460] = {0};
 uint16_t rx_index = 0;
@@ -141,10 +143,13 @@ void clearMqttBuffer(void)
  * @param delay to be used to the set pause to the reply
  * @return error, 0 is OK
  */
-int SIM800_SendCommand(char *command, char *reply, uint16_t delay)
-{
-    HAL_UART_Transmit_IT(UART_SIM800, (unsigned char *)command,
-                         (uint16_t)strlen(command));
+int SIM800_SendCommand(char *command, char *reply, uint16_t delay){
+
+  *mqtt_buffer = '\0';
+    if( HAL_UART_Transmit(UART_SIM800, (unsigned char *)command,
+                         (uint16_t)strlen(command), 1000) != HAL_OK ){
+      trace_puts( "uart err" );
+    }
 
 #if FREERTOS == 1
     osDelay(delay);
@@ -173,8 +178,8 @@ int MQTT_Deinit(void)
     int error = 0;
     HAL_UART_Receive_IT(UART_SIM800, &rx_data, 1);
 
-    error += SIM800_SendCommand("AT+CGATT=0\r\n", "OK\r\n", CMD_DELAY);
-    error += SIM800_SendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY);
+    error += SIM800_SendCommand("AT+CGATT=0\r\n", "OK\r\n", CMD_DELAY_5);
+    error += SIM800_SendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY_5);
     return error;
 }
 
@@ -185,25 +190,42 @@ int MQTT_Deinit(void)
  * @param NONE
  * @return error status, 0 - OK
  */
-int MQTT_Init(void)
-{
+int MQTT_Init(void) {
     SIM800.mqttServer.connect = 0;
     int error = 0;
     char str[32] = {0};
     HAL_UART_Receive_IT(UART_SIM800, &rx_data, 1);
 
-    SIM800_SendCommand("AT\r\n", "OK\r\n", CMD_DELAY);
-    SIM800_SendCommand("ATE0\r\n", "OK\r\n", CMD_DELAY);
-    error += SIM800_SendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY);
-    error += SIM800_SendCommand("AT+CGATT=1\r\n", "OK\r\n", CMD_DELAY);
-    error += SIM800_SendCommand("AT+CIPMODE=1\r\n", "OK\r\n", CMD_DELAY);
+    if( SIM800_SendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2) == 0 ){
+      // Есть контанкт!
+      if( SIM800_SendCommand("AT+IPR=115200\r\n", "OK\r\n", CMD_DELAY_2) == 0 ){
+        // Принята новая скорость
+        huart3.Init.BaudRate = 115200;
+        if (HAL_UART_Init(&huart3) != HAL_OK) {
+          Error_Handler();
+        }
+        HAL_UART_Receive_IT(UART_SIM800, &rx_data, 1);
+        if( SIM800_SendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2) != 0 ){
+          Error_Handler();
+        }
+      }
+    }
+    else {
+      // Нет отклика от GSM
+      Error_Handler();
+    }
+
+    SIM800_SendCommand("ATE0\r\n", "OK\r\n", CMD_DELAY_2);
+    error += SIM800_SendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY_5);
+    error += SIM800_SendCommand("AT+CGATT=1\r\n", "OK\r\n", CMD_DELAY_2);
+    error += SIM800_SendCommand("AT+CIPMODE=1\r\n", "OK\r\n", CMD_DELAY_2);
 
     snprintf(str, sizeof(str), "AT+CSTT=\"%s\",\"%s\",\"%s\"\r\n", SIM800.sim.apn, SIM800.sim.apn_user,
              SIM800.sim.apn_pass);
-    error += SIM800_SendCommand(str, "OK\r\n", CMD_DELAY);
+    error += SIM800_SendCommand(str, "OK\r\n", CMD_DELAY_2);
 
-    error += SIM800_SendCommand("AT+CIICR\r\n", "OK\r\n", CMD_DELAY);
-    error += SIM800_SendCommand("AT+CIFSR\r\n", "", CMD_DELAY);
+    error += SIM800_SendCommand("AT+CIICR\r\n", "OK\r\n", CMD_DELAY_10);
+    error += SIM800_SendCommand("AT+CIFSR\r\n", "", CMD_DELAY_5);
     return error;
 }
 
@@ -220,7 +242,7 @@ void MQTT_Connect(void)
     char str[128] = {0};
     unsigned char buf[128] = {0};
     sprintf(str, "AT+CIPSTART=\"TCP\",\"%s\",%d\r\n", SIM800.mqttServer.host, SIM800.mqttServer.port);
-    SIM800_SendCommand(str, "OK\r\n", CMD_DELAY);
+    SIM800_SendCommand(str, "OK\r\n", CMD_DELAY_50 );
 #if FREERTOS == 1
     osDelay(5000);
 #else

@@ -25,35 +25,42 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/*
- * Memory Spaces Definitions.
- *
- * Need modifying for a specific board. 
- *   FLASH.ORIGIN: starting address of flash
- *   FLASH.LENGTH: length of flash
- *   RAM.ORIGIN: starting address of RAM bank 0
- *   RAM.LENGTH: length of RAM bank 0
- *
- * The values below can be addressed in further linker scripts
- * using functions like 'ORIGIN(RAM)' or 'LENGTH(RAM)'.
- */
+#ifndef BLINKLED_H_
+#define BLINKLED_H_
 
-MEMORY
-{
-  RAM (xrw) : ORIGIN = 0x20000000, LENGTH = 32K
-  CCMRAM (xrw) : ORIGIN = 0x00000000, LENGTH = 0
-  FLASH (rx) : ORIGIN = 0x08000000, LENGTH = 128K
-  FLASHB1 (rx) : ORIGIN = 0x00000000, LENGTH = 0
-  EXTMEMB0 (rx) : ORIGIN = 0x00000000, LENGTH = 0
-  EXTMEMB1 (rx) : ORIGIN = 0x00000000, LENGTH = 0
-  EXTMEMB2 (rx) : ORIGIN = 0x00000000, LENGTH = 0
-  EXTMEMB3 (rx) : ORIGIN = 0x00000000, LENGTH = 0
-  MEMORY_ARRAY (xrw)  : ORIGIN = 0x00000000, LENGTH = 0
-}
+#include "stm32l1xx.h"
 
-/*
- * For external ram use something like:
+// ----- LED definitions ------------------------------------------------------
 
-  RAM (xrw) : ORIGIN = 0x68000000, LENGTH = 20K
+// Adjust these definitions for your own board.
 
- */
+// Olimex STM32-H103 definitions (the GREEN led, C12, active low)
+// (SEGGER J-Link device name: STM32F103RB).
+
+// Port numbers: 0=A, 1=B, 2=C, 3=D, 4=E, 5=F, 6=G, ...
+#define BLINK_PORT_NUMBER               (2)
+#define BLINK_PIN_NUMBER                (12)
+#define BLINK_ACTIVE_LOW                (1)
+
+#define BLINK_GPIOx(_N)                 ((GPIO_TypeDef *)(GPIOA_BASE + (GPIOB_BASE-GPIOA_BASE)*(_N)))
+#define BLINK_PIN_MASK(_N)              (1 << (_N))
+#define BLINK_RCC_MASKx(_N)             (RCC_AHBENR_GPIOAEN << (_N))
+// ----------------------------------------------------------------------------
+
+extern void
+blink_led_init(void);
+
+// ----------------------------------------------------------------------------
+
+void
+blink_led_on(void);
+
+void
+blink_led_off(void);
+
+// ----------------------------------------------------------------------------
+
+
+// ----------------------------------------------------------------------------
+
+#endif // BLINKLED_H_

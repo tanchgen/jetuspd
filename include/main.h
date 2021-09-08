@@ -61,7 +61,7 @@ void Error_Handler(void);
 
 /* Private defines -----------------------------------------------------------*/
 /* USER CODE BEGIN Private defines */
-#define SIM_PWR_Pin GPIO_PIN_0
+#define SIM_PWR_Pin GPIO_PIN_2
 #define SIM_PWR_GPIO_Port GPIOB
 
 extern RCC_ClocksTypeDef RCC_Clocks;

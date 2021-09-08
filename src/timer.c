@@ -25,35 +25,62 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/*
- * Memory Spaces Definitions.
- *
- * Need modifying for a specific board. 
- *   FLASH.ORIGIN: starting address of flash
- *   FLASH.LENGTH: length of flash
- *   RAM.ORIGIN: starting address of RAM bank 0
- *   RAM.LENGTH: length of RAM bank 0
- *
- * The values below can be addressed in further linker scripts
- * using functions like 'ORIGIN(RAM)' or 'LENGTH(RAM)'.
- */
+#include "timer.h"
+#include "cortexm/exception-handlers.h"
 
-MEMORY
+// ----------------------------------------------------------------------------
+
+#if defined(USE_HAL_DRIVER)
+void HAL_IncTick(void);
+#endif
+
+// Forward declarations.
+
+void
+timer_tick (void);
+
+// ----------------------------------------------------------------------------
+
+volatile timer_ticks_t timer_delayCount;
+
+// ----------------------------------------------------------------------------
+
+void
+timer_start (void)
 {
-  RAM (xrw) : ORIGIN = 0x20000000, LENGTH = 32K
-  CCMRAM (xrw) : ORIGIN = 0x00000000, LENGTH = 0
-  FLASH (rx) : ORIGIN = 0x08000000, LENGTH = 128K
-  FLASHB1 (rx) : ORIGIN = 0x00000000, LENGTH = 0
-  EXTMEMB0 (rx) : ORIGIN = 0x00000000, LENGTH = 0
-  EXTMEMB1 (rx) : ORIGIN = 0x00000000, LENGTH = 0
-  EXTMEMB2 (rx) : ORIGIN = 0x00000000, LENGTH = 0
-  EXTMEMB3 (rx) : ORIGIN = 0x00000000, LENGTH = 0
-  MEMORY_ARRAY (xrw)  : ORIGIN = 0x00000000, LENGTH = 0
+  // Use SysTick as reference for the delay loops.
+  SysTick_Config (SystemCoreClock / TIMER_FREQUENCY_HZ);
 }
 
-/*
- * For external ram use something like:
+void
+timer_sleep (timer_ticks_t ticks)
+{
+  timer_delayCount = ticks;
 
-  RAM (xrw) : ORIGIN = 0x68000000, LENGTH = 20K
+  // Busy wait until the SysTick decrements the counter to zero.
+  while (timer_delayCount != 0u)
+    ;
+}
 
- */
+void
+timer_tick (void)
+{
+  // Decrement to zero the counter used by the delay routine.
+  if (timer_delayCount != 0u)
+    {
+      --timer_delayCount;
+    }
+}
+
+// ----- SysTick_Handler() ----------------------------------------------------
+
+void
+SysTick_Handler (void)
+{
+#if defined(USE_HAL_DRIVER)
+  HAL_IncTick();
+#endif
+  timer_tick ();
+}
+
+// ----------------------------------------------------------------------------

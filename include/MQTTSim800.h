@@ -36,9 +36,13 @@
 #include <main.h>
 
 // === CONFIG ===
-#define UART_SIM800 &huart2
+#define UART_SIM800 &huart3
 #define FREERTOS    0
-#define CMD_DELAY   2000
+#define CMD_DELAY_2     200
+#define CMD_DELAY_5     500
+#define CMD_DELAY_10    1000
+#define CMD_DELAY_30    3000
+#define CMD_DELAY_50    5000
 // ==============
 
 typedef struct {

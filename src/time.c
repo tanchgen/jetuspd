@@ -5,7 +5,7 @@
  *      Author: GennadyTanchin <g.tanchin@yandex.ru>
  */
 
-#include "stm32f4xx.h"
+#include "stm32l1xx.h"
 
 #include "main.h"
 #include "my_time.h"
@@ -39,6 +39,7 @@ static void RTC_CorrAlrm( tRtc * prtc );
 void rtcInit(void){
 #if 1
   // **************** RTC Clock configuration ***********************
+#if 0
   RCC->APB1ENR |= RCC_APB1ENR_PWREN;
   PWR->CR |= PWR_CR_DBP;
   RCC->BDCR |= RCC_BDCR_BDRST;
@@ -81,7 +82,7 @@ void rtcInit(void){
   NVIC_EnableIRQ(RTC_Alarm_IRQn);
   NVIC_SetPriority(RTC_WKUP_IRQn, 0);
   NVIC_EnableIRQ(RTC_WKUP_IRQn);
-
+#endif
 //
 //
 //
@@ -637,6 +638,6 @@ void errTimInit( void ){
   // Прерывание по обнулению
   TIM2->DIER |= TIM_DIER_UDE;
 
-  NVIC_SetPriority(TIM6_DAC_IRQn, 3);
-  NVIC_EnableIRQ( TIM6_DAC_IRQn);
+  NVIC_SetPriority(TIM6_IRQn, 3);
+  NVIC_EnableIRQ( TIM6_IRQn);
 }

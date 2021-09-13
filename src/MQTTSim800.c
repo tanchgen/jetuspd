@@ -73,13 +73,8 @@ void Sim800_RxCallBack(void)
         {
             memcpy(mqtt_buffer, rx_buffer, sizeof(rx_buffer));
             clearRxBuffer();
-            if (strstr(mqtt_buffer, "DY CONNECT\r\n"))
-            {
-                SIM800.mqttServer.connect = 0;
-            }
-            else if (strstr(mqtt_buffer, "CONNECT\r\n"))
-            {
-                SIM800.mqttServer.connect = 1;
+            if( strstr(mqtt_buffer, "DY CONNECT\r\n") || strstr(mqtt_buffer, "CONNECT\r\n") ) {
+              SIM800.mqttServer.connect = 1;
             }
         }
     }
@@ -144,6 +139,9 @@ void clearMqttBuffer(void)
  * @return error, 0 is OK
  */
 int SIM800_SendCommand(char *command, char *reply, uint16_t delay){
+  uint32_t tmptick;
+  tmptick = HAL_GetTick() + delay;
+  uint8_t rc = 1;
 
   *mqtt_buffer = '\0';
     if( HAL_UART_Transmit(UART_SIM800, (unsigned char *)command,
@@ -154,16 +152,22 @@ int SIM800_SendCommand(char *command, char *reply, uint16_t delay){
 #if FREERTOS == 1
     osDelay(delay);
 #else
-    HAL_Delay(delay);
 #endif
 
-    if (strstr(mqtt_buffer, reply) != NULL)
-    {
-        clearRxBuffer();
-        return 0;
+    if( reply == NULL ){
+      HAL_Delay(delay);
+      return 0;
     }
+
+    while( tmptick >= HAL_GetTick() ) {
+      if( strstr(mqtt_buffer, reply) != NULL ) {
+        rc = 0;
+        break;
+      }
+    }
+
     clearRxBuffer();
-    return 1;
+    return rc;
 }
 
 
@@ -184,48 +188,62 @@ int MQTT_Deinit(void)
 }
 
 
-
 /**
  * initialization SIM800.
  * @param NONE
  * @return error status, 0 - OK
  */
-int MQTT_Init(void) {
+void mqttInit(void) {
+    SIM800.mqttServer.connect = 0;
+//    char str[32] = {0};
+
+    // MQQT settings
+    SIM800.sim.apn = "internet";
+    SIM800.sim.apn_user = "";
+    SIM800.sim.apn_pass = "";
+    SIM800.mqttServer.host = "test.mosquitto.org";
+    SIM800.mqttServer.port = 1883;
+    SIM800.mqttClient.username = "";
+    SIM800.mqttClient.pass = "";
+    SIM800.mqttClient.clientID = "";
+    SIM800.mqttClient.keepAliveInterval = 60;
+}
+
+
+/**
+ * Starting MQTT process.
+ * @param NONE
+ * @return error status, 0 - OK
+ */
+int mqttStart(void) {
     SIM800.mqttServer.connect = 0;
     int error = 0;
-    char str[32] = {0};
-    HAL_UART_Receive_IT(UART_SIM800, &rx_data, 1);
+//    char str[32] = {0};
 
-    if( SIM800_SendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2) == 0 ){
-      // Есть контанкт!
-      if( SIM800_SendCommand("AT+IPR=115200\r\n", "OK\r\n", CMD_DELAY_2) == 0 ){
-        // Принята новая скорость
-        huart3.Init.BaudRate = 115200;
-        if (HAL_UART_Init(&huart3) != HAL_OK) {
-          Error_Handler();
-        }
-        HAL_UART_Receive_IT(UART_SIM800, &rx_data, 1);
-        if( SIM800_SendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2) != 0 ){
-          Error_Handler();
-        }
-      }
-    }
-    else {
-      // Нет отклика от GSM
-      Error_Handler();
-    }
+    // MQQT settings
+    SIM800.sim.apn = "internet";
+    SIM800.sim.apn_user = "";
+    SIM800.sim.apn_pass = "";
+    SIM800.mqttServer.host = "test.mosquitto.org";
+    SIM800.mqttServer.port = 1883;
+    SIM800.mqttClient.username = "";
+    SIM800.mqttClient.pass = "";
+    SIM800.mqttClient.clientID = "";
+    SIM800.mqttClient.keepAliveInterval = 60;
+
 
     SIM800_SendCommand("ATE0\r\n", "OK\r\n", CMD_DELAY_2);
-    error += SIM800_SendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY_5);
-    error += SIM800_SendCommand("AT+CGATT=1\r\n", "OK\r\n", CMD_DELAY_2);
+//    error += SIM800_SendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY_5);
+//    error += SIM800_SendCommand("AT+CGATT=1\r\n", "OK\r\n", CMD_DELAY_2);
     error += SIM800_SendCommand("AT+CIPMODE=1\r\n", "OK\r\n", CMD_DELAY_2);
+//
+//    snprintf(str, sizeof(str), "AT+CSTT=\"%s\",\"%s\",\"%s\"\r\n", SIM800.sim.apn, SIM800.sim.apn_user,
+//             SIM800.sim.apn_pass);
+//    error += SIM800_SendCommand(str, "OK\r\n", CMD_DELAY_2);
+//
+//    error += SIM800_SendCommand("AT+CIICR\r\n", "OK\r\n", CMD_DELAY_10);
+//    error += SIM800_SendCommand("AT+CIFSR\r\n", "", CMD_DELAY_5);
 
-    snprintf(str, sizeof(str), "AT+CSTT=\"%s\",\"%s\",\"%s\"\r\n", SIM800.sim.apn, SIM800.sim.apn_user,
-             SIM800.sim.apn_pass);
-    error += SIM800_SendCommand(str, "OK\r\n", CMD_DELAY_2);
-
-    error += SIM800_SendCommand("AT+CIICR\r\n", "OK\r\n", CMD_DELAY_10);
-    error += SIM800_SendCommand("AT+CIFSR\r\n", "", CMD_DELAY_5);
     return error;
 }
 
@@ -242,11 +260,11 @@ void MQTT_Connect(void)
     char str[128] = {0};
     unsigned char buf[128] = {0};
     sprintf(str, "AT+CIPSTART=\"TCP\",\"%s\",%d\r\n", SIM800.mqttServer.host, SIM800.mqttServer.port);
-    SIM800_SendCommand(str, "OK\r\n", CMD_DELAY_50 );
+    SIM800_SendCommand(str, "CONNECT OK\r\n", CMD_DELAY_10*30 );
 #if FREERTOS == 1
     osDelay(5000);
 #else
-    HAL_Delay(5000);
+    HAL_Delay(1000);
 #endif
     if (SIM800.mqttServer.connect == 1)
     {

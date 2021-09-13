@@ -59,7 +59,7 @@ void MX_ADC_Init(void)
   hadc.Init.DMAContinuousRequests = ENABLE;
   if (HAL_ADC_Init(&hadc) != HAL_OK)
   {
-    Error_Handler();
+    Error_Handler( STOP );
   }
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
@@ -68,7 +68,7 @@ void MX_ADC_Init(void)
   sConfig.SamplingTime = ADC_SAMPLETIME_96CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
   {
-    Error_Handler();
+    Error_Handler( STOP );
   }
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
@@ -76,7 +76,7 @@ void MX_ADC_Init(void)
   sConfig.Rank = ADC_REGULAR_RANK_2;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
   {
-    Error_Handler();
+    Error_Handler( STOP );
   }
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
@@ -84,7 +84,7 @@ void MX_ADC_Init(void)
   sConfig.Rank = ADC_REGULAR_RANK_3;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
   {
-    Error_Handler();
+    Error_Handler( STOP );
   }
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
@@ -92,7 +92,7 @@ void MX_ADC_Init(void)
   sConfig.Rank = ADC_REGULAR_RANK_4;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
   {
-    Error_Handler();
+    Error_Handler( STOP );
   }
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
@@ -100,7 +100,7 @@ void MX_ADC_Init(void)
   sConfig.Rank = ADC_REGULAR_RANK_5;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
   {
-    Error_Handler();
+    Error_Handler( STOP );
   }
   /* USER CODE BEGIN ADC_Init 2 */
 
@@ -144,7 +144,7 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* adcHandle)
     hdma_adc.Init.Priority = DMA_PRIORITY_LOW;
     if (HAL_DMA_Init(&hdma_adc) != HAL_OK)
     {
-      Error_Handler();
+      Error_Handler( STOP );
     }
 
     __HAL_LINKDMA(adcHandle,DMA_Handle,hdma_adc);

@@ -39,7 +39,10 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-
+enum {
+  NON_STOP = 0,
+  STOP = 1
+};
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -53,7 +56,7 @@ extern "C" {
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
-void Error_Handler(void);
+void Error_Handler( int stop );
 
 /* USER CODE BEGIN EFP */
 
@@ -63,6 +66,8 @@ void Error_Handler(void);
 /* USER CODE BEGIN Private defines */
 #define SIM_PWR_Pin GPIO_PIN_2
 #define SIM_PWR_GPIO_Port GPIOB
+
+
 
 extern RCC_ClocksTypeDef RCC_Clocks;
 

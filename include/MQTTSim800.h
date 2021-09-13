@@ -62,6 +62,7 @@ typedef struct {
     char *pass;
     char *clientID;
     unsigned short keepAliveInterval;
+    uint32_t toutTick;
 } mqttClient_t;
 
 typedef struct {
@@ -95,8 +96,9 @@ void clearMqttBuffer(void);
 
 int SIM800_SendCommand(char *command, char *reply, uint16_t delay);
 
+void mqttInit( void );
 int MQTT_Deinit(void);
-int MQTT_Init(void);
+int mqttStart(void);
 
 void MQTT_Connect(void);
 

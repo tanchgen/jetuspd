@@ -19,8 +19,8 @@
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
+#include <isens.h>
 #include "main.h"
-#include "isens.h"
 #include "stm32l1xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -191,7 +191,10 @@ void PendSV_Handler(void)
 
 
 void EXTI0_IRQHandler( void ){           // EXTI Line 0
-
+  if( iSens[ISENS_1].pinIn.gpio->IDR & iSens[ISENS_1].pinIn.pin ){
+    // Положительный фронт датчика
+    iSens[ISENS_1].debounceTout = HAL_GetTick() + DEBOUNCE_TOUT;
+  }
   EXTI->PR = GPIO_PIN_0;
 }
 

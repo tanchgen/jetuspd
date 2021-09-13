@@ -10,7 +10,9 @@
 
 #include "main.h"
 
-enum  {
+#define DEBOUNCE_TOUT    30
+
+typedef enum  {
   ISENS_1,
   ISENS_2,
   ISENS_3,
@@ -20,7 +22,7 @@ enum  {
   ISENS_SB1,
   ISENS_SB2,
   ISENS_NUM
-};
+} eIsens;
 
 typedef enum {
   ISENS_DOWN,
@@ -41,10 +43,13 @@ typedef struct {
   sGpioPin pinIn;
   uint32_t isensCount;
   eISensState state;
+  uint32_t debounceTout;
+  uint8_t isensFlag;
 } sISens;
 
 extern sISens iSens[ISENS_NUM];
 
-void isensInit( sISens * pin );
+void isensInit( void );
+void isensProcess( void );
 
 #endif /* ISENS_H_ */

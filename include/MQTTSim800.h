@@ -36,7 +36,7 @@
 #include <main.h>
 
 // === CONFIG ===
-#define UART_SIM800 &huart3
+#define UART_SIM800     &simUart
 #define FREERTOS    0
 #define CMD_DELAY_2     200
 #define CMD_DELAY_5     500

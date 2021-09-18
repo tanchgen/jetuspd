@@ -31,15 +31,20 @@ extern "C" {
 
 /* USER CODE END Includes */
 
-extern UART_HandleTypeDef huart3;
-
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
 
-void MX_USART3_UART_Init(void);
-
 /* USER CODE BEGIN Prototypes */
+extern UART_HandleTypeDef simUart;
+extern UART_HandleTypeDef termUart;
+
+/* SIM_USART init function */
+void simUartInit(void);
+void termUartInit(void);
+
+void termSendTime( void );
+
 
 /* USER CODE END Prototypes */
 

@@ -22,6 +22,8 @@
 #include <isens.h>
 #include "main.h"
 #include "stm32l1xx_it.h"
+
+#include "gpio_arch.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */
@@ -43,7 +45,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-extern UART_HandleTypeDef huart3;
+extern UART_HandleTypeDef simUart;
 
 /* USER CODE END PV */
 
@@ -59,8 +61,10 @@ extern UART_HandleTypeDef huart3;
 
 /* External variables --------------------------------------------------------*/
 extern DMA_HandleTypeDef hdma_adc;
-extern DMA_HandleTypeDef hdma_usart3_rx;
-extern DMA_HandleTypeDef hdma_usart3_tx;
+//extern DMA_HandleTypeDef simUartDmaRx;
+//extern DMA_HandleTypeDef simUartDmaTx;
+//extern DMA_HandleTypeDef termUartDmaRx;
+//extern DMA_HandleTypeDef termUartDmaTx;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -193,13 +197,19 @@ void PendSV_Handler(void)
 void EXTI0_IRQHandler( void ){           // EXTI Line 0
   if( iSens[ISENS_1].pinIn.gpio->IDR & iSens[ISENS_1].pinIn.pin ){
     // Положительный фронт датчика
-    iSens[ISENS_1].debounceTout = HAL_GetTick() + DEBOUNCE_TOUT;
+    iSens[ISENS_1].debounceTout = mTick + DEBOUNCE_TOUT;
   }
   EXTI->PR = GPIO_PIN_0;
 }
 
 
 void EXTI1_IRQHandler( void ){           // EXTI Line 1
+  if(EXTI->PR == extiPinSb2Key.pin){
+    SB2_KEY_TIM->CR1 |= TIM_CR1_CEN;
+    // Запрещаем прерывание на период таймаута дребезга
+    EXTI->IMR &= ~(extiPinSb2Key.pin);
+    EXTI->PR = extiPinSb2Key.pin;
+  }
 
   EXTI->PR = GPIO_PIN_1;
 }
@@ -211,7 +221,13 @@ void EXTI2_IRQHandler( void ){           // EXTI Line 2
 
 
 void EXTI3_IRQHandler( void ){           // EXTI Line 3
-  iSens[ISENS_SB1].isensCount++;
+  if(EXTI->PR == extiPinSb2Key.pin){
+    SB1_KEY_TIM->CR1 |= TIM_CR1_CEN;
+    // Запрещаем прерывание на период таймаута дребезга
+    EXTI->IMR &= ~(extiPinSb1Key.pin);
+    EXTI->PR = extiPinSb1Key.pin;
+  }
+
   EXTI->PR = GPIO_PIN_3;
 }
 
@@ -229,7 +245,7 @@ void USART3_IRQHandler(void)
   /* USER CODE BEGIN DMA1_Channel1_IRQn 0 */
 
   /* USER CODE END DMA1_Channel1_IRQn 0 */
-  HAL_UART_IRQHandler(&huart3);
+  HAL_UART_IRQHandler(&simUart);
   /* USER CODE BEGIN DMA1_Channel1_IRQn 1 */
 
   /* USER CODE END DMA1_Channel1_IRQn 1 */
@@ -250,34 +266,6 @@ void DMA1_Channel1_IRQHandler(void)
   /* USER CODE END DMA1_Channel1_IRQn 1 */
 }
 
-/**
-  * @brief This function handles DMA1 channel2 global interrupt.
-  */
-void DMA1_Channel2_IRQHandler(void)
-{
-  /* USER CODE BEGIN DMA1_Channel2_IRQn 0 */
-
-  /* USER CODE END DMA1_Channel2_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_usart3_tx);
-  /* USER CODE BEGIN DMA1_Channel2_IRQn 1 */
-
-  /* USER CODE END DMA1_Channel2_IRQn 1 */
-}
-
-/**
-  * @brief This function handles DMA1 channel3 global interrupt.
-  */
-void DMA1_Channel3_IRQHandler(void)
-{
-  /* USER CODE BEGIN DMA1_Channel3_IRQn 0 */
-
-  /* USER CODE END DMA1_Channel3_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_usart3_rx);
-  /* USER CODE BEGIN DMA1_Channel3_IRQn 1 */
-
-  /* USER CODE END DMA1_Channel3_IRQn 1 */
-}
-
 /* USER CODE BEGIN 1 */
 void WWDG_IRQHandler( void ) { while(1){} };
 void PVD_IRQHandler( void ) { while(1){} };
@@ -293,8 +281,8 @@ void RCC_IRQHandler( void ) { while(1){} };
 //void DMA1_Channel1_IRQHandler( void ) { while(1){} };
 //void DMA1_Channel2_IRQHandler( void ) { while(1){} };
 //void DMA1_Channel3_IRQHandler( void ) { while(1){} };
-void DMA1_Channel4_IRQHandler( void ) { while(1){} };
-void DMA1_Channel5_IRQHandler( void ) { while(1){} };
+//void DMA1_Channel4_IRQHandler( void ) { while(1){} };
+//void DMA1_Channel5_IRQHandler( void ) { while(1){} };
 void DMA1_Channel6_IRQHandler( void ) { while(1){} };
 void DMA1_Channel7_IRQHandler( void ) { while(1){} };
 void ADC1_IRQHandler( void ) { while(1){} };
@@ -305,8 +293,8 @@ void COMP_IRQHandler( void ) { while(1){} };
 void EXTI9_5_IRQHandler( void ) { while(1){} };
 void LCD_IRQHandler( void ) { while(1){} };
 void TIM9_IRQHandler( void ) { while(1){} };
-void TIM10_IRQHandler( void ) { while(1){} };
-void TIM11_IRQHandler( void ) { while(1){} };
+//void TIM10_IRQHandler( void ) { while(1){} };
+//void TIM11_IRQHandler( void ) { while(1){} };
 void TIM2_IRQHandler( void ) { while(1){} };
 void TIM3_IRQHandler( void ) { while(1){} };
 void TIM4_IRQHandler( void ) { while(1){} };
@@ -322,8 +310,8 @@ void USART2_IRQHandler( void ) { while(1){} };
 void EXTI15_10_IRQHandler( void ) { while(1){} };
 void RTC_Alarm_IRQHandler( void ) { while(1){} };
 void USB_FS_WKUP_IRQHandler( void ) { while(1){} };
-void TIM6_IRQHandler( void ) { while(1){} };
-void TIM7_IRQHandler( void ) { while(1){} };
+//void TIM6_IRQHandler( void ) { while(1){} };
+//void TIM7_IRQHandler( void ) { while(1){} };
 void SDIO_IRQHandler( void ) { while(1){} };
 void TIM5_IRQHandler( void ) { while(1){} };
 void SPI3_IRQHandler( void ) { while(1){} };

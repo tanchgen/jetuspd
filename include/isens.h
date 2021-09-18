@@ -17,10 +17,8 @@ typedef enum  {
   ISENS_2,
   ISENS_3,
   ISENS_4,
-  ISENS_5,
-  ISENS_6,
-  ISENS_SB1,
-  ISENS_SB2,
+//  ISENS_5,
+//  ISENS_6,
   ISENS_NUM
 } eIsens;
 
@@ -36,7 +34,7 @@ typedef struct {
   uint16_t pin;
   uint8_t portNum;
   uint8_t pinNum;
-} sGpioPin;
+} sSimplePin;
 
 typedef struct {
 //  sGpioPin pinOut;

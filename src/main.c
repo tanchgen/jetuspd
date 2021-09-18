@@ -18,21 +18,18 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
-#include <isens.h>
-#include "main.h"
-#include "adc.h"
-#include "dma.h"
-#include "rtc.h"
-#include "usart.h"
-#include "gpio.h"
-
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "main.h"
+#include "isens.h"
 #include "my_ntp.h"
+#include "adc.h"
+#include "dma.h"
+#include "rtc.h"
+#include "usart.h"
+
 #include "MQTTSim800.h"
 /* USER CODE END Includes */
 
@@ -104,13 +101,29 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
+  gpioInit();
 
+//  DBGMCU->APB1FZ |= DBGMCU_APB1_FZ_DBG_TIM6_STOP | DBGMCU_APB1_FZ_DBG_TIM7_STOP;
+
+  // Красный светодиод - пока запускается
+  ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_BLINK_OFF_TOUT, 0, 0 );
   /* USER CODE END SysInit */
+//
+//  mDelay( 1000 );
+//
+//  while(1){
+//  ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_TOGGLE_TOUT, TOUT_3000, 2 );
+//
+//  mDelay( 7000 );
+//  ledOff( LED_R, 0 );
+//  mDelay( 2000 );
+//  ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_TOGGLE_TOUT, TOUT_3000, 2 );
+//  }
 
   /* Initialize all configured peripherals */
-  MX_GPIO_Init();
   MX_DMA_Init();
-  MX_USART3_UART_Init();
+  simUartInit();
+  termUartInit();
   MX_ADC_Init();
   MX_RTC_Init();
   /* USER CODE BEGIN 2 */
@@ -127,12 +140,14 @@ int main(void)
   isensInit();
 
   // On SIM800 power if use
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(SIM_PWR_GPIO_Port, SIM_PWR_Pin, GPIO_PIN_SET);
-  HAL_Delay(2000);
-  HAL_GPIO_WritePin(SIM_PWR_GPIO_Port, SIM_PWR_Pin, GPIO_PIN_RESET);
-  HAL_Delay(10000);
+  gpioPinResetNow( &gpioPinSimPwr );
+  gpioPinSetNow( &gpioPinPwrKey );
+  mDelay(2000);
+  gpioPinResetNow( &gpioPinPwrKey );
+  mDelay(10000);
 
+  // Две вспышки красного цвета с интервалом в 3 сек
+  ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_TOGGLE_TOUT, TOUT_3000, 2);
   mqttInit();
 
   simStartInit();
@@ -144,8 +159,9 @@ int main(void)
   ntpInit();
 
   if( clkSet() == RESET ){
-    // Время установлено - включаем светодиод
-    HAL_GPIO_WritePin(LED_G_Port, LED_G_Pin, GPIO_PIN_SET);
+    // Время установлено - включаем интефейс Терминала и отправляем время
+    gpioPinSetNow( &gpioPinVccTerm );
+    termSendTime();
   }
 
   mqttStart();
@@ -177,8 +193,8 @@ int main(void)
           MQTT_Sub("imei/test/#");
           sub = 1;
         }
-        else if( (iSens[ISENS_1].isensFlag && (minTick < HAL_GetTick()))
-                  || SIM800.mqttClient.toutTick < HAL_GetTick() ){
+        else if( (iSens[ISENS_1].isensFlag && (minTick < mTick))
+                  || SIM800.mqttClient.toutTick < mTick ){
           MQTT_Pub( "imei/test/string", "String message" );
 //          MQTT_PubUint8( "imei/test/uint8", pub_uint8 );
 //          MQTT_PubUint16( "imei/test/uint16", pub_uint16 );
@@ -188,8 +204,8 @@ int main(void)
           MQTT_PubUint32( "imei/test/isens", iSens[ISENS_1].isensCount );
 
           iSens[ISENS_1].isensFlag = RESET;
-          minTick = HAL_GetTick() + 1000;
-          SIM800.mqttClient.toutTick = HAL_GetTick() + SIM800.mqttClient.keepAliveInterval / 2 * 1000;
+          minTick = mTick + 1000;
+          SIM800.mqttClient.toutTick = mTick + SIM800.mqttClient.keepAliveInterval / 2 * 1000;
         }
 
         if( SIM800.mqttReceive.newEvent ){
@@ -254,6 +270,11 @@ void SystemClock_Config(void)
   {
     Error_Handler( STOP );
   }
+
+  rccClocks.SYSCLK_Frequency = HAL_RCC_GetSysClockFreq();
+  rccClocks.HCLK_Frequency = HAL_RCC_GetHCLKFreq();
+  rccClocks.PCLK1_Frequency = HAL_RCC_GetPCLK1Freq();
+  rccClocks.PCLK2_Frequency = HAL_RCC_GetPCLK2Freq();
 }
 
 /* USER CODE BEGIN 4 */
@@ -279,10 +300,10 @@ int simWaitReady( int stop ){
   for( uint8_t i = 0; i < 60; i++ ){
     if( strstr(mqtt_buffer, "SMS Ready\r\n" ) != NULL ) {
       clearRxBuffer();
-      HAL_Delay(2000);
+      mDelay(2000);
       return RESET;
     }
-    HAL_Delay(1000);
+    mDelay(1000);
   }
 
   Error_Handler( stop );
@@ -315,7 +336,7 @@ int clkSet( void ) {
       if( errCount >= 2) {
         // Никак не получается включить GPRS
         SIM800_SendCommand("AT+CFUN=1,1\r\n", "OK\r\n", CMD_DELAY_50);
-        HAL_Delay(15000);
+        mDelay(15000);
       }
     }
   }
@@ -345,7 +366,7 @@ int simStartInit(void) {
       }
       else {
         // Нет отклика от GSM
-        HAL_Delay(1000);
+        mDelay(1000);
       }
     }
 
@@ -392,7 +413,7 @@ int gprsConn( void ){
       if( mqtt_buffer[10] <= '1' ){
         // Есть соединение GPRS;
         // TODO: Получение IP
-        HAL_Delay( 1000 );
+        mDelay( 1000 );
         return 0;
       }
     }
@@ -406,7 +427,7 @@ int gprsConn( void ){
         if( SIM800_SendCommand("AT+SAPBR=3,1,\"Contype\",\"GPRS\"\r\n", "OK\r\n", CMD_DELAY_5) ){
           break;
         }
-        HAL_Delay( 2000 );
+        mDelay( 2000 );
         step++;
         // FALL-THROUGH
         /* no break */
@@ -414,7 +435,7 @@ int gprsConn( void ){
         if( SIM800_SendCommand("AT+SAPBR=3,1,\"APN\",\"internet\"\r\n", "OK\r\n", CMD_DELAY_5) ){
           break;
         }
-        HAL_Delay( 2000 );
+        mDelay( 2000 );
         step++;
         // FALL-THROUGH
         /* no break */
@@ -425,6 +446,11 @@ int gprsConn( void ){
           if( SIM800_SendCommand("AT+SAPBR=1,1\r\n", "OK\r\n", CMD_DELAY_50) == 0){
             // Есть соединение GPRS;
             // TODO: Получение IP
+            // Две вспышки оранжевого цвета с интервалом в 3 сек
+            ledOff( LED_R, 0 );
+            ledToggleSet( LED_R, LED_BLINK_ON_TOUT, TOUT_3000, 0, 0);
+            ledToggleSet( LED_G, LED_BLINK_ON_TOUT, TOUT_3000, 0, 0);
+
             return 0;
           }
         }

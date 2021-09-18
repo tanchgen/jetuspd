@@ -8,7 +8,7 @@
 #include "stm32l1xx.h"
 
 #include "main.h"
-#include "my_time.h"
+#include "times.h"
 
 #define BIN2BCD(__VALUE__) (uint8_t)((((__VALUE__) / 10U) << 4U) | ((__VALUE__) % 10U))
 #define BCD2BIN(__VALUE__) (uint8_t)(((uint8_t)((__VALUE__) & (uint8_t)0xF0U) >> (uint8_t)0x4U) * 10U + ((__VALUE__) & (uint8_t)0x0FU))
@@ -229,35 +229,35 @@ void rtcInit(void){
 #endif
 }
 
-void timeInit( void ) {
-  //Инициализируем RTC
-  rtcInit();
-
-  /*##-1- Configure the Date #################################################*/
-  /* Set Date: Saturday February 15th 2018 */
-  rtc.year = 21;
-  rtc.month = 9;
-  rtc.date = 1;
-  rtc.wday = 4;
-  rtc.hour = 12;
-  rtc.min = 0;
-  rtc.sec = 0;
-  rtc.ss = 0;
-
-  while( (RTC->ISR & RTC_ISR_RSF) == 0)
-  {}
-  RTC_SetDate( &rtc );
-  RTC_SetTime( &rtc );
-  // Интервал будильника - измерение минуты
-  minTout = 1;
-  // Интервал будильника - передача минуты
-  minToutRx = 1;
-  // Интервал будильника - секунды
-  uxSecTout = 10;
-  while( RTC->DR == 0x2101 )
-  {}
-  getRtcTime();
-}
+//void timeInit( void ) {
+//  //Инициализируем RTC
+//  rtcInit();
+//
+//  /*##-1- Configure the Date #################################################*/
+//  /* Set Date: Saturday February 15th 2018 */
+//  rtc.year = 21;
+//  rtc.month = 9;
+//  rtc.date = 1;
+//  rtc.wday = 4;
+//  rtc.hour = 12;
+//  rtc.min = 0;
+//  rtc.sec = 0;
+//  rtc.ss = 0;
+//
+//  while( (RTC->ISR & RTC_ISR_RSF) == 0)
+//  {}
+//  RTC_SetDate( &rtc );
+//  RTC_SetTime( &rtc );
+//  // Интервал будильника - измерение минуты
+//  minTout = 1;
+//  // Интервал будильника - передача минуты
+//  minToutRx = 1;
+//  // Интервал будильника - секунды
+//  uxSecTout = 10;
+//  while( RTC->DR == 0x2101 )
+//  {}
+//  getRtcTime();
+//}
 
 // Получение системного мремени
 uint32_t getTick( void ) {

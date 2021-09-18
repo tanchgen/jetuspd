@@ -12,48 +12,41 @@ static int debounceTout( sISens * sens );
 
 sISens iSens[ISENS_NUM] = {
   {
-    .pinIn = { GPIOA, GPIO_PIN_0, 0, 0 },
+    .pinIn = {GPIOA, GPIO_PIN_0, GPIO_MODE_IT_RISING_FALLING, GPIO_PULLDOWN, GPIO_SPEED_FREQ_LOW, AF0, Bit_SET, Bit_SET, RESET },
     .isensCount = 0,
     .state = ISENS_DOWN,
   },
   {
-    .pinIn = { GPIOA, GPIO_PIN_1, 0, 1 },
+    .pinIn = {GPIOA, GPIO_PIN_1, GPIO_MODE_IT_RISING_FALLING, GPIO_PULLDOWN, GPIO_SPEED_FREQ_LOW, AF0, Bit_SET, Bit_SET, RESET },
     .isensCount = 0,
     .state = ISENS_DOWN,
   },
   {
-    .pinIn = { GPIOA, GPIO_PIN_2, 0, 2 },
+    .pinIn = {GPIOA, GPIO_PIN_2, GPIO_MODE_IT_RISING_FALLING, GPIO_PULLDOWN, GPIO_SPEED_FREQ_LOW, AF0, Bit_SET, Bit_SET, RESET },
     .isensCount = 0,
     .state = ISENS_DOWN,
   },
   {
-    .pinIn = { GPIOA, GPIO_PIN_3, 0, 3 },
+    .pinIn = {GPIOA, GPIO_PIN_3, GPIO_MODE_IT_RISING_FALLING, GPIO_PULLDOWN, GPIO_SPEED_FREQ_LOW, AF0, Bit_SET, Bit_SET, RESET },
     .isensCount = 0,
     .state = ISENS_DOWN,
   },
-  {
-    .pinIn = { NULL, /*GPIOB*/ GPIO_PIN_0, 1, 0 },
-    .isensCount = 0,
-    .state = ISENS_DOWN,
-  },
-  {
-    .pinIn = { NULL /*GPIOB*/, GPIO_PIN_1, 1, 1 },
-    .isensCount = 0,
-    .state = ISENS_DOWN,
-  },
-  {
-//  .pinOut = { GPIOB, GPIO_PIN_4, 1, 4 },
-    .pinIn = { NULL /*GPIOB*/, GPIO_PIN_1, 1, 1 },
-    .isensCount = 0,
-    .state = ISENS_DOWN,
-  }
+//  {
+//    .pinIn = {GPIOB, GPIO_PIN_0, GPIO_MODE_IT_RISING_FALLING, GPIO_PULLDOWN, GPIO_SPEED_FREQ_LOW, AF0, Bit_SET, Bit_SET, RESET },
+//    .isensCount = 0,
+//    .state = ISENS_DOWN,
+//  },
+//  {
+//    .pinIn = {GPIOB, GPIO_PIN_1, GPIO_MODE_IT_RISING_FALLING, GPIO_PULLDOWN, GPIO_SPEED_FREQ_LOW, AF0, Bit_SET, Bit_SET, RESET },
+//    .isensCount = 0,
+//    .state = ISENS_DOWN,
+//  },
 };
 
 
 void isensProcess( void ){
   for( eIsens s = 0; s < ISENS_NUM; s++ ){
-    if( (iSens[s].debounceTout > 0) && (iSens[s].debounceTout < HAL_GetTick()) ){
-      iSens[s].debounceTout = 0;
+    if( (iSens[s].debounceTout > 0) && (iSens[s].debounceTout < mTick) ){
       if( debounceTout( &(iSens[s])) == 0 ){
         iSens[s].isensCount++;
         iSens[s].isensFlag = SET;
@@ -72,6 +65,8 @@ void isensProcess( void ){
   */
 static int debounceTout( sISens * sens ){
   int rc;
+
+  sens->debounceTout = 0;
   // Нынешнее состояния пина
   if( ((sens->pinIn.gpio)->IDR & (sens->pinIn.pin)) ){
     // Состояние сохранилось в "1" - НЕ ложное срабатывание
@@ -116,11 +111,11 @@ void isensPinInit( sISens * sens ){
     /* Enable and set EXTI Line0 Interrupt to the lowest priority */
 
     // Установим соответствующее входу прерывание
-    pinNum = sens->pinIn.pinNum;
+    pinNum = gpioPinNum( sens->pinIn.pin );
     if( pinNum < 5 ){
-      irqNum = EXTI0_IRQn + sens->pinIn.pinNum;
+      irqNum = EXTI0_IRQn + pinNum;
     }
-    else if( sens->pinIn.pinNum < 10 ){
+    else if( pinNum < 10 ){
       irqNum = EXTI9_5_IRQn + pinNum;
     }
     else {
@@ -133,23 +128,13 @@ void isensPinInit( sISens * sens ){
 
 
 void isensInit( void ){
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-
   // Вывод
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin( GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
-
-  /* Configure GPIO pin */
-  GPIO_InitStruct.Pin = GPIO_PIN_4;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  gpioPinSetup( &gpioPinSensOn );
 
   for( uint8_t i = 0; i < ISENS_NUM; i++ ){
     isensPinInit( &(iSens[i]) );
   }
+  gpioPinResetNow( &gpioPinSensOn );
 }
 
 
@@ -158,16 +143,9 @@ void isensInit( void ){
   * @param GPIO_Pin: Specifies the pins connected EXTI line
   * @retval None
   */
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-  if(GPIO_Pin == iSens[ISENS_SB1].pinIn.pin){
-    if( iSens[ISENS_SB1].pinIn.gpio->IDR & iSens[ISENS_SB1].pinIn.pin ){
-      iSens[ISENS_SB1].state = ISENS_UP;
-      iSens[ISENS_SB1].isensCount++;
-    }
-    else {
-      iSens[ISENS_SB1].state = ISENS_DOWN;
-    }
-  }
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+  (void)GPIO_Pin;
+  while(1)
+  {}
 }
 

@@ -1,117 +1,127 @@
-/**
-  ******************************************************************************
-  * @file    gpio.c
-  * @brief   This file provides code for the configuration
-  *          of all used GPIO pins.
-  ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
-  * All rights reserved.</center></h2>
-  *
-  * This software component is licensed by ST under BSD 3-Clause license,
-  * the "License"; You may not use this file except in compliance with the
-  * License. You may obtain a copy of the License at:
-  *                        opensource.org/licenses/BSD-3-Clause
-  *
-  ******************************************************************************
-  */
+#include <stddef.h>
 
-/* Includes ------------------------------------------------------------------*/
-#include "gpio.h"
+#include "main.h"
 
-/* USER CODE BEGIN 0 */
+void setModeGpioPin(sGpioPin *pin, uint32_t mode, uint32_t pull, uint32_t speed, uint8_t af){
+  GPIO_InitTypeDef  gpioInitStruct;
 
-/* USER CODE END 0 */
+  gpioInitStruct.Pin  = pin->pin;
+  gpioInitStruct.Mode = pin->mode = mode;
+  gpioInitStruct.Pull = pin->pull = pull;
+  gpioInitStruct.Speed = pin->speed = speed;
+  gpioInitStruct.Alternate = pin->af = af;
 
-/*----------------------------------------------------------------------------*/
-/* Configure GPIO                                                             */
-/*----------------------------------------------------------------------------*/
-/* USER CODE BEGIN 1 */
+  HAL_GPIO_Init(pin->gpio, &gpioInitStruct);
+}
 
-/* USER CODE END 1 */
+void gpioPinSet( sGpioPin *pin ){
+  pin->gpio->BSRR = pin->pin;
+  pin->newstate = Bit_SET;
+}
 
-/** Configure pins as
-        * Analog
-        * Input
-        * Output
-        * EVENT_OUT
-        * EXTI
-        * Free pins are configured automatically as Analog (this feature is enabled through
-        * the Code Generation settings)
-*/
-void MX_GPIO_Init(void)
+void gpioPinSetNow( sGpioPin *pin ){
+  pin->gpio->BSRR = pin->pin;
+  pin->state = pin->newstate = Bit_SET;
+  pin->change = SET;
+}
+
+
+void gpioPinReset( sGpioPin * pin ){
+  pin->gpio->BSRR = (uint32_t)pin->pin << 16;
+  pin->newstate = Bit_RESET;
+}
+
+void gpioPinResetNow( sGpioPin * pin ){
+  pin->gpio->BSRR = (uint32_t)pin->pin << 16;
+  pin->state = pin->newstate = Bit_RESET;
+  pin->change = SET;
+}
+
+void gpioPinResetNowTout( uintptr_t arg ){
+  sGpioPin *pin = (sGpioPin *)arg;
+
+  gpioPinResetNow( pin );
+}
+
+void gpioPinCmd( sGpioPin *pin, BitAction act ){
+  if( act == Bit_RESET ){
+    gpioPinReset( pin );
+  }
+  else {
+    gpioPinSet( pin );
+  }
+}
+
+void gpioPinCmdNow( sGpioPin *pin, BitAction act ){
+  if( act == Bit_RESET ){
+    gpioPinResetNow( pin );
+  }
+  else {
+    gpioPinSetNow( pin );
+  }
+}
+
+
+void gpioPinSetup(sGpioPin *pin)
 {
+  GPIO_InitTypeDef  gpioInitStruct = {0};
 
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  /* Установим начальное состояние вывода GPIO для режимов Open-Drain и Push-Pull. */
+  if( (pin->mode == GPIO_MODE_OUTPUT_PP) || (pin->mode == GPIO_MODE_OUTPUT_OD) ){
+    pin->gpio->BSRR = (pin->state)? (uint32_t)pin->pin : (uint32_t)pin->pin << 16;
+  }
 
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOH_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
 
-  /*Configure GPIO pins : PC13 PC14 PC15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+  gpioInitStruct.Pin  = pin->pin;
+  gpioInitStruct.Mode = pin->mode;
+  gpioInitStruct.Pull = pin->pull;
+  gpioInitStruct.Speed = pin->speed;
+  gpioInitStruct.Alternate = pin->af;
 
-  /*Configure GPIO pins : PH0 PH1 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : PA4 PA5 PA6 PA7
-                           PA8 PA9 PA10 PA11
-                           PA12 PA15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7
-                          |GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_11
-                          |GPIO_PIN_12|GPIO_PIN_15;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : PB0 PB1 PB2
-                           PB15 PB4 PB5 PB6
-                           PB7 PB8 PB9 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2
-                          |GPIO_PIN_15|GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6
-                          |GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : PB2 */
-  GPIO_InitStruct.Pin = GPIO_PIN_2;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : PB12 */
-  GPIO_InitStruct.Pin = GPIO_PIN_12;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-  GPIOB->BSRR = GPIO_PIN_12;
-
-  /*Configure GPIO pins : PB13, PB14 */
-  GPIO_InitStruct.Pin = GPIO_PIN_13|GPIO_PIN_14;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : PB8, PB9: LED1, LED2 */
-  GPIO_InitStruct.Pin = GPIO_PIN_8 | GPIO_PIN_9;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  HAL_GPIO_Init(pin->gpio, &gpioInitStruct);
 
 }
 
-/* USER CODE BEGIN 2 */
+void extiPinSetup(sGpioPin *pin ){
+  uint8_t pinNum;
+  IRQn_Type irqNum;
 
-/* USER CODE END 2 */
+  gpioPinSetup( pin );
 
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+  pinNum = gpioPinNum( pin->pin );
+
+  // Установим соответствующее входу прерывание
+  if( pinNum < 5 ){
+    irqNum = EXTI0_IRQn + pinNum;
+  }
+  else if( pinNum < 10 ){
+    irqNum = EXTI9_5_IRQn;
+  }
+  else {
+    irqNum = EXTI15_10_IRQn;
+  }
+  NVIC_EnableIRQ( irqNum );
+  NVIC_SetPriority( irqNum, KEY_IRQ_PRIORITY );
+}
+
+
+bool changePinState(sGpioPin *pin ){
+
+  if (pin->state != pin->newstate) {
+    if ( (pin->mode == GPIO_MODE_OUTPUT_PP) || (pin->mode == GPIO_MODE_OUTPUT_OD) ) {
+      pin->gpio->BSRR = (pin->newstate)? (uint32_t)pin->pin : (uint32_t)pin->pin << 16;
+    }
+    pin->state = pin->newstate;
+    pin->change = SET;
+
+    return true;
+  }
+
+  return false;
+}
+
+void changePinStateTout( uintptr_t arg ){
+  sGpioPin *pin = (sGpioPin *)arg;
+  changePinState( pin );
+}
+

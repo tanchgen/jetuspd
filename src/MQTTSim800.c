@@ -74,16 +74,25 @@ void Sim800_RxCallBack(void)
             memcpy(mqtt_buffer, rx_buffer, sizeof(rx_buffer));
             clearRxBuffer();
             if( strstr(mqtt_buffer, "DY CONNECT\r\n") || strstr(mqtt_buffer, "CONNECT\r\n") ) {
+              // Есть соединение с MQTT-сервером
               SIM800.mqttServer.connect = 1;
+              ledOff( LED_R, 0);
             }
         }
     }
-    if (strstr((char *)rx_buffer, "CLOSED\r\n") || strstr((char *)rx_buffer, "ERROR\r\n") || strstr((char *)rx_buffer, "DEACT\r\n"))
+
+    if (strstr((char *)rx_buffer, "CLOSED\r\n")
+        || strstr((char *)rx_buffer, "ERROR\r\n")
+        || strstr((char *)rx_buffer, "DEACT\r\n"))
     {
-        SIM800.mqttServer.connect = 0;
+      // Нет соединения с MQTT-сервером
+      SIM800.mqttServer.connect = 0;
+      // Две вспышки оранжевого цвета с интервалом в 3 сек
+      ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, TOUT_3000, 2);
+      ledToggleSet( LED_G, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, TOUT_3000, 2);
     }
-    if (SIM800.mqttServer.connect == 1 && rx_data == 48)
-    {
+
+    if (SIM800.mqttServer.connect == 1 && rx_data == 48) {
         mqtt_receive = 1;
     }
     if (mqtt_receive == 1)
@@ -140,7 +149,7 @@ void clearMqttBuffer(void)
  */
 int SIM800_SendCommand(char *command, char *reply, uint16_t delay){
   uint32_t tmptick;
-  tmptick = HAL_GetTick() + delay;
+  tmptick = mTick + delay;
   uint8_t rc = 1;
 
   *mqtt_buffer = '\0';
@@ -155,11 +164,11 @@ int SIM800_SendCommand(char *command, char *reply, uint16_t delay){
 #endif
 
     if( reply == NULL ){
-      HAL_Delay(delay);
+      mDelay(delay);
       return 0;
     }
 
-    while( tmptick >= HAL_GetTick() ) {
+    while( tmptick >= mTick ) {
       if( strstr(mqtt_buffer, reply) != NULL ) {
         rc = 0;
         break;
@@ -264,7 +273,7 @@ void MQTT_Connect(void)
 #if FREERTOS == 1
     osDelay(5000);
 #else
-    HAL_Delay(1000);
+    mDelay(1000);
 #endif
     if (SIM800.mqttServer.connect == 1)
     {
@@ -279,7 +288,7 @@ void MQTT_Connect(void)
 #if FREERTOS == 1
         osDelay(5000);
 #else
-        HAL_Delay(5000);
+        mDelay(5000);
 #endif
     }
 }
@@ -303,7 +312,7 @@ void MQTT_Pub(char *topic, char *payload)
 #if FREERTOS == 1
     osDelay(100);
 #else
-    HAL_Delay(100);
+    mDelay(100);
 #endif
 }
 
@@ -403,7 +412,7 @@ void MQTT_Sub(char *topic)
 #if FREERTOS == 1
     osDelay(100);
 #else
-    HAL_Delay(100);
+    mDelay(100);
 #endif
 }
 

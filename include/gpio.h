@@ -112,8 +112,8 @@ extern sGpioPin  gpioPinO1;
 extern sGpioPin  gpioPinSimPwr;
 extern sGpioPin  gpioPinPwrKey;
 
-extern sGpioPin  gpioPinVccEeprom;
-extern sGpioPin  gpioPinVccTerm;
+extern sGpioPin  gpioPinEeOn;
+extern sGpioPin  gpioPinTermOn;
 
 extern sGpioPin  gpioPinSensOn;
 

@@ -160,7 +160,7 @@ int main(void)
 
   if( clkSet() == RESET ){
     // Время установлено - включаем интефейс Терминала и отправляем время
-    gpioPinSetNow( &gpioPinVccTerm );
+    gpioPinSetNow( &gpioPinTermOn );
     termSendTime();
   }
 

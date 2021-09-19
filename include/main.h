@@ -13,6 +13,7 @@ extern "C" {
 /* USER CODE BEGIN Includes */
 #include "diag/trace.h"
 
+#include "tinyalloc.h"
 #include "times.h"
 #include "gpio.h"
 #include "led.h"
@@ -34,6 +35,10 @@ enum {
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
+/** Force a compilation error if condition is constant and true. */
+#ifndef MAYBE_BUILD_BUG_ON
+# define MAYBE_BUILD_BUG_ON(cond)   ((void)sizeof(char[1 - 2 * !!(cond)]))
+#endif
 
 /* USER CODE END EM */
 

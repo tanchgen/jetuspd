@@ -55,8 +55,8 @@ sGpioPin  gpioPinO1 = {GPIOB, GPIO_PIN_5, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL, GPIO
 sGpioPin  gpioPinSimPwr = {GPIOB, GPIO_PIN_12, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL, GPIO_SPEED_LOW, AF0, Bit_SET, Bit_SET, RESET };
 sGpioPin  gpioPinPwrKey = {GPIOB, GPIO_PIN_2, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL, GPIO_SPEED_LOW, AF0, Bit_RESET, Bit_RESET, RESET };
 
-sGpioPin  gpioPinVccEeprom = {GPIOA, GPIO_PIN_12, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL, GPIO_SPEED_LOW, AF0, Bit_RESET, Bit_RESET, RESET };
-sGpioPin  gpioPinVccTerm = {GPIOA, GPIO_PIN_15, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL, GPIO_SPEED_LOW, AF0, Bit_RESET, Bit_RESET, RESET };
+sGpioPin  gpioPinEeOn = {GPIOA, GPIO_PIN_12, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL, GPIO_SPEED_LOW, AF0, Bit_RESET, Bit_RESET, RESET };
+sGpioPin  gpioPinTermOn = {GPIOA, GPIO_PIN_15, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL, GPIO_SPEED_LOW, AF0, Bit_RESET, Bit_RESET, RESET };
 
 sGpioPin  gpioPinSensOn = {GPIOB, GPIO_PIN_4, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL, GPIO_SPEED_LOW, AF0, Bit_SET, Bit_SET, RESET };
 //    {GPIOD, GPIO_Pin_14, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_PuPd_NOPULL, Bit_RESET, Bit_RESET, RESET },
@@ -471,8 +471,8 @@ void gpioInit( void ){
   gpioPinSetup( &gpioPinSimPwr );
   gpioPinSetup( &gpioPinPwrKey );
 
-  gpioPinSetup( &gpioPinVccEeprom );
-  gpioPinSetup( &gpioPinVccTerm );
+  gpioPinSetup( &gpioPinEeOn );
+  gpioPinSetup( &gpioPinTermOn );
 
   // ------------------- LEDS -----------------------
   // Определено в led.c

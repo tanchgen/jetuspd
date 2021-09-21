@@ -382,18 +382,24 @@ int gprsConn( void ){
   for( uint8_t errCount = 0; errCount < 3; errCount++ ){
     uint8_t step;
 
-
-    if( SIM800_SendCommand("AT+SAPBR=2,1\r\n", "+SAPBR:", CMD_DELAY_5) == 0){
-      if( mqtt_buffer[10] <= '1' ){
-        // Есть соединение GPRS;
-        // TODO: Получение IP
-        mDelay( 1000 );
-        return 0;
-      }
+    if( SIM800_SendCommand("AT+SAPBR=0,1\r\n", "OK\r\n", CMD_DELAY_5) == 0){
+      mDelay( 1000 );
     }
     else {
       Error_Handler( NON_STOP );
     }
+
+//    if( SIM800_SendCommand("AT+SAPBR=2,1\r\n", "+SAPBR:", CMD_DELAY_5) == 0){
+//      if( mqtt_buffer[10] <= '1' ){
+//        // Есть соединение GPRS;
+//        // TODO: Получение IP
+//        mDelay( 1000 );
+//        return 0;
+//      }
+//    }
+//    else {
+//      Error_Handler( NON_STOP );
+//    }
 
     step = 0;
     switch( step ){

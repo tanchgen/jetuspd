@@ -432,6 +432,7 @@ void MQTT_Receive(unsigned char *buf)
 void mqttConnectCb( FlagStatus conn ){
   if( conn ){
     mqttSubFlag = SET;
+    ledOff( LED_R );
   }
   else {
     mqttPubFlag = RESET;
@@ -481,6 +482,7 @@ void mqttProcess( void ){
 
           sprintf( str, "{\"arx\":[{time\":%ul,\"pls\":%ul}]}", (unsigned int)logrec->utime, (unsigned int)logrec->data );
           MQTT_Pub( "imei/i/1", str );
+          logRdBufFill = 0;
         }
       }
       else {

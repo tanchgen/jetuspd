@@ -10,9 +10,9 @@
 #include "gpio_arch.h"
 #include "isens.h"
 #include "buffer.log.h"
+#include "MQTTSim800.h"
 //#include "eeprom.h"
 #include "logger.h"
-
 
 typedef struct {
   logBuf_t logBufHandle;
@@ -76,10 +76,13 @@ void logReadTout( uintptr_t arg ){
 void logWriteTout( uintptr_t arg ){
   (void)arg;
 
-  if( iSens[ISENS_1].isensFlag ){
+  if( (SIM800.mqttServer.connect == 0) && iSens[ISENS_1].isensFlag ){
     //TODO: Сделать для всех логиркемых устройств
     logger( getRtcTime(), DEVID_ISENS_1, iSens[ISENS_1].isensCount );
+    iSens[ISENS_1].isensFlag = RESET;
   }
+
+  timerMod( &logWriteTimer, LOG_WRITE_TOUT * 1000 );
 }
 
 
@@ -154,7 +157,7 @@ uint8_t logger( uint32_t utime, eDevId devid, uint32_t data ){
   logrec.devid = devid;        // Идентификатор логируемого устройства
   logrec.data = data;          // Значение логируемого параметра
 
-  return logBuf_WriteMsg( &logWrBuffer, &logrec );
+  return stmEeBuf_Write( &stmEeBuffer, &logrec, 1 );
 }
 
 

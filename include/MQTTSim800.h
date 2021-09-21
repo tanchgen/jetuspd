@@ -59,6 +59,7 @@ typedef struct {
 
 extern uint8_t rx_data;
 extern char mqtt_buffer[1460];
+extern SIM800_t SIM800;
 
 void Sim800_RxCallBack(void);
 

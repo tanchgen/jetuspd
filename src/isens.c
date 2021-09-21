@@ -46,12 +46,12 @@ sISens iSens[ISENS_NUM] = {
 
 void isensProcess( void ){
   for( eIsens s = 0; s < ISENS_NUM; s++ ){
-    if( (iSens[s].debounceTout > 0) && (iSens[s].debounceTout < mTick) ){
-      if( debounceTout( &(iSens[s])) == 0 ){
-        iSens[s].isensCount++;
-        iSens[s].isensFlag = SET;
-      }
-    }
+//    if( (iSens[s].debounceTout > 0) && (iSens[s].debounceTout < mTick) ){
+//      if( debounceTout( &(iSens[s])) == 0 ){
+//        iSens[s].isensCount++;
+//        iSens[s].isensFlag = SET;
+//      }
+//    }
   }
 }
 

@@ -197,7 +197,9 @@ void PendSV_Handler(void)
 void EXTI0_IRQHandler( void ){           // EXTI Line 0
   if( iSens[ISENS_1].pinIn.gpio->IDR & iSens[ISENS_1].pinIn.pin ){
     // Положительный фронт датчика
-    iSens[ISENS_1].debounceTout = mTick + DEBOUNCE_TOUT;
+    iSens[ISENS_1].isensCount++;
+    iSens[ISENS_1].isensFlag = SET;
+//    iSens[ISENS_1].debounceTout = mTick + DEBOUNCE_TOUT;
   }
   EXTI->PR = GPIO_PIN_0;
 }

@@ -1,47 +1,22 @@
 /*
  * MQTTSim800.c
  *
- *  Created on: Jan 4, 2020
- *      Author: Bulanov Konstantin
- *
- *  Contact information
- *  -------------------
- *
- * e-mail   :   leech001@gmail.com
- * telegram :   https://t.me/leech001
- *
  */
-
-/*
- * -----------------------------------------------------------------------------------------------------------------------------------------------
-           DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
-                    Version 2, December 2004
-
- Copyright (C) 2020 Bulanov Konstantin <leech001@gmail.com>
-
- Everyone is permitted to copy and distribute verbatim or modified
- copies of this license document, and changing it is allowed as long
- as the name is changed.
-
-            DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
-   TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
-
-  0. You just DO WHAT THE FUCK YOU WANT TO.
-
-  MQTT packet https://github.com/eclipse/paho.mqtt.embedded-c/tree/master/MQTTPacket
- * ------------------------------------------------------------------------------------------------------------------------------------------------
-*/
+#include <stdlib.h>
+#include <string.h>
 
 #include "MQTTSim800.h"
 #include "main.h"
 #include "usart.h"
-#include <string.h>
+#include "isens.h"
 #include "MQTTPacket.h"
+#include "logger.h"
 
 #if FREERTOS == 1
 #include <cmsis_os.h>
 #endif
 
+extern uint16_t logRdBufFill;
 extern SIM800_t SIM800;
 
 uint8_t tx_buffer[256] = {0};
@@ -53,6 +28,23 @@ uint16_t rx_index = 0;
 uint8_t mqtt_receive = 0;
 char mqtt_buffer[1460] = {0};
 uint16_t mqtt_index = 0;
+
+FlagStatus mqttSubFlag = RESET;
+FlagStatus mqttPubFlag = RESET;
+
+struct timer_list mqttPubTimer;
+
+
+void mqttConnectCb( FlagStatus conn );
+
+
+void mqttPubTout( uintptr_t arg ){
+  (void)arg;
+
+  if( SIM800.mqttServer.connect == 1 ) {
+    mqttPubFlag = SET;
+  }
+}
 
 /**
  * Call back function for release read SIM800 UART buffer.
@@ -76,7 +68,7 @@ void Sim800_RxCallBack(void)
             if( strstr(mqtt_buffer, "DY CONNECT\r\n") || strstr(mqtt_buffer, "CONNECT\r\n") ) {
               // Есть соединение с MQTT-сервером
               SIM800.mqttServer.connect = 1;
-              ledOff( LED_R, 0);
+              mqttConnectCb( SIM800.mqttServer.connect );
             }
         }
     }
@@ -87,9 +79,7 @@ void Sim800_RxCallBack(void)
     {
       // Нет соединения с MQTT-сервером
       SIM800.mqttServer.connect = 0;
-      // Две вспышки оранжевого цвета с интервалом в 3 сек
-      ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, TOUT_3000, 2);
-      ledToggleSet( LED_G, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, TOUT_3000, 2);
+      mqttConnectCb( SIM800.mqttServer.connect );
     }
 
     if (SIM800.mqttServer.connect == 1 && rx_data == 48) {
@@ -216,6 +206,8 @@ void mqttInit(void) {
     SIM800.mqttClient.pass = "";
     SIM800.mqttClient.clientID = "";
     SIM800.mqttClient.keepAliveInterval = 60;
+
+    timerSetup( &mqttPubTimer, mqttPubTout, (uintptr_t)NULL );
 }
 
 
@@ -435,4 +427,74 @@ void MQTT_Receive(unsigned char *buf)
     SIM800.mqttReceive.topicLen = receivedTopic.lenstring.len;
     memcpy(SIM800.mqttReceive.payload, payload, SIM800.mqttReceive.payloadLen);
     SIM800.mqttReceive.newEvent = 1;
+}
+
+void mqttConnectCb( FlagStatus conn ){
+  if( conn ){
+    mqttSubFlag = SET;
+  }
+  else {
+    mqttPubFlag = RESET;
+    mqttSubFlag = RESET;
+    // Две вспышки оранжевого цвета с интервалом в 3 сек
+    ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, TOUT_3000, 2);
+    ledToggleSet( LED_G, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, TOUT_3000, 2);
+  }
+}
+
+
+void mqttProcess( void ){
+  if (SIM800.mqttServer.connect == 0) {
+    MQTT_Connect();
+  }
+  if( mqttSubFlag ) {
+    MQTT_Sub("imei/#");
+    timerMod( &mqttPubTimer, 0 );
+    mqttSubFlag = RESET;
+  }
+  if( mqttPubFlag ) {
+    mqttPubFlag = RESET;
+  //    MQTT_Pub( "imei/test/string", "String message" );
+  //    MQTT_PubUint8( "imei/test/uint8", pub_uint8 );
+  //    MQTT_PubUint16( "imei/test/uint16", pub_uint16 );
+  //    MQTT_PubUint32( "imei/test/uint32", pub_uint32 );
+  //    MQTT_PubFloat( "imei/test/float", pub_float );
+  //    MQTT_PubDouble( "imei/test/double", pub_double );
+    if( iSens[ISENS_1].isensFlag ){
+      char str[64];
+      uint32_t ut = getRtcTime();
+
+      sprintf( str, "{\"state\":[{time\":%ul,\"pls\":%ul}]}", (unsigned int)ut, (unsigned int)iSens[ISENS_1].isensCount );
+      MQTT_Pub( "imei/i/1", str );
+      iSens[ISENS_1].isensFlag = RESET;
+      timerMod( &mqttPubTimer, MQTT_PUB_TOUT );
+    }
+    else {
+      // Считываем из ЛОГа
+      if( logRdBufFill == 0 ){
+        logQueryProcess();
+      }
+      if( logRdBufFill ){
+        for( uint8_t i = 0; i < logRdBufFill; i++ ){
+          char str[64];
+          sLogRec * logrec = &(logRdBuf[i]);
+
+          sprintf( str, "{\"arx\":[{time\":%ul,\"pls\":%ul}]}", (unsigned int)logrec->utime, (unsigned int)logrec->data );
+          MQTT_Pub( "imei/i/1", str );
+        }
+      }
+      else {
+//        MQTT_PingReq();
+        MQTT_Pub( "imei/i/string", "String message" );
+      }
+      timerMod( &mqttPubTimer, MQTT_PUB_TOUT );
+    }
+
+    if( SIM800.mqttReceive.newEvent ){
+      unsigned char *topic = SIM800.mqttReceive.topic;
+      int payload = atoi( (char*)SIM800.mqttReceive.payload );
+      SIM800.mqttReceive.newEvent = 0;
+      trace_printf( "mqttReceive: %s: %d\n", topic, payload );
+    }
+  }
 }

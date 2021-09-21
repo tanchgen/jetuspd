@@ -13,7 +13,7 @@ extern "C" {
 /* USER CODE BEGIN Includes */
 #include "diag/trace.h"
 
-#include "tinyalloc.h"
+//#include "tinyalloc.h"
 #include "times.h"
 #include "gpio.h"
 #include "led.h"
@@ -40,6 +40,9 @@ enum {
 # define MAYBE_BUILD_BUG_ON(cond)   ((void)sizeof(char[1 - 2 * !!(cond)]))
 #endif
 
+#ifndef min
+#define min(a,b)      ((a<b)? a : b)
+#endif //min
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
@@ -57,6 +60,11 @@ void Error_Handler( int stop );
 
 
 extern RCC_ClocksTypeDef RCC_Clocks;
+
+/** ARRAY_SIZE() macro. */
+#ifndef ARRAY_SIZE
+# define ARRAY_SIZE(arr)  (sizeof(arr) / sizeof((arr)[0]))
+#endif
 
 void enable_nvic_irq(IRQn_Type irq, uint8_t priority);
 void disable_nvic_irq(IRQn_Type irq);

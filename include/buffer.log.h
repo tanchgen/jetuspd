@@ -13,6 +13,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <sys/cdefs.h>
 
 #include "logger.h"
 /**
@@ -50,7 +51,7 @@
 /**
  * @brief  Buffer structure
  */
-typedef struct _logBuf_t {
+typedef struct __aligned(4) {
   uint32_t Size;           /*!< Size of buffer in units of sizeof( sCanMsg ), DO NOT MOVE OFFSET, 0 */
   sLogRec * In;             /*!< Input pointer to save next struct sCanMsg, DO NOT MOVE OFFSET, 1 */
   sLogRec * Out;            /*!< Output pointer to read next value, DO NOT MOVE OFFSET, 2 */

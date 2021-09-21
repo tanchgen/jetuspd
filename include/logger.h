@@ -40,13 +40,21 @@
 
 #define FLASH_WIP_FLAG        0x01  /*!< Write In Progress (WIP) flag */
 
-#define FLASH_PAGE_SIZE     32    /*!< FLASH Buffer size. Setup to your needs */
+//#define FLASH_PAGE_SIZE     32    /*!< FLASH Buffer size. Setup to your needs */
 
-#define FLASH_SIZE               ((uint32_t)128 * 1024)
-#define FLASH_LOG_START_ADDR     ((uint32_t)128)
-#define FLASH_LOG_SIZE           (((FLASH_SIZE - FLASH_LOG_START_ADDR) + (sizeof(logBuf_t) - 1)) / sizeof(logBuf_t))
-#define FLASH_HEADER_ADDR        0x0
-#define FLASH_HEADER_ADDR        0x0
+//#define FLASH_SIZE               ((uint32_t)128 * 1024)
+//#define FLASH_LOG_START_ADDR     ((uint32_t)128)
+//#define FLASH_LOG_SIZE           (((FLASH_SIZE - FLASH_LOG_START_ADDR) + (sizeof(logBuf_t) - 1)) / sizeof(logBuf_t))
+//#define FLASH_HEADER_ADDR        0x0
+//#define FLASH_HEADER_ADDR        0x0
+
+#define EE_SIZE               ((uint32_t)4 * 1024)
+#define EE_LOG_START_ADDR     ((uint32_t)64)
+#define EE_LOG_SIZE           (((EE_SIZE - EE_LOG_START_ADDR) + (sizeof(logBuf_t) - 1)) / sizeof(logBuf_t))
+#define EE_HEADER_ADDR        0x0
+#define EE_HEADER_ADDR        0x0
+
+#define LOG_WRITE_TOUT        (uint32_t)10    //  Интервал записи параметров в ЛОГ в сек
 
 /**
  * @brief FLASH Operations statuses
@@ -58,48 +66,24 @@ typedef enum {
 } eFlashOperations;
 
 typedef enum {
-  LOG_ERR_PRM_OFF_LOW,
-  LOG_ERR_PRM_OFF_HI,
-  LOG_ERR_PRM_ON_LOW,
-  LOG_ERR_PRM_ON_HI,
-  LOG_ERR_FLAG,
-} eLogErrId;
-
-// Идентификатор логируемого устройства
-typedef enum {
-  DEVID_NULL,
-  DEVID_STATUS1,
-  DEVID_STATUS2,
-  DEVID_STATUS3,
-  DEVID_PS,
-  DEVID_PSU,
-  DEVID_TMP513,
-  DEVID_LTM,
-  DEVID_FPGA,
-  DEVID_PLL,
-  DEVID_FAN_STATUS,
-  DEVID_FAN_PWM,
-  DEVID_FAN,
-  DEVID_ADC,
-  DEVID_NUM
+  DEVID_ISENS_1,
+  DEVID_ISENS_2,
+  DEVID_ISENS_3,
+  DEVID_ISENS_4,
+  DEVID_ISENS_5,
+  DEVID_ISENS_6,
+  DEVID_SB_1,
+  DEVID_SB_2,
+  DEVID_VBAT,
 } eDevId;
 
-
 // Структура записи FLASH
-typedef struct __packed {
+typedef struct __packed __aligned(4){
   uint32_t utime;           // Unix-time
-  uint32_t isincCount;      // Счетчик импульсов
+  uint32_t data;            // Данные устройства
+  eDevId   devid;
 } sLogRec;
 
-//#include "buffer.log.h"
-
-typedef union {
-  struct {
-    uint8_t header[4];
-    uint8_t data[sizeof(sLogRec) * BIG_BUFFER_SIZE];
-  };
-  uint8_t u8buf;
-} uFlashXferBuffer;
 
 /** Структура дескриптора FLASH. */
 typedef struct {
@@ -117,6 +101,7 @@ typedef struct {
 
 extern sFlashDev flash;
 extern sFlashDev logDev;
+extern sLogRec logRdBuf[SMALLEST_BUFFER_SIZE];
 
 eFlashOperations FLASH_SPI_WriteBuffer(uint8_t* pBuffer, uint16_t WriteAddr, uint16_t NumByteToWrite);
 eFlashOperations FLASH_WritePage(uint8_t* pBuffer, uint16_t WriteAddr, uint16_t NumByteToWrite);
@@ -135,5 +120,7 @@ void FLASH_SPI_SendInstruction(sSpiHandle * hspi, uint8_t *instruction, uint8_t 
 
 int flashHwTest( void );
 
+uint8_t logger( uint32_t utime, eDevId devid, uint32_t data );
+void logQueryProcess( void );
 
 #endif /* LOGGER_H_ */

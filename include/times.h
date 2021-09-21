@@ -274,6 +274,7 @@ static inline bool timerPending(const struct timer_list *timer){
 
 
 uint8_t timPscSet( TIM_TypeDef * tim, uint32_t tim_frequency, uint16_t * psc);
+void timersClock( void );
 
 #endif /* _TIMES_H */
 

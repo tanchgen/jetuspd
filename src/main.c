@@ -66,6 +66,12 @@ int clkSet(void);
 int simStartInit(void);
 int gprsConn( void );
 int ntpInit(void);
+
+void logInit( void );
+void logEnable( void );
+
+// int stmEeHwTest( void );
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -126,6 +132,9 @@ int main(void)
   termUartInit();
   MX_ADC_Init();
   MX_RTC_Init();
+  logInit();
+  logEnable();
+
   /* USER CODE BEGIN 2 */
 
   if (HAL_ADC_Start_DMA(&hadc,
@@ -166,9 +175,6 @@ int main(void)
 
   mqttStart();
 
-
-  uint8_t sub = 0;
-
   //Test data
 //  uint8_t pub_uint8 = 1;
 //  uint16_t pub_uint16 = 2;
@@ -181,41 +187,9 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
     while (1) {
-      static uint32_t minTick;
-
+      timersClock();
       isensProcess();
-      if (SIM800.mqttServer.connect == 0) {
-        MQTT_Connect();
-        sub = 0;
-      }
-      if( SIM800.mqttServer.connect == 1 ) {
-        if( sub == 0 ){
-          MQTT_Sub("imei/test/#");
-          sub = 1;
-        }
-        else if( (iSens[ISENS_1].isensFlag && (minTick < mTick))
-                  || SIM800.mqttClient.toutTick < mTick ){
-          MQTT_Pub( "imei/test/string", "String message" );
-//          MQTT_PubUint8( "imei/test/uint8", pub_uint8 );
-//          MQTT_PubUint16( "imei/test/uint16", pub_uint16 );
-//          MQTT_PubUint32( "imei/test/uint32", pub_uint32 );
-//          MQTT_PubFloat( "imei/test/float", pub_float );
-//          MQTT_PubDouble( "imei/test/double", pub_double );
-          MQTT_PubUint32( "imei/test/isens", iSens[ISENS_1].isensCount );
-
-          iSens[ISENS_1].isensFlag = RESET;
-          minTick = mTick + 1000;
-          SIM800.mqttClient.toutTick = mTick + SIM800.mqttClient.keepAliveInterval / 2 * 1000;
-        }
-
-        if( SIM800.mqttReceive.newEvent ){
-          unsigned char *topic = SIM800.mqttReceive.topic;
-          int payload = atoi( (char*)SIM800.mqttReceive.payload );
-          SIM800.mqttReceive.newEvent = 0;
-          trace_printf( "mqttReceive: %s: %d\n", topic, payload );
-        }
-      }
-
+      mqttProcess();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

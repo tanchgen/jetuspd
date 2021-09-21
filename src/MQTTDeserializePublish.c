@@ -18,7 +18,7 @@
 #include "MQTTPacket.h"
 #include <string.h>
 
-#define min(a, b) ((a < b) ? 1 : 0)
+//#define min(a, b) ((a < b) ? 1 : 0)
 
 /**
   * Deserializes the supplied (wire) buffer into publish data

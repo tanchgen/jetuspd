@@ -50,6 +50,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+extern eGsmRunPhase gsmRunPhase;
+
 RCC_ClocksTypeDef RCC_Clocks;
 
 /* USER CODE BEGIN PV */
@@ -101,7 +103,9 @@ int main(void)
 //  float pub_float = 1.1;
 //  double pub_double = 2.2;
 
+    gsmRunPhase = PHASE_NON;
   /* USER CODE END 2 */
+
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */

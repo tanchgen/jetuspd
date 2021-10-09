@@ -108,7 +108,7 @@ const sUartHnd termHnd = { &termUartRxHandle, &termUartTxHandle };
 #endif
 
 //=====================================================================================
-void simUartTxClock(sUartTxHandle *handle);
+//void simUartTxClock(sUartTxHandle *handle);
 
 
 
@@ -207,6 +207,7 @@ void simUartEnable( void ){
 
 /**
   * @brief  Обработка данных интерфейса  SIM_UART (USART3).
+  *   - Вызывается из SysTick_Handler
   *
   * @param[in]  self  дескриптор интерфейса
   *
@@ -219,14 +220,7 @@ void simUartClock( void ){
 
   /* Обработаем данные SIM_UART. */
   uartRxClock(&simUartRxHandle);
-#if SIM_UART_TM_ENABLE
-  if( simUartRxHandle.uartTest == 0){
-    simUartTxHandle.uartTest = 0;
-  }
-#else
-  simUartTxHandle.uartTest = 4;
-#endif
-  simUartTxClock( simHnd.txh );
+//  simUartTxClock( simHnd.txh );
 }
 
 #endif

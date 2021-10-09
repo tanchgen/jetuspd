@@ -65,12 +65,12 @@ __packed struct usart_rx_frame_v2 {
 };
 
 /** Размер приемного кольцевого буфера данных USART. */
-#define USART_RX_RINGBUFFER_SIZE      128
+#define USART_RX_RINGBUFFER_SIZE      256
 /** Маска приемного кольцевого буфера данных USART. */
 #define USART_RX_RINGBUFFER_MASK  (USART_RX_RINGBUFFER_SIZE - 1)
 
 /** Размер буфера данных на передачу через USART. */
-#define USART_TX_BUFFER_SIZE  (64)
+#define USART_TX_BUFFER_SIZE  (256)
 
 
 /** Структура дескриптора передающего USART. */
@@ -279,7 +279,7 @@ void uartDisable( sUartRxHandle *rxuart, sUartTxHandle *txuart );
  *  Конфигурация DMA_UART:
  */
 void uartDmaInit( sUartRxHandle * rxuart, sUartTxHandle * txuart );
-bool uartRxClock(sUartRxHandle *handle);
+void uartRxClock(sUartRxHandle *handle);
 void uartTxClock(sUartTxHandle *handle, sUartRxHandle *rxHandle);
 uint16_t uartTransmit( sUartTxHandle * handle, uint32_t size, uint32_t tout );
 

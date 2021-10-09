@@ -112,8 +112,7 @@ void _reset_uart_rx_handle_v2(sUartRxHandle *handle){
   handle->frame_offset = 0;
 }
 
-bool uartRxClock(sUartRxHandle *handle){
-  bool txquery = false;
+void uartRxClock(sUartRxHandle *handle){
   uint32_t n_bytes;
 //  uint32_t size;
   uint8_t crc = 0;
@@ -195,7 +194,7 @@ bool uartRxClock(sUartRxHandle *handle){
 
 
   /* Обработали все. Освобождаем буфер пакета. */
-  assert_param( handle->tail == handle->head );
+//  assert_param( handle->tail == handle->head );
   handle->half = handle->tail / (USART_RX_RINGBUFFER_SIZE / 2);
   if( ((handle->dma_rx_channel->CCR & DMA_CCR_EN) == RESET)
       && (oldhalf != handle->half) )
@@ -204,7 +203,7 @@ bool uartRxClock(sUartRxHandle *handle){
     handle->dma_rx_channel->CCR |= DMA_CCR_EN;
   }
 
-  return txquery;
+  return;
 }
 
 
@@ -221,7 +220,7 @@ uint16_t uartTransmit( sUartTxHandle * handle, uint32_t size, uint32_t tout ){
    * In order to reload a new number of data items to be transferred
    * into the DMA_CNDTRx register, the DMA channel must be disabled.
    */
-  uint16_t tmptick = mTick + tout;
+  uint32_t tmptick = mTick + tout;
   while( (handle->uart->SR & USART_SR_TC) == RESET ){
     if( tmptick < mTick ){
       return 0;
@@ -348,7 +347,7 @@ void uartDmaInit( sUartRxHandle * rxuart, sUartTxHandle * txuart ){
 
     assert_param( txuart->dma_tx == DMA1 );
     ch1 = DMA1_Channel1;
-    chnum = txuart->dma_tx_channel - ch1;
+    chnum = txuart->dma_tx_channel - ch1 +1;
 
     LL_DMA_Init(txuart->dma_tx, chnum, &dmaInitStruct);
     // Стираем флаги прерываний канала 1
@@ -377,7 +376,7 @@ void uartDmaInit( sUartRxHandle * rxuart, sUartTxHandle * txuart ){
 
     assert_param( txuart->dma_tx == DMA1 );
     ch1 = DMA1_Channel1;
-    chnum = rxuart->dma_rx_channel - ch1;
+    chnum = rxuart->dma_rx_channel - ch1 + 1;
 
     LL_DMA_Init(rxuart->dma_rx, chnum, &dmaInitStruct);
     // Принимаем побайтнож

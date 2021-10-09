@@ -10,7 +10,6 @@
 
 // === CONFIG ===
 #define UART_SIM800     &simUart
-#define FREERTOS    0
 #define CMD_DELAY_2     200
 #define CMD_DELAY_5     500
 #define CMD_DELAY_10    1000
@@ -77,6 +76,7 @@ int SIM800_SendCommand(char *command, char *reply, uint16_t delay);
 void mqttInit( void );
 int MQTT_Deinit(void);
 
+void mqttSetup(void);
 int mqttStart(void);
 void MQTT_Connect(void);
 

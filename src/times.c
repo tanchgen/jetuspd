@@ -47,6 +47,8 @@ void rtcSetAlrm( tRtc * prtc );
 void rtcGetAlrm( tRtc * prtc );
 void rtcCorrAlrm( tRtc * prtc );
 
+void simUartClock( void );
+
 // *********** Инициализация структуры ВРЕМЯ (сейчас - системное ) ************
 // *********** Инициализация структуры ВРЕМЯ (сейчас - системное ) ************
 void rtcInit(void){
@@ -693,6 +695,8 @@ uint8_t timPscSet( TIM_TypeDef * tim, uint32_t tim_frequency, uint16_t * psc){
   */
 void SysTick_Handler(void){
 	++mTick;
+	// Нужно проверять регулярно и достаточно часто
+	simUartClock();
 }
 
 /**

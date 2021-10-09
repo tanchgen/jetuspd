@@ -14,9 +14,6 @@
 #include "MQTTPacket.h"
 #include "logger.h"
 
-#if FREERTOS == 1
-#include <cmsis_os.h>
-#endif
 
 extern uint16_t logRdBufFill;
 
@@ -135,29 +132,24 @@ int SIM800_SendCommand(char *command, char *reply, uint16_t delay){
 
   *mqtt_buffer = '\0';
   simHnd.txh->data = (uint8_t*)command;
-    if( uartTransmit(simHnd.txh, (uint16_t)strlen(command), 1000) != HAL_OK ){
-      trace_puts( "uart err" );
-    }
+  if( uartTransmit(simHnd.txh, (uint16_t)strlen(command), 1000) != HAL_OK ){
+    trace_puts( "uart err" );
+  }
 
-#if FREERTOS == 1
-    osDelay(delay);
-#else
-#endif
+  if( reply == NULL ){
+    mDelay(delay);
+    return 0;
+  }
 
-    if( reply == NULL ){
-      mDelay(delay);
-      return 0;
+  while( tmptick >= mTick ) {
+    if( strstr(mqtt_buffer, reply) != NULL ) {
+      rc = 0;
+      break;
     }
-
-    while( tmptick >= mTick ) {
-      if( strstr(mqtt_buffer, reply) != NULL ) {
-        rc = 0;
-        break;
-      }
-    }
-    // Подготовим буфер для приема
-    clearRxBuffer( (char *)(simHnd.rxh->rxFrame), &(simHnd.rxh->frame_offset) );
-    return rc;
+  }
+  // Подготовим буфер для приема
+  clearRxBuffer( (char *)(simHnd.rxh->rxFrame), &(simHnd.rxh->frame_offset) );
+  return rc;
 }
 
 
@@ -166,13 +158,24 @@ int SIM800_SendCommand(char *command, char *reply, uint16_t delay){
  * @param NONE
  * @return error status, 0 - OK
  */
-int MQTT_Deinit(void)
-{
-    SIM800.mqttServer.connect = 0;
+int MQTT_Deinit(void) {
     int error = 0;
+
+    const char * cmd = "+++\r\n";
+
+    mDelay(1000);
+    simHnd.txh->data = (uint8_t*)cmd;
+    if( uartTransmit(simHnd.txh, 5, 1000) != HAL_OK ){
+      trace_puts( "uart err" );
+    }
+
+    mDelay(1000);
+
+    SIM800_SendCommand("ATE1\r\n", "OK\r\n", CMD_DELAY_2);
 
     error += SIM800_SendCommand("AT+CGATT=0\r\n", "OK\r\n", CMD_DELAY_5);
     error += SIM800_SendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY_5);
+    SIM800.mqttServer.connect = 0;
     return error;
 }
 
@@ -202,14 +205,12 @@ void mqttInit(void) {
 
 
 /**
- * Starting MQTT process.
+ * Setup MQTT process.
  * @param NONE
  * @return error status, 0 - OK
  */
-int mqttStart(void) {
+void mqttSetup(void) {
     SIM800.mqttServer.connect = 0;
-    int error = 0;
-//    char str[32] = {0};
 
     // MQQT settings
     SIM800.sim.apn = "internet";
@@ -222,20 +223,16 @@ int mqttStart(void) {
     SIM800.mqttClient.clientID = "";
     SIM800.mqttClient.keepAliveInterval = 60;
 
-
     SIM800_SendCommand("ATE0\r\n", "OK\r\n", CMD_DELAY_2);
-//    error += SIM800_SendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY_5);
-//    error += SIM800_SendCommand("AT+CGATT=1\r\n", "OK\r\n", CMD_DELAY_2);
-    error += SIM800_SendCommand("AT+CIPMODE=1\r\n", "OK\r\n", CMD_DELAY_2);
-//
-//    snprintf(str, sizeof(str), "AT+CSTT=\"%s\",\"%s\",\"%s\"\r\n", SIM800.sim.apn, SIM800.sim.apn_user,
-//             SIM800.sim.apn_pass);
-//    error += SIM800_SendCommand(str, "OK\r\n", CMD_DELAY_2);
-//
-//    error += SIM800_SendCommand("AT+CIICR\r\n", "OK\r\n", CMD_DELAY_10);
-//    error += SIM800_SendCommand("AT+CIFSR\r\n", "", CMD_DELAY_5);
+}
 
-    return error;
+/**
+ * Starting MQTT process.
+ * @param NONE
+ * @return error status, 0 - OK
+ */
+int mqttStart(void) {
+    return SIM800_SendCommand("AT+CIPMODE=1\r\n", "OK\r\n", CMD_DELAY_2);
 }
 
 
@@ -251,12 +248,8 @@ void MQTT_Connect(void)
     char str[128] = {0};
     unsigned char buf[128] = {0};
     sprintf(str, "AT+CIPSTART=\"TCP\",\"%s\",%d\r\n", SIM800.mqttServer.host, SIM800.mqttServer.port);
-    SIM800_SendCommand(str, "CONNECT OK\r\n", CMD_DELAY_10*30 );
-#if FREERTOS == 1
-    osDelay(5000);
-#else
+    SIM800_SendCommand(str, "CONNECT\r\n", CMD_DELAY_10*30 );
     mDelay(1000);
-#endif
     if (SIM800.mqttServer.connect == 1)
     {
         MQTTPacket_connectData datas = MQTTPacket_connectData_initializer;
@@ -266,12 +259,9 @@ void MQTT_Connect(void)
         datas.keepAliveInterval = SIM800.mqttClient.keepAliveInterval;
         datas.cleansession = 1;
         int mqtt_len = MQTTSerialize_connect(buf, sizeof(buf), &datas);
-        HAL_UART_Transmit_IT(UART_SIM800, buf, mqtt_len);
-#if FREERTOS == 1
-        osDelay(5000);
-#else
+        simHnd.txh->data = buf;
+        uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
         mDelay(5000);
-#endif
     }
 }
 
@@ -290,12 +280,9 @@ void MQTT_Pub(char *topic, char *payload)
 
     int mqtt_len = MQTTSerialize_publish(buf, sizeof(buf), 0, 0, 0, 0,
                                          topicString, (unsigned char *)payload, (int)strlen(payload));
-    HAL_UART_Transmit_IT(UART_SIM800, buf, mqtt_len);
-#if FREERTOS == 1
-    osDelay(100);
-#else
+    simHnd.txh->data = buf;
+    uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
     mDelay(100);
-#endif
 }
 
 /**
@@ -373,7 +360,8 @@ void MQTT_PingReq(void)
     unsigned char buf[16] = {0};
 
     int mqtt_len = MQTTSerialize_pingreq(buf, sizeof(buf));
-    HAL_UART_Transmit_IT(UART_SIM800, buf, mqtt_len);
+    simHnd.txh->data = buf;
+    uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
 }
 
 /**
@@ -390,12 +378,9 @@ void MQTT_Sub(char *topic)
 
     int mqtt_len = MQTTSerialize_subscribe(buf, sizeof(buf), 0, 1, 1,
                                            &topicString, 0);
-    HAL_UART_Transmit_IT(UART_SIM800, buf, mqtt_len);
-#if FREERTOS == 1
-    osDelay(100);
-#else
+    simHnd.txh->data = buf;
+    uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
     mDelay(100);
-#endif
 }
 
 /**

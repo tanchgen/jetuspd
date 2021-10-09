@@ -30,7 +30,7 @@ uint16_t gprsConnTout[] = {
 };
 
 // -------------- Function prototipy ------------------------------------------
-//int simWaitReady( int stop );
+int simWaitReady( void );
 int gprsConnTest( void );
 int simStartInit(void);
 int gprsConnTest( void );
@@ -115,10 +115,9 @@ void gsmInitFunc( void ){
         gsmRunPhase = PHASE_ON;
         break;
       case PHASE_ON:
-//        if( simWaitReady( NON_STOP ) == RESET )
-        {
-          // TODO: Усыпить на 2с
-          mDelay(2000);
+        if( simWaitReady() == RESET ) {
+//          // TODO: Усыпить на 2с
+//          mDelay(2000);
           gsmRunPhase = PHASE_ON_OK;
         }
         break;
@@ -142,38 +141,45 @@ void gsmStartInitFunc( void ){
   if( gsmRun ){
     switch( gsmRunPhase ){
       case PHASE_NON:
-        if( gprsConnTest() != 0 ){
+        switch( gprsConnTest() ){
+          case '0':   // Bearer is connecting
+          case '2':   // Bearer is closing
+            break;
+          case '1':   // Bearer is connect
+            gsmRunPhase = PHASE_ON_OK;
+            break;
+          case '3':   // Bearer is closed
+            gsmRunPhase = PHASE_ON;
+            break;
+          default:
+            // Закрываем соединение
+            gprsConnBreak();
+            break;
+        }
+        break;
+      case PHASE_ON:
+        if( gprsConn() != RESET ){
           gprsConnBreak();
         }
-        // TODO: Проверка наличия IP-адреса
-        else if( mqtt_buffer[10] <= '1' ){
-          gsmRunPhase = PHASE_ON_OK;
-          break;
-        }
-        else {
-          if( gprsConnTest() != 0){
-            gsmRunPhase = PHASE_ON;
-            // TODO: Засыпаем на 1с
-            mDelay( 1000 );
-          }
-          else {
-            gsmRunPhase = PHASE_ON_OK;
-          }
-        }
+        gsmRunPhase = PHASE_NON;
         break;
-      case PHASE_ON_OK:{
-        if( gprsConn() == RESET ){
-          gsmRunPhase = PHASE_NON;
-          gsmState++;
-        }
+      case PHASE_ON_OK:
+        // Есть соединение GPRS;
+        // TODO: Получить IP-адрес
+        // Две вспышки оранжевого цвета с интервалом в 3 сек
+        ledOff( LED_R, 0 );
+        ledToggleSet( LED_R, LED_BLINK_ON_TOUT, TOUT_3000, 0, 0);
+        ledToggleSet( LED_G, LED_BLINK_ON_TOUT, TOUT_3000, 0, 0);
+        gsmRunPhase = PHASE_NON;
+        gsmState++;
         break;
-      }
       default:
         break;
     }
   }
   else {
     // Выключаем питание GSM
+    gprsConnBreak();
     gsmState--;
   }
 }
@@ -212,11 +218,24 @@ void gsmGprsConnFunc( void ){
 // Состояние "GSM PWR ON": Установка сохраненной конфигурации
 void gsmNtpInitFunc( void ){
   if( gsmRun ){
-    mqttStart();
-    gsmRunPhase = PHASE_ON;
+    switch( gsmRunPhase ){
+      case PHASE_NON:
+        mqttSetup();
+        gsmRunPhase = PHASE_ON;
+        break;
+      case PHASE_ON:
+        if( mqttStart() == RESET ){
+          gsmRunPhase = PHASE_NON;
+          gsmState++;
+        }
+        break;
+      default:
+        break;
+    }
   }
   else {
     // Продолжаем выключать
+    MQTT_Deinit();
     gsmState--;
   }
 }
@@ -304,7 +323,6 @@ void gsmCfgOnFunc( void ){
 // Состояние "GSM PWR ON": Установка сохраненной конфигурации
 void gsmWorkFunc( void ){
   if( gsmRun ){
-    gsmState++;
     gsmRunPhase = PHASE_NON;
   }
   else {
@@ -451,28 +469,19 @@ int getClk( void ){
 
 
 int gprsConnTest( void ){
-  if( SIM800_SendCommand("AT+SAPBR=0,1\r\n", "OK\r\n", CMD_DELAY_5) == 0){
-    return RESET;
-  }
-  else {
     if( SIM800_SendCommand("AT+SAPBR=2,1\r\n", "+SAPBR:", CMD_DELAY_5) == 0){
-      if( mqtt_buffer[10] <= '1' ){
-        // TODO: Получение IP
-        return 0;
-      }
+      return mqtt_buffer[10];
     }
     else {
       Error_Handler( NON_STOP );
-      return SET;
     }
-  }
 
   return SET;
 }
 
 
 int gprsConnBreak( void ){
-  if( SIM800_SendCommand("AT+SAPBR=4,1\r\n", "OK\r\n", CMD_DELAY_5) == 0){
+  if( SIM800_SendCommand("AT+SAPBR=0,1\r\n", "OK\r\n", CMD_DELAY_5) == 0){
     return RESET;
   }
   else {
@@ -524,18 +533,13 @@ int ntpInit(void) {
 }
 
 
-//int simWaitReady( int stop ){
-//  for( uint8_t i = 0; i < 60; i++ ){
-//    if( strstr(mqtt_buffer, "SMS Ready\r\n" ) != NULL ) {
-//      clearRxBuffer( (char *)(simHnd.rxh->rxFrame), &(simHnd.rxh->frame_offset) );
-//      return RESET;
-//    }
-//    mDelay(1000);
-//  }
-//
-//  Error_Handler( stop );
-//
-//  return SET;
-//}
-//
+int simWaitReady( void ){
+  if( strstr(mqtt_buffer, "DST: 0\r\n"/*"SMS Ready\r\n"*/ ) != NULL ) {
+    clearRxBuffer( (char *)(simHnd.rxh->rxFrame), &(simHnd.rxh->frame_offset) );
+    return RESET;
+  }
+
+  return SET;
+}
+
 

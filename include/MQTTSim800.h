@@ -58,9 +58,11 @@ typedef struct {
 } SIM800_t;
 
 
-extern uint8_t rx_data;
-extern char mqtt_buffer[1460];
 extern SIM800_t SIM800;
+
+extern uint8_t mqtt_receive;
+extern char mqtt_buffer[1460];
+extern uint16_t mqtt_index;
 
 extern FlagStatus mqttSubFlag;
 extern FlagStatus mqttPubFlag;
@@ -68,7 +70,7 @@ extern FlagStatus mqttPubFlag;
 extern struct timer_list mqttPubTimer;
 
 void Sim800_RxCallBack(void);
-void clearRxBuffer(void);
+void clearRxBuffer( char * buf, uint32_t * size );
 void clearMqttBuffer(void);
 int SIM800_SendCommand(char *command, char *reply, uint16_t delay);
 

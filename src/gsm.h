@@ -8,7 +8,6 @@
 #ifndef GSM_H_
 #define GSM_H_
 
-
 typedef enum {
   GSM_OFF,
   GSM_SIM_ON,

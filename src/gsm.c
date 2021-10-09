@@ -9,6 +9,7 @@
 
 #include "MQTTSim800.h"
 #include "my_ntp.h"
+#include "usart_arch.h"
 #include "gsm.h"
 
 
@@ -29,7 +30,7 @@ uint16_t gprsConnTout[] = {
 };
 
 // -------------- Function prototipy ------------------------------------------
-int simWaitReady( int stop );
+//int simWaitReady( int stop );
 int gprsConnTest( void );
 int simStartInit(void);
 int gprsConnTest( void );
@@ -114,7 +115,8 @@ void gsmInitFunc( void ){
         gsmRunPhase = PHASE_ON;
         break;
       case PHASE_ON:
-        if( simWaitReady( NON_STOP ) == RESET ){
+//        if( simWaitReady( NON_STOP ) == RESET )
+        {
           // TODO: Усыпить на 2с
           mDelay(2000);
           gsmRunPhase = PHASE_ON_OK;
@@ -189,7 +191,9 @@ void gsmGprsConnFunc( void ){
         if( clkSet() == RESET ){
           // Время установлено - включаем интефейс Терминала и отправляем время
           gpioPinSetNow( &gpioPinTermOn );
+#if TERM_UART_ENABLE
           termSendTime();
+#endif //TERM_UART_ENABLE
           gsmRunPhase = PHASE_NON;
           gsmState++;
         }
@@ -397,7 +401,7 @@ int simStartInit(void) {
     int error = SET;
     uint8_t i;
 
-    HAL_UART_Receive_IT(UART_SIM800, &rx_data, 1);
+//    HAL_UART_Receive_IT(UART_SIM800, &rx_data, 1);
 
 //    simWaitReady( NON_STOP );
 
@@ -520,18 +524,18 @@ int ntpInit(void) {
 }
 
 
-int simWaitReady( int stop ){
-  for( uint8_t i = 0; i < 60; i++ ){
-    if( strstr(mqtt_buffer, "SMS Ready\r\n" ) != NULL ) {
-      clearRxBuffer();
-      return RESET;
-    }
-    mDelay(1000);
-  }
-
-  Error_Handler( stop );
-
-  return SET;
-}
-
+//int simWaitReady( int stop ){
+//  for( uint8_t i = 0; i < 60; i++ ){
+//    if( strstr(mqtt_buffer, "SMS Ready\r\n" ) != NULL ) {
+//      clearRxBuffer( (char *)(simHnd.rxh->rxFrame), &(simHnd.rxh->frame_offset) );
+//      return RESET;
+//    }
+//    mDelay(1000);
+//  }
+//
+//  Error_Handler( stop );
+//
+//  return SET;
+//}
+//
 

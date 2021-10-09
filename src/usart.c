@@ -37,51 +37,51 @@ DMA_HandleTypeDef termUartDmaTx;
 
 
 /* SIM_USART init function */
-void simUartInit(void){
-
-  /* USER CODE BEGIN USART3_Init 0 */
-
-  /* USER CODE END USART3_Init 0 */
-
-  /* USER CODE BEGIN USART3_Init 1 */
-
-  /* USER CODE END USART3_Init 1 */
-//  huart3.Instance = USART3;
-//  huart3.Init.BaudRate = 115200;
-//  huart3.Init.WordLength = UART_WORDLENGTH_8B;
-//  huart3.Init.StopBits = UART_STOPBITS_1;
-//  huart3.Init.Parity = UART_PARITY_NONE;
-//  huart3.Init.Mode = UART_MODE_TX_RX;
-//  huart3.Init.HwFlowCtl = UART_HWCONTROL_RTS_CTS;
-//  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
-
-  gpioSimUartInit();
-
-  simUart.Instance = USART3;
-  simUart.Init.BaudRate = 9600;
-  simUart.Init.WordLength = UART_WORDLENGTH_8B;
-  simUart.Init.StopBits = UART_STOPBITS_1;
-  simUart.Init.Parity = UART_PARITY_NONE;
-  simUart.Init.Mode = UART_MODE_TX_RX;
-//  simUart.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  simUart.Init.HwFlowCtl = UART_HWCONTROL_RTS_CTS;
-  simUart.Init.OverSampling = UART_OVERSAMPLING_16;
-
-  /* USART3 clock enable */
-  assert_param( simUart.Instance == USART3 );
-  __HAL_RCC_USART3_CLK_ENABLE();
-
-  if (HAL_UART_Init(&simUart) != HAL_OK) {
-    Error_Handler( STOP );
-  }
-
-  /* USER CODE BEGIN USART3_Init 2 */
-  HAL_NVIC_SetPriority(USART3_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(USART3_IRQn);
-
-  /* USER CODE END USART3_Init 2 */
-
-}
+//void simUartInit(void){
+//
+//  /* USER CODE BEGIN USART3_Init 0 */
+//
+//  /* USER CODE END USART3_Init 0 */
+//
+//  /* USER CODE BEGIN USART3_Init 1 */
+//
+//  /* USER CODE END USART3_Init 1 */
+////  huart3.Instance = USART3;
+////  huart3.Init.BaudRate = 115200;
+////  huart3.Init.WordLength = UART_WORDLENGTH_8B;
+////  huart3.Init.StopBits = UART_STOPBITS_1;
+////  huart3.Init.Parity = UART_PARITY_NONE;
+////  huart3.Init.Mode = UART_MODE_TX_RX;
+////  huart3.Init.HwFlowCtl = UART_HWCONTROL_RTS_CTS;
+////  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+//
+//  gpioSimUartInit();
+//
+//  simUart.Instance = USART3;
+//  simUart.Init.BaudRate = 9600;
+//  simUart.Init.WordLength = UART_WORDLENGTH_8B;
+//  simUart.Init.StopBits = UART_STOPBITS_1;
+//  simUart.Init.Parity = UART_PARITY_NONE;
+//  simUart.Init.Mode = UART_MODE_TX_RX;
+////  simUart.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+//  simUart.Init.HwFlowCtl = UART_HWCONTROL_RTS_CTS;
+//  simUart.Init.OverSampling = UART_OVERSAMPLING_16;
+//
+//  /* USART3 clock enable */
+//  assert_param( simUart.Instance == USART3 );
+//  __HAL_RCC_USART3_CLK_ENABLE();
+//
+//  if (HAL_UART_Init(&simUart) != HAL_OK) {
+//    Error_Handler( STOP );
+//  }
+//
+//  /* USER CODE BEGIN USART3_Init 2 */
+//  HAL_NVIC_SetPriority(USART3_IRQn, 0, 0);
+//  HAL_NVIC_EnableIRQ(USART3_IRQn);
+//
+//  /* USER CODE END USART3_Init 2 */
+//
+//}
 
 
 void termUartInit(void){
@@ -268,30 +268,20 @@ void DMA1_Channel3_IRQHandler(void) {
   HAL_DMA_IRQHandler(&simUartDmaRx);
 }
 
-/**
-  * @brief This function handles DMA1 channel4 global interrupt.
-  */
-void DMA1_Channel4_IRQHandler(void) {
-  HAL_DMA_IRQHandler(&termUartDmaTx);
-}
+///**
+//  * @brief This function handles DMA1 channel4 global interrupt.
+//  */
+//void DMA1_Channel4_IRQHandler(void) {
+//  HAL_DMA_IRQHandler(&termUartDmaTx);
+//}
+//
+///**
+//  * @brief This function handles DMA1 channel5 global interrupt.
+//  */
+//void DMA1_Channel5_IRQHandler(void) {
+//  HAL_DMA_IRQHandler(&termUartDmaRx);
+//}
 
-/**
-  * @brief This function handles DMA1 channel5 global interrupt.
-  */
-void DMA1_Channel5_IRQHandler(void) {
-  HAL_DMA_IRQHandler(&termUartDmaRx);
-}
-
-
-void termSendTime( void ){
-  char timeStr[27];
-
-  getRtcTime();
-  sprintf( (char*)timeStr, "%02d.%02d.20%02d %02d:%02d:%02d\n", \
-                    rtc.date, rtc.month, rtc.year, \
-                    rtc.hour, rtc.min, rtc.date );
-  HAL_UART_Transmit_DMA( &termUart, (uint8_t*)timeStr, 20 );
-}
 
 /* USER CODE END 1 */
 

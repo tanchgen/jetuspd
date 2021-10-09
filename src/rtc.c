@@ -18,6 +18,7 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
+#include "stdio.h"
 #include "rtc.h"
 
 /* USER CODE BEGIN 0 */
@@ -117,7 +118,18 @@ void HAL_RTC_MspDeInit(RTC_HandleTypeDef* rtcHandle)
 }
 
 /* USER CODE BEGIN 1 */
+#if TERM_UART_ENABLE
+void termSendTime( void ){
+  char timeStr[27];
 
+  getRtcTime();
+  sprintf( (char*)timeStr, "%02d.%02d.20%02d %02d:%02d:%02d\n", \
+                    rtc.date, rtc.month, rtc.year, \
+                    rtc.hour, rtc.min, rtc.date );
+  termHnd.txh->data = (uint8_t*)timeStr;
+  uartTransmit( termHnd.txh, 21, 20 );
+}
+#endif //TERM_UART_ENABLE
 /* USER CODE END 1 */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

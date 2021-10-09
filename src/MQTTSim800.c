@@ -8,7 +8,7 @@
 #include "MQTTSim800.h"
 #include "main.h"
 #include "adc.h"
-#include "usart.h"
+#include "usart_arch.h"
 #include "isens.h"
 #include "gsm.h"
 #include "MQTTPacket.h"
@@ -19,12 +19,11 @@
 #endif
 
 extern uint16_t logRdBufFill;
-extern SIM800_t SIM800;
 
 uint8_t tx_buffer[256] = {0};
 
-uint8_t rx_data = 0;
-uint8_t rx_buffer[1460] = {0};
+//uint8_t rx_data = 0;
+//uint8_t rx_buffer[1460] = {0};
 uint16_t rx_index = 0;
 
 uint8_t mqtt_receive = 0;
@@ -47,76 +46,68 @@ void mqttPubTout( uintptr_t arg ){
 }
 
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-  if (huart == UART_SIM800) {
-    Sim800_RxCallBack();
-  }
-  HAL_UART_Receive_IT(UART_SIM800, &rx_data, 1);
-}
+//void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+//  if (huart == UART_SIM800) {
+//    Sim800_RxCallBack();
+//  }
+//  HAL_UART_Receive_IT(UART_SIM800, &rx_data, 1);
+//}
 
 
-/**
- * Call back function for release read SIM800 UART buffer.
- * @param NONE
- * @return NONE
- */
-void Sim800_RxCallBack(void) {
-  rx_buffer[rx_index++] = rx_data;
-}
+//void simRxProcess( char * rxbuf, uint32_t size ) {
+//  if (SIM800.mqttServer.connect == 0) {
+//    if( size == 2) {
+//      return;
+//    }
+//    else {
+//      memcpy(mqtt_buffer, rxbuf, size);
+//      clearRxBuffer( rxbuf, size );
+//      if( strstr(mqtt_buffer, "DY CONNECT\r\n") || strstr(mqtt_buffer, "CONNECT\r\n") ) {
+//        // Есть соединение с MQTT-сервером
+//        SIM800.mqttServer.connect = 1;
+//        mqttConnectCb( SIM800.mqttServer.connect );
+//      }
+//    }
+//  }
+//
+//  if (strstr( rxbuf, "CLOSED\r\n")
+//      || strstr( rxbuf, "ERROR\r\n")
+//      || strstr( rxbuf, "DEACT\r\n"))
+//  {
+//    // Нет соединения с MQTT-сервером
+//    SIM800.mqttServer.connect = 0;
+//    mqttConnectCb( SIM800.mqttServer.connect );
+//  }
+//
+//  if (SIM800.mqttServer.connect == 1 && size == 48) {
+//    mqtt_receive = 1;
+//  }
+//  if (mqtt_receive == 1) {
+//    mqtt_buffer[mqtt_index++] = rx_data;
+//    if (mqtt_index > 1 && mqtt_index - 1 > mqtt_buffer[1]) {
+//      MQTT_Receive((unsigned char *)mqtt_buffer);
+//      clearRxBuffer();
+//      clearMqttBuffer();
+//    }
+//    if (mqtt_index >= sizeof(mqtt_buffer)) {
+//      clearMqttBuffer();
+//    }
+//  }
+//  if (rx_index >= sizeof(mqtt_buffer)) {
+//    clearRxBuffer();
+//    clearMqttBuffer();
+//  }
+//}
 
-void simRxProcess( void ) {
-  if (SIM800.mqttServer.connect == 0) {
-    if (strstr((char *)rx_buffer, "\r\n") != NULL && rx_index == 2) {
-      rx_index = 0;
-    }
-    else if (strstr((char *)rx_buffer, "\r\n") != NULL) {
-      memcpy(mqtt_buffer, rx_buffer, sizeof(rx_buffer));
-      clearRxBuffer();
-      if( strstr(mqtt_buffer, "DY CONNECT\r\n") || strstr(mqtt_buffer, "CONNECT\r\n") ) {
-        // Есть соединение с MQTT-сервером
-        SIM800.mqttServer.connect = 1;
-        mqttConnectCb( SIM800.mqttServer.connect );
-      }
-    }
-  }
-
-  if (strstr((char *)rx_buffer, "CLOSED\r\n")
-      || strstr((char *)rx_buffer, "ERROR\r\n")
-      || strstr((char *)rx_buffer, "DEACT\r\n"))
-  {
-    // Нет соединения с MQTT-сервером
-    SIM800.mqttServer.connect = 0;
-    mqttConnectCb( SIM800.mqttServer.connect );
-  }
-
-  if (SIM800.mqttServer.connect == 1 && rx_data == 48) {
-    mqtt_receive = 1;
-  }
-  if (mqtt_receive == 1) {
-    mqtt_buffer[mqtt_index++] = rx_data;
-    if (mqtt_index > 1 && mqtt_index - 1 > mqtt_buffer[1]) {
-      MQTT_Receive((unsigned char *)mqtt_buffer);
-      clearRxBuffer();
-      clearMqttBuffer();
-    }
-    if (mqtt_index >= sizeof(mqtt_buffer)) {
-      clearMqttBuffer();
-    }
-  }
-  if (rx_index >= sizeof(mqtt_buffer)) {
-    clearRxBuffer();
-    clearMqttBuffer();
-  }
-}
 
 /**
  * Clear SIM800 UART RX buffer.
  * @param NONE
  * @return NONE
  */
-void clearRxBuffer(void){
-  rx_index = 0;
-  memset(rx_buffer, 0, sizeof(rx_buffer));
+void clearRxBuffer( char * buf, uint32_t * size ){
+  memset( buf, 0, *size );
+  *size = 0;
 }
 
 /**
@@ -143,8 +134,8 @@ int SIM800_SendCommand(char *command, char *reply, uint16_t delay){
   uint8_t rc = 1;
 
   *mqtt_buffer = '\0';
-    if( HAL_UART_Transmit(UART_SIM800, (unsigned char *)command,
-                         (uint16_t)strlen(command), 1000) != HAL_OK ){
+  simHnd.txh->data = (uint8_t*)command;
+    if( uartTransmit(simHnd.txh, (uint16_t)strlen(command), 1000) != HAL_OK ){
       trace_puts( "uart err" );
     }
 
@@ -164,8 +155,8 @@ int SIM800_SendCommand(char *command, char *reply, uint16_t delay){
         break;
       }
     }
-
-    clearRxBuffer();
+    // Подготовим буфер для приема
+    clearRxBuffer( (char *)(simHnd.rxh->rxFrame), &(simHnd.rxh->frame_offset) );
     return rc;
 }
 
@@ -179,7 +170,6 @@ int MQTT_Deinit(void)
 {
     SIM800.mqttServer.connect = 0;
     int error = 0;
-    HAL_UART_Receive_IT(UART_SIM800, &rx_data, 1);
 
     error += SIM800_SendCommand("AT+CGATT=0\r\n", "OK\r\n", CMD_DELAY_5);
     error += SIM800_SendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY_5);
@@ -445,7 +435,6 @@ void mqttConnectCb( FlagStatus conn ){
 
 
 void mqttProcess( void ){
-  simRxProcess();
 
   if(gsmState < GSM_WORK){
     return;

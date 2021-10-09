@@ -307,7 +307,7 @@ void I2C2_EV_IRQHandler( void ) { while(1){} };
 void I2C2_ER_IRQHandler( void ) { while(1){} };
 //void SPI1_IRQHandler( void ) { while(1){} };
 void SPI2_IRQHandler( void ) { while(1){} };
-void USART1_IRQHandler( void ) { while(1){} };
+//void USART1_IRQHandler( void ) { while(1){} };
 void USART2_IRQHandler( void ) { while(1){} };
 //void USART3_IRQHandler( void ) { while(1){} };
 void EXTI15_10_IRQHandler( void ) { while(1){} };

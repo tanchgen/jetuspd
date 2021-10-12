@@ -50,11 +50,18 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+/* USER CODE BEGIN PV */
 extern eGsmRunPhase gsmRunPhase;
 
 RCC_ClocksTypeDef RCC_Clocks;
+#define VER_MAJOR     0x00
+#define VER_MINOR     0x00
+#define VER_RELEASE   0x0001
 
-/* USER CODE BEGIN PV */
+#define FW_VERSION    ((VER_MAJOR<<24)|(VER_MINOR<<16)|(VER_RELEASE))
+
+const uint32_t  _fw_ver __attribute__ ((section(".fw_ver_section"))) = FW_VERSION;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/

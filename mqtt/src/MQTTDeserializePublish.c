@@ -15,8 +15,8 @@
  *******************************************************************************/
 
 #include "StackTrace.h"
-#include "MQTTPacket.h"
 #include <string.h>
+#include "../inc/MQTTPacket.h"
 
 //#define min(a, b) ((a < b) ? 1 : 0)
 

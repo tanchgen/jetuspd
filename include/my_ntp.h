@@ -11,5 +11,4 @@
 
 #define NTP_SERVER    "3.pool.ntp.org"
 
-
 #endif /* MY_NTP_H_ */

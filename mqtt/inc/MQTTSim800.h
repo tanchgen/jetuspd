@@ -6,7 +6,8 @@
 
 
 #include "main.h"
-#include "usart.h"
+#include "uart.h"
+#include "topic_id.h"
 
 // === CONFIG ===
 #define UART_SIM800     &simUart
@@ -17,6 +18,8 @@
 #define CMD_DELAY_50    5000
 // ==============
 
+
+
 typedef struct {
     char *apn;
     char *apn_user;
@@ -26,7 +29,8 @@ typedef struct {
 typedef struct {
     char *host;
     uint16_t port;
-    uint8_t connect;
+    FlagStatus tcpconn;
+    uint8_t mqttconn;
 } mqttServer_t;
 
 typedef struct {
@@ -47,6 +51,9 @@ typedef struct {
     int payloadLen;
     unsigned char topic[64];
     int topicLen;
+    eTopicId topicId;
+    eMsgType msgType;
+    eMsgState msgState;
 } mqttReceive_t;
 
 typedef struct {
@@ -76,7 +83,6 @@ int SIM800_SendCommand(char *command, char *reply, uint16_t delay);
 void mqttInit( void );
 int MQTT_Deinit(void);
 
-void mqttSetup(void);
 int mqttStart(void);
 void MQTT_Connect(void);
 

@@ -7,8 +7,8 @@
 #include "stm32l1xx_ll_usart.h"
 #include "stm32l1xx_ll_gpio.h"
 #include "stm32l1xx_ll_dma.h"
-#include "MQTTSim800.h"
 #include "usart_arch.h"
+#include "../mqtt/inc/MQTTSim800.h"
 
 extern SIM800_t SIM800;
 
@@ -121,6 +121,10 @@ void uartRxClock(sUartRxHandle *handle){
 
   MAYBE_BUILD_BUG_ON(sizeof(handle->crc) < sizeof(crc));
 
+  if( handle->rxProcFlag == SET ){
+    return;
+  }
+
   handle->head = (USART_RX_RINGBUFFER_SIZE - handle->dma_rx_channel->CNDTR);
   /* Определим заполненность буфера. */
   n_bytes = handle->head - handle->tail;
@@ -137,57 +141,13 @@ void uartRxClock(sUartRxHandle *handle){
     byte = handle->rxBuf[handle->tail++];
     handle->tail &= USART_RX_RINGBUFFER_MASK;
 
-    handle->rxFrame[handle->frame_offset++] = byte;
+    handle->rxFrame[handle->frame_offset] = byte;
 
-    if (SIM800.mqttServer.connect == 0) {
-      if( (handle->rxFrame[handle->frame_offset-2] == '\r')
-          && (byte == '\n')
-          && (handle->frame_offset == 2) ) {
-        // Пустая строка
-        handle->frame_offset = 0;
-        continue;
-      }
-      else if( (handle->rxFrame[handle->frame_offset-2] == '\r')
-                && (byte == '\n') ) {
-        memcpy(mqtt_buffer, handle->rxFrame, handle->frame_offset );
-        mqtt_buffer[handle->frame_offset] = '\0';
-        clearRxBuffer( (char *)handle->rxFrame, &handle->frame_offset );
-        if( strstr(mqtt_buffer, "DY CONNECT\r\n") || strstr(mqtt_buffer, "CONNECT\r\n") ) {
-          // Есть соединение с MQTT-сервером
-          SIM800.mqttServer.connect = 1;
-          mqttConnectCb( SIM800.mqttServer.connect );
-        }
-        continue;
-      }
+    if( handle == simHnd.rxh ){
+      simUartRxProc( handle );
     }
 
-    if (strstr((char *)handle->rxFrame, "CLOSED\r\n")
-        || strstr((char *)handle->rxFrame, "ERROR\r\n")
-        || strstr((char *)handle->rxFrame, "DEACT\r\n"))
-    {
-      // Нет соединения с MQTT-сервером
-      SIM800.mqttServer.connect = 0;
-      mqttConnectCb( SIM800.mqttServer.connect );
-    }
-
-    if (SIM800.mqttServer.connect == 1 && handle->frame_offset== 48) {
-        mqtt_receive = 1;
-    }
-    if (mqtt_receive == 1) {
-        mqtt_buffer[mqtt_index++] = byte;
-        if (mqtt_index > 1 && mqtt_index - 1 > mqtt_buffer[1]) {
-            MQTT_Receive((unsigned char *)mqtt_buffer);
-            clearRxBuffer( (char *)handle->rxFrame, &handle->frame_offset );
-            clearMqttBuffer();
-        }
-        if (mqtt_index >= sizeof(mqtt_buffer)) {
-            clearMqttBuffer();
-        }
-    }
-    if (handle->frame_offset >= sizeof(mqtt_buffer)) {
-      clearRxBuffer( (char *)handle->rxFrame, &handle->frame_offset );
-        clearMqttBuffer();
-    }
+    handle->frame_offset++;
 
     continue;
   }

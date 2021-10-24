@@ -4,14 +4,18 @@
  *  Created on: 3 окт. 2021 г.
  *      Author: jet
  */
+#include <gsm.h>
+#include <gsm.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "MQTTSim800.h"
 #include "my_ntp.h"
-#include "usart_arch.h"
-#include "gsm.h"
+#include "../mqtt/inc/MQTTSim800.h"
 
+extern const uint32_t baudrate[BAUD_NUM];
+extern const sUartHnd simHnd;
+
+static uint32_t tmpTick;
 
 SIM800_t SIM800;
 eGsmState gsmState = GSM_OFF;
@@ -20,6 +24,8 @@ FlagStatus gsmRun = SET;
 eGsmRunPhase gsmRunPhase = PHASE_OFF_OK;
 
 FlagStatus gsmFinal = RESET;
+
+FlagStatus ntpFlag;
 
 uint8_t reconnCount = 0;
 uint16_t gprsConnTout[] = {
@@ -30,6 +36,9 @@ uint16_t gprsConnTout[] = {
 };
 
 // -------------- Function prototipy ------------------------------------------
+void simUartBaud( uint32_t baudrate );
+void simUartHwFlow( void );
+
 int simWaitReady( void );
 int gprsConnTest( void );
 int simStartInit(void);
@@ -93,6 +102,7 @@ void gsmSimOnFunc( void ){
     switch( gsmRunPhase ){
       case PHASE_NON:
         mqttInit();
+        ntpFlag = RESET;
         gsmState++;
         break;
       default:
@@ -112,10 +122,11 @@ void gsmInitFunc( void ){
     switch( gsmRunPhase ){
       case PHASE_NON:
         simStartInit();
+        tmpTick = mTick + (TOUT_1000 * 30);
         gsmRunPhase = PHASE_ON;
         break;
       case PHASE_ON:
-        if( simWaitReady() == RESET ) {
+        if( (simWaitReady() == RESET) || (tmpTick < mTick) ) {
 //          // TODO: Усыпить на 2с
 //          mDelay(2000);
           gsmRunPhase = PHASE_ON_OK;
@@ -166,6 +177,9 @@ void gsmStartInitFunc( void ){
       case PHASE_ON_OK:
         // Есть соединение GPRS;
         // TODO: Получить IP-адрес
+
+        SIM800.mqttServer.tcpconn = 0;
+
         // Две вспышки оранжевого цвета с интервалом в 3 сек
         ledOff( LED_R, 0 );
         ledToggleSet( LED_R, LED_BLINK_ON_TOUT, TOUT_3000, 0, 0);
@@ -179,7 +193,29 @@ void gsmStartInitFunc( void ){
   }
   else {
     // Выключаем питание GSM
-    gprsConnBreak();
+    if( gsmFinal ){
+      // Продолжаем выключать
+      gprsConnBreak();
+      gsmState--;
+    }
+    else {
+      // Пробуем переподключить
+      if( gsmRunPhase == PHASE_NON) {
+        tmpTick = 0;
+        if( gprsConnBreak() == 0) {
+          gsmRun = SET;
+          gsmRunPhase = PHASE_NON;
+        }
+        else {
+          tmpTick = mTick + TOUT_1000;
+          gsmRunPhase = PHASE_OFF;
+        }
+      }
+      else if (tmpTick < mTick ){
+        gsmRunPhase = PHASE_NON;
+      }
+    }
+
     gsmState--;
   }
 }
@@ -218,19 +254,9 @@ void gsmGprsConnFunc( void ){
 // Состояние "GSM PWR ON": Установка сохраненной конфигурации
 void gsmNtpInitFunc( void ){
   if( gsmRun ){
-    switch( gsmRunPhase ){
-      case PHASE_NON:
-        mqttSetup();
-        gsmRunPhase = PHASE_ON;
-        break;
-      case PHASE_ON:
-        if( mqttStart() == RESET ){
-          gsmRunPhase = PHASE_NON;
-          gsmState++;
-        }
-        break;
-      default:
-        break;
+    if( mqttStart() == RESET ){
+      gsmRunPhase = PHASE_NON;
+      gsmState++;
     }
   }
   else {
@@ -246,11 +272,27 @@ void gsmMqttStartFunc( void ){
   if( gsmRun ){
     switch( gsmRunPhase ){
       case PHASE_NON:
-        if( SIM800.mqttServer.connect == 0 ){
+        if( SIM800.mqttServer.tcpconn == 0 ){
+          TCP_Connect();
+        }
+        else if( SIM800.mqttServer.mqttconn == 0 ){
           MQTT_Connect();
+          gsmRunPhase = PHASE_ON;
+          tmpTick = mTick + 3000;
         }
         else {
           gsmRunPhase = PHASE_ON_OK;
+        }
+        break;
+      case PHASE_ON:
+        if( SIM800.mqttServer.mqttconn == 1 ){
+          gsmRunPhase = PHASE_ON_OK;
+        }
+        else if(tmpTick < mTick ){
+          // Не дождались соединения MQTT
+          MQTT_Deinit();
+          mDelay(TOUT_1000 * 15);
+          gsmRunPhase = PHASE_NON;
         }
         break;
       case PHASE_ON_OK:
@@ -263,15 +305,8 @@ void gsmMqttStartFunc( void ){
   }
   else {
     // Выключаем питание GSM
-    if( gsmFinal ){
-      // Продолжаем выключать
-      gsmState--;
-    }
-    else {
-      // Пробуем переподключить
-      gsmRun = SET;
-      gsmRunPhase = PHASE_ON;
-    }
+    gsmState--;
+    gsmRunPhase = PHASE_NON;
   }
 }
 
@@ -324,6 +359,10 @@ void gsmCfgOnFunc( void ){
 void gsmWorkFunc( void ){
   if( gsmRun ){
     gsmRunPhase = PHASE_NON;
+    if( SIM800.mqttServer.tcpconn == 0 ){
+      // Закрыто соединение с MQTT-сервером - откатываемся до стадии GSM_MQTT_START
+      gsmRun = RESET;
+    }
   }
   else {
     // Выключаем питание GSM
@@ -417,34 +456,56 @@ int clkSet( void ) {
  */
 int simStartInit(void) {
     int error = SET;
-    uint8_t i;
+    eBaudrate baud = BAUD_NUM;
 
 //    HAL_UART_Receive_IT(UART_SIM800, &rx_data, 1);
 
 //    simWaitReady( NON_STOP );
-
-    for( i = 0; i < 60; i++ ){
-//      SIM800_SendCommand("AT+IPR=115200\r\n", "OK\r\n", CMD_DELAY_2);
-      if( SIM800_SendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2) == 0 ){
-        // Есть контакт!
-        break;
+    for( eBaudrate i = BAUD_9600; baud == BAUD_NUM; ){
+      for( uint8_t j = 0; j < 3; j++ ){
+        if( SIM800_SendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2) == 0 ){
+          // Есть контакт!
+          baud = i;
+          break;
+        }
       }
-      else {
+      if( i != baud ){
         // Нет отклика от GSM
         mDelay(1000);
+        // Увиличиваем скорость порта
+        i++;
+        if(i < BAUD_NUM){
+          simUartBaud( baudrate[i] );
+        }
+        else {
+          break;
+        }
       }
     }
 
-    if( i >= 60 ){
+    if( baud == BAUD_NUM ){
+      Error_Handler( STOP );
+    }
+
+    if( SIM800_SendCommand("AT+IFC=2,2\r\n", "OK\r\n", CMD_DELAY_2) == 0){
+      simUartHwFlow();
+    }
+//    if( baud != BAUD_460800 ){
+//      if( SIM800_SendCommand("AT+IPR=460800\r\n", "OK\r\n", CMD_DELAY_2) == 0){
+//        simUartBaud(460800);
+//      }
+//    }
+
+    if( SIM800_SendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2) != 0 ){
       Error_Handler( STOP );
     }
 
     SIM800_SendCommand("ATE1\r\n", "OK\r\n", CMD_DELAY_2);
 
-    if( SIM800_SendCommand("AT+CLTS?\r\n", "+CLTS: 1\r\n", CMD_DELAY_2) != 0 ){
-      SIM800_SendCommand("AT+CLTS=1;&W\r\n", "OK\r\n", CMD_DELAY_2);
-      SIM800_SendCommand("AT+CFUN=1,1\r\n", "OK\r\n", CMD_DELAY_2);
-    }
+//    if( SIM800_SendCommand("AT+CLTS?\r\n", "+CLTS: 1\r\n", CMD_DELAY_2) == 0 ){
+//      SIM800_SendCommand("AT+CLTS=0;&W\r\n", "OK\r\n", CMD_DELAY_2);
+//      SIM800_SendCommand("AT+CFUN=1,1\r\n", "OK\r\n", CMD_DELAY_2);
+//    }
 
     return error;
 }
@@ -509,22 +570,21 @@ int gprsConn( void ){
 
 
 int ntpInit(void) {
-  uint8_t ntpFlag = RESET;
-  SIM800.mqttServer.connect = 0;
+  if( ntpFlag == RESET ){
+    timeInit();
 
-  timeInit();
+    if( SIM800_SendCommand("AT+CNTPCID=1\r\n", "OK\r\n", CMD_DELAY_5) ){
+      return ntpFlag;
+    }
+    while( ntpFlag == RESET ){
 
-  if( SIM800_SendCommand("AT+CNTPCID=1\r\n", "OK\r\n", CMD_DELAY_5) ){
-    return ntpFlag;
-  }
-  while( ntpFlag == RESET ){
-
-    if( SIM800_SendCommand("AT+CNTP=\""NTP_SERVER"\",12\r\n", "OK\r\n", CMD_DELAY_5) == 0){;
-      if( SIM800_SendCommand("AT+CNTP\r\n", "+CNTP: 1\r\n", CMD_DELAY_50 * 10) == 0 ){
-        ntpFlag = SET;
-      }
-      else {
-        Error_Handler( 2000 );
+      if( SIM800_SendCommand("AT+CNTP=\""NTP_SERVER"\",12\r\n", "OK\r\n", CMD_DELAY_5) == 0){;
+        if( SIM800_SendCommand("AT+CNTP\r\n", "+CNTP: 1\r\n", CMD_DELAY_50 * 10) == 0 ){
+          ntpFlag = SET;
+        }
+        else {
+          Error_Handler( 2000 );
+        }
       }
     }
   }

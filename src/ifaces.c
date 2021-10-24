@@ -25,7 +25,7 @@ void ifaceInit( void ){
   adcInit();
   MX_RTC_Init();
   logInit();
-
+  mqttInit();
   isensInit();
 }
 

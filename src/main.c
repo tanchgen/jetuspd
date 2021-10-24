@@ -18,6 +18,7 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
+#include <gsm.h>
 #include <ifaces.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,13 +27,8 @@
 #include "main.h"
 
 #include "isens.h"
-#include "gsm.h"
-//#include "adc.h"
-//#include "dma.h"
-//#include "rtc.h"
-//#include "usart.h"
-//
-#include "MQTTSim800.h"
+
+#include "../mqtt/inc/MQTTSim800.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/

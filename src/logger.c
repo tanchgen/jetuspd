@@ -10,10 +10,9 @@
 #include "gpio_arch.h"
 #include "isens.h"
 #include "buffer.log.h"
-#include "MQTTSim800.h"
-//#include "eeprom.h"
 #include "logger.h"
 #include "flash.h"
+#include "../mqtt/inc/MQTTSim800.h"
 
 typedef struct {
   logBuf_t logBufHandle;

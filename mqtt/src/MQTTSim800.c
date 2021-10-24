@@ -2,17 +2,19 @@
  * MQTTSim800.c
  *
  */
+#include "../inc/MQTTSim800.h"
+
+#include <gsm.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "MQTTSim800.h"
 #include "main.h"
 #include "adc.h"
 #include "usart_arch.h"
 #include "isens.h"
-#include "gsm.h"
-#include "MQTTPacket.h"
 #include "logger.h"
+#include "../inc/MQTTPacket.h"
+
 
 
 extern uint16_t logRdBufFill;
@@ -24,7 +26,9 @@ uint8_t tx_buffer[256] = {0};
 uint16_t rx_index = 0;
 
 uint8_t mqtt_receive = 0;
-char mqtt_buffer[1460] = {0};
+
+#define MQTT_BUF_SIZE   1460
+char mqtt_buffer[MQTT_BUF_SIZE] = {0};
 uint16_t mqtt_index = 0;
 
 FlagStatus mqttSubFlag = RESET;
@@ -37,7 +41,7 @@ void mqttConnectCb( FlagStatus conn );
 void mqttPubTout( uintptr_t arg ){
   (void)arg;
 
-  if( SIM800.mqttServer.connect == 1 ) {
+  if( SIM800.mqttServer.mqttconn == 1 ) {
     mqttPubFlag = SET;
   }
 }
@@ -132,6 +136,8 @@ int SIM800_SendCommand(char *command, char *reply, uint16_t delay){
 
   *mqtt_buffer = '\0';
   simHnd.txh->data = (uint8_t*)command;
+  simHnd.rxh->reply = reply;
+  simHnd.rxh->replyFlag = RESET;
   if( uartTransmit(simHnd.txh, (uint16_t)strlen(command), 1000) != HAL_OK ){
     trace_puts( "uart err" );
   }
@@ -142,7 +148,7 @@ int SIM800_SendCommand(char *command, char *reply, uint16_t delay){
   }
 
   while( tmptick >= mTick ) {
-    if( strstr(mqtt_buffer, reply) != NULL ) {
+    if( simHnd.rxh->replyFlag ) {
       rc = 0;
       break;
     }
@@ -175,7 +181,8 @@ int MQTT_Deinit(void) {
 
     error += SIM800_SendCommand("AT+CGATT=0\r\n", "OK\r\n", CMD_DELAY_5);
     error += SIM800_SendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY_5);
-    SIM800.mqttServer.connect = 0;
+    SIM800.mqttServer.tcpconn = 0;
+    SIM800.mqttServer.mqttconn = 0;
     return error;
 }
 
@@ -186,7 +193,8 @@ int MQTT_Deinit(void) {
  * @return error status, 0 - OK
  */
 void mqttInit(void) {
-    SIM800.mqttServer.connect = 0;
+  SIM800.mqttServer.tcpconn = 0;
+    SIM800.mqttServer.mqttconn = 0;
 //    char str[32] = {0};
 
     // MQQT settings
@@ -195,8 +203,8 @@ void mqttInit(void) {
     SIM800.sim.apn_pass = "";
     SIM800.mqttServer.host = "test.mosquitto.org";
     SIM800.mqttServer.port = 1883;
-    SIM800.mqttClient.username = "";
-    SIM800.mqttClient.pass = "";
+    SIM800.mqttClient.username = NULL;
+    SIM800.mqttClient.pass = NULL;
     SIM800.mqttClient.clientID = "";
     SIM800.mqttClient.keepAliveInterval = 60;
 
@@ -205,64 +213,47 @@ void mqttInit(void) {
 
 
 /**
- * Setup MQTT process.
- * @param NONE
- * @return error status, 0 - OK
- */
-void mqttSetup(void) {
-    SIM800.mqttServer.connect = 0;
-
-    // MQQT settings
-    SIM800.sim.apn = "internet";
-    SIM800.sim.apn_user = "";
-    SIM800.sim.apn_pass = "";
-    SIM800.mqttServer.host = "test.mosquitto.org";
-    SIM800.mqttServer.port = 1883;
-    SIM800.mqttClient.username = "";
-    SIM800.mqttClient.pass = "";
-    SIM800.mqttClient.clientID = "";
-    SIM800.mqttClient.keepAliveInterval = 60;
-
-    SIM800_SendCommand("ATE0\r\n", "OK\r\n", CMD_DELAY_2);
-}
-
-/**
  * Starting MQTT process.
  * @param NONE
  * @return error status, 0 - OK
  */
 int mqttStart(void) {
-    return SIM800_SendCommand("AT+CIPMODE=1\r\n", "OK\r\n", CMD_DELAY_2);
+  SIM800_SendCommand("ATE0\r\n", "OK\r\n", CMD_DELAY_2);
+  return SIM800_SendCommand("AT+CIPMODE=1\r\n", "OK\r\n", CMD_DELAY_2);
 }
 
+
+/**
+ * Connect to TCP (MQTT) server.
+ * @param NONE
+ * @return NONE
+ */
+int TCP_Connect(void) {
+    SIM800.mqttServer.mqttconn = 0;
+    char str[128] = {0};
+    unsigned char buf[128] = {0};
+    sprintf(str, "AT+CIPSTART=\"TCP\",\"%s\",%d\r\n", SIM800.mqttServer.host, SIM800.mqttServer.port);
+    return SIM800_SendCommand(str, "CONNECT\r\n", CMD_DELAY_10*30 );
+}
 
 /**
  * Connect to MQTT server in Internet over TCP.
  * @param NONE
  * @return NONE
  */
-void MQTT_Connect(void)
-{
-    SIM800.mqttReceive.newEvent = 0;
-    SIM800.mqttServer.connect = 0;
-    char str[128] = {0};
-    unsigned char buf[128] = {0};
-    sprintf(str, "AT+CIPSTART=\"TCP\",\"%s\",%d\r\n", SIM800.mqttServer.host, SIM800.mqttServer.port);
-    SIM800_SendCommand(str, "CONNECT\r\n", CMD_DELAY_10*30 );
-    mDelay(1000);
-    if (SIM800.mqttServer.connect == 1)
-    {
-        MQTTPacket_connectData datas = MQTTPacket_connectData_initializer;
-        datas.username.cstring = SIM800.mqttClient.username;
-        datas.password.cstring = SIM800.mqttClient.pass;
-        datas.clientID.cstring = SIM800.mqttClient.clientID;
-        datas.keepAliveInterval = SIM800.mqttClient.keepAliveInterval;
-        datas.cleansession = 1;
-        int mqtt_len = MQTTSerialize_connect(buf, sizeof(buf), &datas);
-        simHnd.txh->data = buf;
-        uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
-        mDelay(5000);
-    }
+void MQTT_Connect(void) {
+  SIM800.mqttReceive.newEvent = 0;
+  unsigned char buf[128] = {0};
+
+  MQTTPacket_connectData datas = MQTTPacket_connectData_initializer;
+  datas.username.cstring = SIM800.mqttClient.username;
+  datas.password.cstring = SIM800.mqttClient.pass;
+  datas.clientID.cstring = SIM800.mqttClient.clientID;
+  datas.keepAliveInterval = SIM800.mqttClient.keepAliveInterval;
+  datas.cleansession = 1;
+  int mqtt_len = MQTTSerialize_connect(buf, sizeof(buf), &datas);
+  simHnd.txh->data = buf;
+  uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
 }
 
 /**
@@ -479,12 +470,65 @@ void mqttProcess( void ){
       }
     }
     timerMod( &mqttPubTimer, MQTT_PUB_TOUT );
+  }
+  if( SIM800.mqttReceive.newEvent ){
+    unsigned char *topic = SIM800.mqttReceive.topic;
+    int payload = atoi( (char*)SIM800.mqttReceive.payload );
+    SIM800.mqttReceive.newEvent = 0;
+    trace_printf( "mqttReceive: %s: %d\n", topic, payload );
+  }
+}
 
-    if( SIM800.mqttReceive.newEvent ){
-      unsigned char *topic = SIM800.mqttReceive.topic;
-      int payload = atoi( (char*)SIM800.mqttReceive.payload );
-      SIM800.mqttReceive.newEvent = 0;
-      trace_printf( "mqttReceive: %s: %d\n", topic, payload );
+
+// Обработка принятых по UART данных посимвольно
+void simUartProc( sUartRxHandle * handle ){
+  uint8_t byte = handle->rxFrame[handle->frame_offset];
+
+  if (SIM800.mqttServer.tcpconn == 0) {
+    if( (handle->rxFrame[handle->frame_offset-1] == '\r') && (byte == '\n') ){
+      if( handle->frame_offset == 1 ) {
+        // Пустая строка
+        handle->frame_offset = 0;
+        return;
+      }
+    }
+    else {
+//    memcpy(mqtt_buffer, handle->rxFrame, handle->frame_offset );
+      handle->rxFrame[handle->frame_offset] = '\0';
+//        clearRxBuffer( (char *)handle->rxFrame, &handle->frame_offset );
+      if( handle->reply != NULL ){
+        if( strstr(handle->rxFrame, handle->reply ) ) {
+          handle->replyFlag = SET;
+          if( strcmp( handle->reply, "CONNECT\r\n") == 0 ) {
+            // Есть соединение с MQTT-сервером
+            SIM800.mqttServer.tcpconn = 1;
+          }
+        }
+      }
+      // Получили и обработали строку
+      handle->frame_offset = 0;
+      return;
     }
   }
+  else {
+    // Есть TCP-соединение
+    if( (handle->rxFrame[handle->frame_offset-2] == '\r') && (byte == '\n') ) {
+      if (strstr((char *)handle->rxFrame, "CLOSED\r\n")
+          || strstr((char *)handle->rxFrame, "ERROR\r\n")
+          || strstr((char *)handle->rxFrame, "DEACT\r\n"))
+      {
+        // Нет соединения с MQTT-сервером
+        SIM800.mqttServer.tcpconn = 0;
+        mqttConnectCb( SIM800.mqttServer.tcpconn );
+      }
+      // Получили и обработали строку - если и принимали что-то, но не до конца - все потеряли
+      handle->frame_offset = 0;
+      return;
+    }
+
+    // Пытаемся принять MQTT-сообщение
+    mqttMsgParse( handle, &SIM800 );
+  }
+
+  return;
 }

@@ -12,7 +12,6 @@
 //uint32_t EEPROMPageSize;
 
 HAL_StatusTypeDef   stmEeRead( uint32_t addr, uint32_t * data, uint32_t datalen);
-HAL_StatusTypeDef   stmEeWrite( uint32_t addr, uint32_t * data, uint32_t datalen);
 
 /******************************* SPI Routines**********************************/
 

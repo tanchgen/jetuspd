@@ -57,7 +57,6 @@ const sUartInitDesc uartInitDesc[] = {
       .dmaTxChannel = DMA1_Channel2,
       .dmaTxItTcif = DMA_IFCR_CTCIF2,
       .baudrate = 9600,
-      .rxProcFlag = RESET,
     },
 #endif // SIM_UART_ENABLE
 #if TERM_UART_ENABLE
@@ -104,7 +103,7 @@ const sUartHnd termHnd = { &termUartRxHandle, &termUartTxHandle };
 
 //=====================================================================================
 //void simUartTxClock(sUartTxHandle *handle);
-
+//void simUartRxProc( sUartRxHandle * handle );
 
 
 void uartEnTimeout( uintptr_t arg ){
@@ -237,7 +236,7 @@ void simUartClock( void ){
 #endif
 
   /* Обработаем данные SIM_UART. */
-  simUartRxProc( simHnd.rxh );
+  uartRxClock( simHnd.rxh );
 //  simUartTxClock( simHnd.txh );
 }
 

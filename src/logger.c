@@ -99,7 +99,7 @@ void logReadTout( uintptr_t arg ){
 void logWriteTout( uintptr_t arg ){
   (void)arg;
 
-  if( (SIM800.mqttServer.connect == 0) && iSens[ISENS_1].isensFlag ){
+  if( (SIM800.mqttServer.mqttconn == 0) && iSens[ISENS_1].isensFlag ){
     //TODO: Сделать для всех логиркемых устройств
     logger( getRtcTime(), DEVID_ISENS_1, iSens[ISENS_1].isensCount );
     iSens[ISENS_1].isensFlag = RESET;

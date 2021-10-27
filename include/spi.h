@@ -8,7 +8,8 @@
 #ifndef SPI_H_
 #define SPI_H_
 
-//#include "stm32f2xx.h"
+#include "sys/cdefs.h"
+#include "stm32l1xx.h"
 
 #define PLL_SPI_DMA_ENABLE    0
 #define MRAM_SPI_DMA_ENABLE    0

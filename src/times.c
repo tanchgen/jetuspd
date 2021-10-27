@@ -4,6 +4,9 @@
 #include "stm32l1xx_hal.h"
 
 #include "times.h"
+#include "uart.h"
+
+extern const sUartHnd simHnd;
 
 volatile uint32_t  mTick = 0;
 
@@ -47,7 +50,7 @@ void rtcSetAlrm( tRtc * prtc );
 void rtcGetAlrm( tRtc * prtc );
 void rtcCorrAlrm( tRtc * prtc );
 
-void simUartClock( void );
+//void uartRxClock( void );
 
 // *********** Инициализация структуры ВРЕМЯ (сейчас - системное ) ************
 // *********** Инициализация структуры ВРЕМЯ (сейчас - системное ) ************

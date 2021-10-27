@@ -10,9 +10,11 @@
 #include "usart_arch.h"
 #include "../mqtt/inc/MQTTSim800.h"
 
-extern SIM800_t SIM800;
+//extern SIM800_t SIM800;
+//
+//void mqttConnectCb( FlagStatus conn );
+void simUartRxProc( sUartRxHandle * handle );
 
-void mqttConnectCb( FlagStatus conn );
 
 void uartEnable( sUartRxHandle *rxuart, sUartTxHandle *txuart ){
   rxuart->dma_rx_channel->CCR |= DMA_CCR_EN;
@@ -390,6 +392,7 @@ void uartIfaceInit( sUartTxHandle * txhandle, sUartRxHandle * rxhandle, eUartId 
   rxhandle->half = RESET;
   rxhandle->tail = 0;
   rxhandle->baudrate = uartInitDesc[uartid].baudrate;
+  rxhandle->rxProcFlag = RESET;
 
   /* Инициализируем дескриптор USART_TX. */
   txhandle->uart = uartInitDesc[uartid].uartTx;

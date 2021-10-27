@@ -25,7 +25,7 @@ uint8_t tx_buffer[256] = {0};
 //uint8_t rx_buffer[1460] = {0};
 uint16_t rx_index = 0;
 
-uint8_t mqtt_receive = 0;
+//uint8_t mqtt_receive = 0;
 
 #define MQTT_BUF_SIZE   1460
 char mqtt_buffer[MQTT_BUF_SIZE] = {0};
@@ -36,7 +36,10 @@ FlagStatus mqttPubFlag = RESET;
 
 struct timer_list mqttPubTimer;
 
+// ------------------- Function prototype ---------------------------
 void mqttConnectCb( FlagStatus conn );
+void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim );
+// ------------------------------------------------------------------
 
 void mqttPubTout( uintptr_t arg ){
   (void)arg;
@@ -117,7 +120,6 @@ void clearRxBuffer( char * buf, uint32_t * size ){
  * @return NONE
  */
 void clearMqttBuffer(void) {
-  mqtt_receive = 0;
   mqtt_index = 0;
   memset(mqtt_buffer, 0, sizeof(mqtt_buffer));
 }
@@ -231,7 +233,6 @@ int mqttStart(void) {
 int TCP_Connect(void) {
     SIM800.mqttServer.mqttconn = 0;
     char str[128] = {0};
-    unsigned char buf[128] = {0};
     sprintf(str, "AT+CIPSTART=\"TCP\",\"%s\",%d\r\n", SIM800.mqttServer.host, SIM800.mqttServer.port);
     return SIM800_SendCommand(str, "CONNECT\r\n", CMD_DELAY_10*30 );
 }
@@ -387,7 +388,7 @@ void MQTT_Receive(unsigned char *buf)
     unsigned char *payload;
     MQTTDeserialize_publish(&SIM800.mqttReceive.dup, &SIM800.mqttReceive.qos, &SIM800.mqttReceive.retained,
                             &SIM800.mqttReceive.msgId,
-                            &receivedTopic, &payload, &SIM800.mqttReceive.payloadLen, buf,
+                            &receivedTopic, &payload, (int*)&SIM800.mqttReceive.payloadLen, buf,
                             sizeof(buf));
     memcpy(SIM800.mqttReceive.topic, receivedTopic.lenstring.data, receivedTopic.lenstring.len);
     SIM800.mqttReceive.topicLen = receivedTopic.lenstring.len;
@@ -481,7 +482,7 @@ void mqttProcess( void ){
 
 
 // Обработка принятых по UART данных посимвольно
-void simUartProc( sUartRxHandle * handle ){
+void simUartRxProc( sUartRxHandle * handle ){
   uint8_t byte = handle->rxFrame[handle->frame_offset];
 
   if (SIM800.mqttServer.tcpconn == 0) {
@@ -497,7 +498,7 @@ void simUartProc( sUartRxHandle * handle ){
       handle->rxFrame[handle->frame_offset] = '\0';
 //        clearRxBuffer( (char *)handle->rxFrame, &handle->frame_offset );
       if( handle->reply != NULL ){
-        if( strstr(handle->rxFrame, handle->reply ) ) {
+        if( strstr( (char*)handle->rxFrame, handle->reply ) ) {
           handle->replyFlag = SET;
           if( strcmp( handle->reply, "CONNECT\r\n") == 0 ) {
             // Есть соединение с MQTT-сервером
@@ -527,7 +528,7 @@ void simUartProc( sUartRxHandle * handle ){
     }
 
     // Пытаемся принять MQTT-сообщение
-    mqttMsgParse( handle, &SIM800 );
+    mqttMsgProc( handle, &SIM800 );
   }
 
   return;

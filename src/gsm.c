@@ -35,7 +35,7 @@ uint16_t gprsConnTout[] = {
   3000
 };
 
-// -------------- Function prototipy ------------------------------------------
+// -------------- Function prototype ------------------------------------------
 void simUartBaud( uint32_t baudrate );
 void simUartHwFlow( void );
 
@@ -46,6 +46,7 @@ int gprsConnTest( void );
 int gprsConnBreak( void );
 int gprsConn( void );
 int ntpInit(void);
+int TCP_Connect(void);
 int clkSet( void );
 // ----------------------------------------------------------------------------
 // ----------------  GSM PROCCESS FUNCTIONS -----------------------------------

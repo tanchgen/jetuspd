@@ -56,7 +56,7 @@ enum QoS {
 
 struct Mqtt
 {
-	struct ip_addr server;
+//	struct ip_addr server;
 	uint16_t port;
 	uint32_t connTout;
 	uint8_t connCount;

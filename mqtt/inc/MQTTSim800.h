@@ -7,6 +7,8 @@
 
 #include "main.h"
 #include "uart.h"
+#include "MQTTPacket.h"
+#include "mqtt.h"
 #include "topic_id.h"
 
 // === CONFIG ===
@@ -48,7 +50,8 @@ typedef struct {
     unsigned char retained;
     unsigned short msgId;
     unsigned char payload[64];
-    int payloadLen;
+    uint32_t payloadLen;
+    uint32_t payOffset;
     unsigned char topic[64];
     int topicLen;
     eTopicId topicId;
@@ -66,7 +69,7 @@ typedef struct {
 
 extern SIM800_t SIM800;
 
-extern uint8_t mqtt_receive;
+//extern uint8_t mqtt_receive;
 extern char mqtt_buffer[1460];
 extern uint16_t mqtt_index;
 

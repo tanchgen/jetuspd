@@ -4,12 +4,12 @@
  *  Created on: 21 окт. 2021 г.
  *      Author: jet
  */
-
-#include "../inc/mqtt.h"
+#include <string.h>
 
 #include "uart.h"
-
-#include "../inc/MQTTSim800.h"
+#include "MQTTSim800.h"
+#include "fw.h"
+#include "mqtt.h"
 
 const char * topicStr[TOPIC_NUM] = {
   "r/device",     		//  TOPIC_DEVID,
@@ -41,6 +41,8 @@ const char * topicStr[TOPIC_NUM] = {
 };
 
 
+void mqttConnectCb( FlagStatus conn );
+
 // Получение  флагов сообщения
 void msgFlagSet( uint8_t flags, mqttReceive_t * receive ){
   receive->dup = flags & 0x08;
@@ -49,10 +51,10 @@ void msgFlagSet( uint8_t flags, mqttReceive_t * receive ){
 }
 
 
-void mqttMsgParse( sUartRxHandle * handle, SIM800_t * sim ){
+void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
   static uint8_t * mqttData;
   uint8_t len0;
-  const len = (handle + handle->frame_offset) - mqttData;
+  const uint32_t len = (handle->rxFrame + handle->frame_offset) - mqttData;
 
   len0 = len;
 
@@ -60,36 +62,35 @@ void mqttMsgParse( sUartRxHandle * handle, SIM800_t * sim ){
     switch ( sim->mqttReceive.msgState ){
       case MSG_NULL:
         mqttData = handle->rxFrame;
-        mqtt_receive = SET;
 
         sim->mqttReceive.msgType = *mqttData & 0xF0;
         switch( sim->mqttReceive.msgType ) {
-          case MQTT_MSGT_PINGRESP:
+          case MQTT_PINGRESP:
             break;
-          case MQTT_MSGT_PUBLISH:
+          case MQTT_PUBLISH:
             msgFlagSet( *mqttData, &(sim->mqttReceive) );
             break;
-          case MQTT_MSGT_CONACK:
+          case MQTT_CONNACK:
             sim->mqttServer.mqttconn = 1;
             mqttConnectCb( SIM800.mqttServer.mqttconn );
             break;
-          case MQTT_MSGT_SUBACK:
+          case MQTT_SUBACK:
 //              this->subs = TRUE;
             break;
-          case MQTT_MSGT_PUBACK:
+          case MQTT_PUBACK:
 //              this->pubFree = TRUE;
             break;
           default:
 //              this->nextActivity = tmpTime;
+            break;
         }
         sim->mqttReceive.msgState = MSG_TYPE;
         len0--;
         mqttData++;
         break;
       case MSG_TYPE:
-        if( sim->mqttReceive.msgType != MQTT_MSGT_PUBLISH ){
+        if( sim->mqttReceive.msgType != MQTT_PUBLISH ){
           // Сообщение принято полностью
-          mqtt_receive = RESET;
           sim->mqttReceive.msgState = MSG_NULL;
         }
         len0--;
@@ -99,6 +100,7 @@ void mqttMsgParse( sUartRxHandle * handle, SIM800_t * sim ){
       case MSG_REMAINING_LEN:
         if( len >= 2 ){
           // Принята длина топика
+          assert_param( mqttData != NULL );
           sim->mqttReceive.topicLen = (*mqttData++ << 8)
                                       | *mqttData;
           len0 -= 2;
@@ -131,9 +133,6 @@ void mqttMsgParse( sUartRxHandle * handle, SIM800_t * sim ){
           mqttData += size;
           sim->mqttReceive.msgState = MSG_TOPIC;
         }
-        else {
-          len = 0;
-        }
         break;
       }
       case MSG_TOPIC:
@@ -149,11 +148,10 @@ void mqttMsgParse( sUartRxHandle * handle, SIM800_t * sim ){
 
         if( i == 4){
           // Ошибка длины данных
-          mqtt_receive = RESET;
+         len0 = 0;
           sim->mqttReceive.msgState = MSG_NULL;
         }
         else if( sim->mqttReceive.payloadLen == 0 ){
-          mqtt_receive = RESET;
           sim->mqttReceive.msgState = MSG_NULL;
         }
         else {
@@ -169,15 +167,17 @@ void mqttMsgParse( sUartRxHandle * handle, SIM800_t * sim ){
             handle->frame_offset = 0;
           }
           else {
+            // Получено сообщение целиком
             // TODO: Обработка полученых данных - сделать не в ПРЕРЫВАНИИ
             handle->rxProcFlag = SET;
+            sim->mqttReceive.payOffset = mqttData - handle->rxFrame;
           }
-          mqtt_receive = RESET;
           sim->mqttReceive.msgState = MSG_NULL;
         }
         else if( (len >= 1024) && (sim->mqttReceive.topicId == TOPIC_FW_BIN) ){
           // Прием прошивки - запись во флеш
           // TODO: Запись во Флеш сделать не в ПРЕРЫВАНИИ
+          sim->mqttReceive.payOffset = mqttData - handle->rxFrame;
           handle->rxProcFlag = SET;
         }
 
@@ -192,7 +192,7 @@ void mqttMsgParse( sUartRxHandle * handle, SIM800_t * sim ){
 }
 
 
-void simUartRxProc( sUartRxHandle * handle ){
+void mqttPubProc( sUartRxHandle * handle ){
   if( handle->rxProcFlag == RESET ){
     return;
   }
@@ -238,10 +238,11 @@ void simUartRxProc( sUartRxHandle * handle ){
     case TOPIC_FW:
 			break;
     case TOPIC_FW_MAN:
+      fwManProc(  handle, &(SIM800.mqttReceive) );
 			break;
     case TOPIC_FW_BIN:
       // Приняли/принимаем Обновление прошивки
-
+      fwUpProc( handle, &(SIM800.mqttReceive) );
 			break;
     case TOPIC_RS:
 			break;

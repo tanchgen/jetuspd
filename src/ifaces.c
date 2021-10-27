@@ -16,6 +16,10 @@
 //void logInit( void );
 void SystemClock_Config(void);
 
+void mqttInit(void);
+void fwInit( void );
+
+
 void ifaceInit( void ){
   SystemClock_Config();
 	gpioInit();
@@ -27,6 +31,7 @@ void ifaceInit( void ){
   logInit();
   mqttInit();
   isensInit();
+  fwInit();
 }
 
 

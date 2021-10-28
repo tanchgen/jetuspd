@@ -227,20 +227,18 @@ uint16_t uartTransmit( sUartTxHandle * handle, uint32_t size, uint32_t tout ){
     }
   }
 
-  handle->dma_tx_channel->CCR &= ~DMA_CCR_EN;
-
   // Выключаем UART_TX
-  handle->uart->CR1 &= ~USART_CR1_TE;
-  /* Clear the TC bit in the SR register by writing 0 to it. */
-  handle->uart->SR &= ~USART_SR_TC;
-  handle->dma_tx->IFCR = handle->dma_tx_it_tcif;
+  handle->uart->CR3 &= ~USART_CR3_DMAT;
+  handle->dma_tx_channel->CCR &= ~DMA_CCR_EN;
   handle->dma_tx_channel->CMAR = (uint32_t)handle->data;
   /* Укажем число передаваемых байт. */
   handle->dma_tx_channel->CNDTR = size;
+  handle->dma_tx->IFCR = handle->dma_tx_it_tcif;
+  /* Clear the TC bit in the SR register by writing 0 to it. */
+  handle->uart->SR &= ~USART_SR_TC;
   /* Activate the channel in the DMA register. */
   handle->dma_tx_channel->CCR |= DMA_CCR_EN;
-  // Включаем UART_TX
-  handle->uart->CR1 |= USART_CR1_TE;
+  handle->uart->CR3 |= USART_CR3_DMAT;
 
   return size;
 }

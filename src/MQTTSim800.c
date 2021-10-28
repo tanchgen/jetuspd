@@ -129,10 +129,12 @@ int SIM800_SendCommand(char *command, char *reply, uint16_t delay){
   uint32_t tmptick;
   tmptick = mTick + delay;
   uint8_t rc = 1;
+  uint16_t size;
 
   *mqtt_buffer = '\0';
   simHnd.txh->data = (uint8_t*)command;
-  if( uartTransmit(simHnd.txh, (uint16_t)strlen(command), 1000) != HAL_OK ){
+  size = (uint16_t)strlen(command);
+  if( uartTransmit(simHnd.txh, size, 1000) != size ){
     trace_puts( "uart err" );
   }
 
@@ -165,7 +167,7 @@ int MQTT_Deinit(void) {
 
     mDelay(1000);
     simHnd.txh->data = (uint8_t*)cmd;
-    if( uartTransmit(simHnd.txh, 5, 1000) != HAL_OK ){
+    if( uartTransmit(simHnd.txh, 5, 1000) != 5 ){
       trace_puts( "uart err" );
     }
 
@@ -466,7 +468,7 @@ void mqttProcess( void ){
         if( td < 0 ){
           td = -td;
         }
-        sprintf( str, "{time\":%ul,\"volt\":%d.%d}", (unsigned int)ut, tu, td );
+        sprintf( str, "{\"time\":%ul,\"volt\":%d.%d}", (unsigned int)ut, tu, td );
         MQTT_Pub( "imei/volt", str );
 
         tu = adcHandle.adcTemp / 10;
@@ -474,7 +476,7 @@ void mqttProcess( void ){
         if( td < 0 ){
           td = -td;
         }
-        sprintf( str, "{time\":%ul,\"temp\":%d.%d}", (unsigned int)ut, tu, td );
+        sprintf( str, "{\"time\":%ul,\"temp\":%d.%d}", (unsigned int)ut, tu, td );
         MQTT_Pub( "imei/temp", str );
       }
     }

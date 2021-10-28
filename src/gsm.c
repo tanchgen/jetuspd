@@ -12,6 +12,7 @@
 #include "usart_arch.h"
 #include "gsm.h"
 
+static uint32_t tmpTick;
 
 SIM800_t SIM800;
 eGsmState gsmState = GSM_OFF;
@@ -113,11 +114,18 @@ void gsmInitFunc( void ){
       case PHASE_NON:
         simStartInit();
         gsmRunPhase = PHASE_ON;
+        tmpTick = 0;
         break;
       case PHASE_ON:
         if( simWaitReady() == RESET ) {
 //          // TODO: Усыпить на 2с
 //          mDelay(2000);
+          gsmRunPhase = PHASE_ON_OK;
+        }
+        else if( tmpTick == 0 ){
+          tmpTick = mTick + 7000;
+        }
+        else if( tmpTick < mTick ){
           gsmRunPhase = PHASE_ON_OK;
         }
         break;
@@ -441,10 +449,10 @@ int simStartInit(void) {
 
     SIM800_SendCommand("ATE1\r\n", "OK\r\n", CMD_DELAY_2);
 
-    if( SIM800_SendCommand("AT+CLTS?\r\n", "+CLTS: 1\r\n", CMD_DELAY_2) != 0 ){
-      SIM800_SendCommand("AT+CLTS=1;&W\r\n", "OK\r\n", CMD_DELAY_2);
-      SIM800_SendCommand("AT+CFUN=1,1\r\n", "OK\r\n", CMD_DELAY_2);
-    }
+//    if( SIM800_SendCommand("AT+CLTS?\r\n", "+CLTS: 1\r\n", CMD_DELAY_2) != 0 ){
+//      SIM800_SendCommand("AT+CLTS=1;&W\r\n", "OK\r\n", CMD_DELAY_2);
+//      SIM800_SendCommand("AT+CFUN=1,1\r\n", "OK\r\n", CMD_DELAY_2);
+//    }
 
     return error;
 }
@@ -524,7 +532,7 @@ int ntpInit(void) {
         ntpFlag = SET;
       }
       else {
-        Error_Handler( 2000 );
+        Error_Handler( NON_STOP );
       }
     }
   }

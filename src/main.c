@@ -96,6 +96,7 @@ int main(void)
 
   ifaceEnable();
 
+  trace_puts("Hello USPD!");
   //Test data
 //  uint8_t pub_uint8 = 1;
 //  uint16_t pub_uint16 = 2;

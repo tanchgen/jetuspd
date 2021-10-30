@@ -161,7 +161,7 @@ typedef struct uartRxHandle{
   uint8_t  crc;
 
   /** Буфер для размещения структуры дескриптора текущего обрабатываемого пакета USART. */
-  uint8_t rxFrame[256];
+  uint8_t rxFrame[1460];
 
   /** Текущее смещение данных относительно начала пакета. */
   uint32_t  frame_offset;

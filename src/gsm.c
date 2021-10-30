@@ -204,8 +204,8 @@ void gsmGprsConnFunc( void ){
       case PHASE_ON:
         if( clkSet() == RESET ){
           // Время установлено - включаем интефейс Терминала и отправляем время
-          gpioPinSetNow( &gpioPinTermOn );
 #if TERM_UART_ENABLE
+          gpioPinSetNow( &gpioPinTermOn );
           termSendTime();
 #endif //TERM_UART_ENABLE
           gsmRunPhase = PHASE_NON;
@@ -447,12 +447,8 @@ int simStartInit(void) {
       Error_Handler( STOP );
     }
 
+    SIM800_SendCommand("AT+IFC=2,2\r\n", "OK\r\n", CMD_DELAY_2);
     SIM800_SendCommand("ATE1\r\n", "OK\r\n", CMD_DELAY_2);
-
-//    if( SIM800_SendCommand("AT+CLTS?\r\n", "+CLTS: 1\r\n", CMD_DELAY_2) != 0 ){
-//      SIM800_SendCommand("AT+CLTS=1;&W\r\n", "OK\r\n", CMD_DELAY_2);
-//      SIM800_SendCommand("AT+CFUN=1,1\r\n", "OK\r\n", CMD_DELAY_2);
-//    }
 
     return error;
 }
@@ -477,14 +473,15 @@ int getClk( void ){
 
 
 int gprsConnTest( void ){
+  int rc = -1;
     if( SIM800_SendCommand("AT+SAPBR=2,1\r\n", "+SAPBR:", CMD_DELAY_5) == 0){
-      return mqtt_buffer[10];
+      rc = mqtt_buffer[10];
     }
     else {
       Error_Handler( NON_STOP );
     }
 
-  return SET;
+  return rc;
 }
 
 

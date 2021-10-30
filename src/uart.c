@@ -170,7 +170,7 @@ void uartRxClock(sUartRxHandle *handle){
       mqttConnectCb( SIM800.mqttServer.connect );
     }
 
-    if (SIM800.mqttServer.connect == 1 && handle->frame_offset== 48) {
+    if (SIM800.mqttServer.connect == 1 && byte == 48) {
         mqtt_receive = 1;
     }
     if (mqtt_receive == 1) {
@@ -184,7 +184,9 @@ void uartRxClock(sUartRxHandle *handle){
             clearMqttBuffer();
         }
     }
-    if (handle->frame_offset >= sizeof(mqtt_buffer)) {
+
+    if (handle->frame_offset >= 256 /*sizeof(mqtt_buffer)*/) {
+      trace_puts("End_buf");
       clearRxBuffer( (char *)handle->rxFrame, &handle->frame_offset );
         clearMqttBuffer();
     }

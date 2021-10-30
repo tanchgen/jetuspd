@@ -25,7 +25,7 @@
   #define DLLExport
 #endif
 
-#define MQTT_PUB_TOUT     (uint32_t)(TOUT_1000 * 30)
+#define MQTT_PUB_TOUT     (uint32_t)(TOUT_1000 * 10)
 
 DLLExport int MQTTSerialize_publish(unsigned char* buf, int buflen, unsigned char dup, int qos, unsigned char retained, unsigned short packetid,
 		MQTTString topicName, unsigned char* payload, int payloadlen);

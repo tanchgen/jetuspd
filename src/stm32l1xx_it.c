@@ -285,7 +285,7 @@ void RCC_IRQHandler( void ) { while(1){} };
 //void DMA1_Channel2_IRQHandler( void ) { while(1){} };
 //void DMA1_Channel3_IRQHandler( void ) { while(1){} };
 //void DMA1_Channel4_IRQHandler( void ) { while(1){} };
-//void DMA1_Channel5_IRQHandler( void ) { while(1){} };
+void DMA1_Channel5_IRQHandler( void ) { while(1){} };
 void DMA1_Channel6_IRQHandler( void ) { while(1){} };
 void DMA1_Channel7_IRQHandler( void ) { while(1){} };
 //void ADC1_IRQHandler( void ) { while(1){} };

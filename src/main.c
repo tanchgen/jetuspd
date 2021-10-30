@@ -134,7 +134,6 @@ int main(void)
 void Error_Handler( int stop ){
   /* USER CODE BEGIN Error_Handler_Debug */
     /* User can add his own implementation to report the HAL error return state */
-    __disable_irq();
     GPIOB->BSRR = GPIO_PIN_9;
     while (stop) {
     }

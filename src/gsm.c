@@ -10,10 +10,13 @@
 #include <string.h>
 
 #include "my_ntp.h"
-#include "../mqtt/inc/MQTTSim800.h"
+#include "MQTTSim800.h"
+#include "usart_arch.h"
+#include "gsm.h"
 
 extern const uint32_t baudrate[BAUD_NUM];
 extern const sUartHnd simHnd;
+extern struct timer_list mqttPubTimer;
 
 static uint32_t tmpTick;
 
@@ -102,7 +105,7 @@ void gsmSimOnFunc( void ){
   if( gsmRun ){
     switch( gsmRunPhase ){
       case PHASE_NON:
-        mqttInit();
+//        mqttInit();
         ntpFlag = RESET;
         gsmState++;
         break;
@@ -125,11 +128,18 @@ void gsmInitFunc( void ){
         simStartInit();
         tmpTick = mTick + (TOUT_1000 * 30);
         gsmRunPhase = PHASE_ON;
+        tmpTick = 0;
         break;
       case PHASE_ON:
         if( (simWaitReady() == RESET) || (tmpTick < mTick) ) {
 //          // TODO: Усыпить на 2с
 //          mDelay(2000);
+          gsmRunPhase = PHASE_ON_OK;
+        }
+        else if( tmpTick == 0 ){
+          tmpTick = mTick + 7000;
+        }
+        else if( tmpTick < mTick ){
           gsmRunPhase = PHASE_ON_OK;
         }
         break;
@@ -233,8 +243,8 @@ void gsmGprsConnFunc( void ){
       case PHASE_ON:
         if( clkSet() == RESET ){
           // Время установлено - включаем интефейс Терминала и отправляем время
-          gpioPinSetNow( &gpioPinTermOn );
 #if TERM_UART_ENABLE
+          gpioPinSetNow( &gpioPinTermOn );
           termSendTime();
 #endif //TERM_UART_ENABLE
           gsmRunPhase = PHASE_NON;
@@ -501,12 +511,8 @@ int simStartInit(void) {
       Error_Handler( STOP );
     }
 
+    SIM800_SendCommand("AT+IFC=2,2\r\n", "OK\r\n", CMD_DELAY_2);
     SIM800_SendCommand("ATE1\r\n", "OK\r\n", CMD_DELAY_2);
-
-//    if( SIM800_SendCommand("AT+CLTS?\r\n", "+CLTS: 1\r\n", CMD_DELAY_2) == 0 ){
-//      SIM800_SendCommand("AT+CLTS=0;&W\r\n", "OK\r\n", CMD_DELAY_2);
-//      SIM800_SendCommand("AT+CFUN=1,1\r\n", "OK\r\n", CMD_DELAY_2);
-//    }
 
     return error;
 }
@@ -531,14 +537,15 @@ int getClk( void ){
 
 
 int gprsConnTest( void ){
+  int rc = -1;
     if( SIM800_SendCommand("AT+SAPBR=2,1\r\n", "+SAPBR:", CMD_DELAY_5) == 0){
-      return mqtt_buffer[10];
+      rc = mqtt_buffer[10];
     }
     else {
       Error_Handler( NON_STOP );
     }
 
-  return SET;
+  return rc;
 }
 
 
@@ -584,7 +591,7 @@ int ntpInit(void) {
           ntpFlag = SET;
         }
         else {
-          Error_Handler( 2000 );
+          Error_Handler( NON_STOP );
         }
       }
     }

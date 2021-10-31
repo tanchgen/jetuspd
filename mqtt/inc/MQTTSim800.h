@@ -4,11 +4,14 @@
  *
  */
 
+#ifndef MQTT_SIM_800_H_
+#define MQTT_SIM_800_H_
+
 
 #include "main.h"
 #include "uart.h"
 #include "MQTTPacket.h"
-#include "mqtt.h"
+//#include "mqtt.h"
 #include "topic_id.h"
 
 // === CONFIG ===
@@ -20,7 +23,16 @@
 #define CMD_DELAY_50    5000
 // ==============
 
-
+typedef enum {
+  MSG_NULL,
+  MSG_TYPE,
+  MSG_REMAINING_LEN,
+  MSG_TOP_LEN,
+  MSG_PKT_ID,
+  MSG_TOPIC,
+  MSG_PAY_LEN,
+  MSG_PAYLOAD,
+} eMsgState;
 
 typedef struct {
     char *apn;
@@ -44,11 +56,13 @@ typedef struct {
 } mqttClient_t;
 
 typedef struct {
-    uint8_t newEvent;
     unsigned char dup;
     int qos;
     unsigned char retained;
     unsigned short msgId;
+    uint8_t * mqttData;
+    uint32_t remLenMp;
+    uint32_t remLen;
     unsigned char payload[64];
     uint32_t payloadLen;
     uint32_t payOffset;
@@ -76,8 +90,6 @@ extern uint16_t mqtt_index;
 extern FlagStatus mqttSubFlag;
 extern FlagStatus mqttPubFlag;
 
-extern struct timer_list mqttPubTimer;
-
 void Sim800_RxCallBack(void);
 void clearRxBuffer( char * buf, uint32_t * size );
 void clearMqttBuffer(void);
@@ -104,3 +116,4 @@ void MQTT_Receive(unsigned char *buf);
 
 void mqttProcess( void );
 
+#endif // MQTT_SIM_800_H_

@@ -2,22 +2,16 @@
  * MQTTSim800.c
  *
  */
-#include "../inc/MQTTSim800.h"
+#include "MQTTSim800.h"
 
 #include <gsm.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "main.h"
-#include "adc.h"
 #include "usart_arch.h"
-#include "isens.h"
-#include "logger.h"
-#include "../inc/MQTTPacket.h"
+#include "mqtt.h"
 
-
-
-extern uint16_t logRdBufFill;
 
 uint8_t tx_buffer[256] = {0};
 
@@ -40,68 +34,6 @@ struct timer_list mqttPubTimer;
 void mqttConnectCb( FlagStatus conn );
 void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim );
 // ------------------------------------------------------------------
-
-void mqttPubTout( uintptr_t arg ){
-  (void)arg;
-
-  if( SIM800.mqttServer.mqttconn == 1 ) {
-    mqttPubFlag = SET;
-  }
-}
-
-
-//void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-//  if (huart == UART_SIM800) {
-//    Sim800_RxCallBack();
-//  }
-//  HAL_UART_Receive_IT(UART_SIM800, &rx_data, 1);
-//}
-
-
-//void simRxProcess( char * rxbuf, uint32_t size ) {
-//  if (SIM800.mqttServer.connect == 0) {
-//    if( size == 2) {
-//      return;
-//    }
-//    else {
-//      memcpy(mqtt_buffer, rxbuf, size);
-//      clearRxBuffer( rxbuf, size );
-//      if( strstr(mqtt_buffer, "DY CONNECT\r\n") || strstr(mqtt_buffer, "CONNECT\r\n") ) {
-//        // Есть соединение с MQTT-сервером
-//        SIM800.mqttServer.connect = 1;
-//        mqttConnectCb( SIM800.mqttServer.connect );
-//      }
-//    }
-//  }
-//
-//  if (strstr( rxbuf, "CLOSED\r\n")
-//      || strstr( rxbuf, "ERROR\r\n")
-//      || strstr( rxbuf, "DEACT\r\n"))
-//  {
-//    // Нет соединения с MQTT-сервером
-//    SIM800.mqttServer.connect = 0;
-//    mqttConnectCb( SIM800.mqttServer.connect );
-//  }
-//
-//  if (SIM800.mqttServer.connect == 1 && size == 48) {
-//    mqtt_receive = 1;
-//  }
-//  if (mqtt_receive == 1) {
-//    mqtt_buffer[mqtt_index++] = rx_data;
-//    if (mqtt_index > 1 && mqtt_index - 1 > mqtt_buffer[1]) {
-//      MQTT_Receive((unsigned char *)mqtt_buffer);
-//      clearRxBuffer();
-//      clearMqttBuffer();
-//    }
-//    if (mqtt_index >= sizeof(mqtt_buffer)) {
-//      clearMqttBuffer();
-//    }
-//  }
-//  if (rx_index >= sizeof(mqtt_buffer)) {
-//    clearRxBuffer();
-//    clearMqttBuffer();
-//  }
-//}
 
 
 /**
@@ -190,42 +122,6 @@ int MQTT_Deinit(void) {
 
 
 /**
- * initialization SIM800.
- * @param NONE
- * @return error status, 0 - OK
- */
-void mqttInit(void) {
-  SIM800.mqttServer.tcpconn = 0;
-    SIM800.mqttServer.mqttconn = 0;
-//    char str[32] = {0};
-
-    // MQQT settings
-    SIM800.sim.apn = "internet";
-    SIM800.sim.apn_user = "";
-    SIM800.sim.apn_pass = "";
-    SIM800.mqttServer.host = "test.mosquitto.org";
-    SIM800.mqttServer.port = 1883;
-    SIM800.mqttClient.username = NULL;
-    SIM800.mqttClient.pass = NULL;
-    SIM800.mqttClient.clientID = "";
-    SIM800.mqttClient.keepAliveInterval = 60;
-
-    timerSetup( &mqttPubTimer, mqttPubTout, (uintptr_t)NULL );
-}
-
-
-/**
- * Starting MQTT process.
- * @param NONE
- * @return error status, 0 - OK
- */
-int mqttStart(void) {
-  SIM800_SendCommand("ATE0\r\n", "OK\r\n", CMD_DELAY_2);
-  return SIM800_SendCommand("AT+CIPMODE=1\r\n", "OK\r\n", CMD_DELAY_2);
-}
-
-
-/**
  * Connect to TCP (MQTT) server.
  * @param NONE
  * @return NONE
@@ -243,7 +139,6 @@ int TCP_Connect(void) {
  * @return NONE
  */
 void MQTT_Connect(void) {
-  SIM800.mqttReceive.newEvent = 0;
   unsigned char buf[128] = {0};
 
   MQTTPacket_connectData datas = MQTTPacket_connectData_initializer;
@@ -375,26 +270,6 @@ void MQTT_Sub(char *topic)
     mDelay(100);
 }
 
-/**
- * Receive message from MQTT broker
- * @param receive mqtt bufer
- * @return NONE
- */
-void MQTT_Receive(unsigned char *buf)
-{
-    memset(SIM800.mqttReceive.topic, 0, sizeof(SIM800.mqttReceive.topic));
-    memset(SIM800.mqttReceive.payload, 0, sizeof(SIM800.mqttReceive.payload));
-    MQTTString receivedTopic;
-    unsigned char *payload;
-    MQTTDeserialize_publish(&SIM800.mqttReceive.dup, &SIM800.mqttReceive.qos, &SIM800.mqttReceive.retained,
-                            &SIM800.mqttReceive.msgId,
-                            &receivedTopic, &payload, (int*)&SIM800.mqttReceive.payloadLen, buf,
-                            sizeof(buf));
-    memcpy(SIM800.mqttReceive.topic, receivedTopic.lenstring.data, receivedTopic.lenstring.len);
-    SIM800.mqttReceive.topicLen = receivedTopic.lenstring.len;
-    memcpy(SIM800.mqttReceive.payload, payload, SIM800.mqttReceive.payloadLen);
-    SIM800.mqttReceive.newEvent = 1;
-}
 
 void mqttConnectCb( FlagStatus conn ){
   if( conn ){
@@ -411,79 +286,8 @@ void mqttConnectCb( FlagStatus conn ){
 }
 
 
-void mqttProcess( void ){
-
-  if(gsmState < GSM_WORK){
-    return;
-  }
-
-  if( mqttPubFlag ) {
-    mqttPubFlag = RESET;
-  //    MQTT_Pub( "imei/test/string", "String message" );
-  //    MQTT_PubUint8( "imei/test/uint8", pub_uint8 );
-  //    MQTT_PubUint16( "imei/test/uint16", pub_uint16 );
-  //    MQTT_PubUint32( "imei/test/uint32", pub_uint32 );
-  //    MQTT_PubFloat( "imei/test/float", pub_float );
-  //    MQTT_PubDouble( "imei/test/double", pub_double );
-    if( iSens[ISENS_1].isensFlag ){
-      char str[64];
-      uint32_t ut = getRtcTime();
-
-      sprintf( str, "{\"state\":[{time\":%ul,\"pls\":%ul}]}", (unsigned int)ut, (unsigned int)iSens[ISENS_1].isensCount );
-      MQTT_Pub( "imei/i/1", str );
-      iSens[ISENS_1].isensFlag = RESET;
-    }
-    else {
-      // Считываем из ЛОГа
-      if( logRdBufFill == 0 ){
-        logQueryProcess();
-      }
-      if( logRdBufFill ){
-        for( uint8_t i = 0; i < logRdBufFill; i++ ){
-          char str[64];
-          sLogRec * logrec = &(logRdBuf[i]);
-
-          sprintf( str, "{\"arx\":[{time\":%ul,\"pls\":%ul}]}", (unsigned int)logrec->utime, (unsigned int)logrec->data );
-          MQTT_Pub( "imei/i/1", str );
-          logRdBufFill = 0;
-        }
-      }
-      else {
-        char str[64];
-        int tu, td;
-        uint32_t ut = getRtcTime();
-
-        tu = adcHandle.adcVbat / 1000;
-        td = adcHandle.adcVbat - (tu * 1000);
-        if( td < 0 ){
-          td = -td;
-        }
-        sprintf( str, "{time\":%ul,\"volt\":%d.%d}", (unsigned int)ut, tu, td );
-        MQTT_Pub( "imei/volt", str );
-
-        tu = adcHandle.adcTemp / 10;
-        td = adcHandle.adcTemp - (tu * 10);
-        if( td < 0 ){
-          td = -td;
-        }
-        sprintf( str, "{time\":%ul,\"temp\":%d.%d}", (unsigned int)ut, tu, td );
-        MQTT_Pub( "imei/temp", str );
-      }
-    }
-    timerMod( &mqttPubTimer, MQTT_PUB_TOUT );
-  }
-  if( SIM800.mqttReceive.newEvent ){
-    unsigned char *topic = SIM800.mqttReceive.topic;
-    int payload = atoi( (char*)SIM800.mqttReceive.payload );
-    SIM800.mqttReceive.newEvent = 0;
-    trace_printf( "mqttReceive: %s: %d\n", topic, payload );
-  }
-}
-
-
 // Обработка принятых по UART данных посимвольно
-void simUartRxProc( sUartRxHandle * handle ){
-  uint8_t byte = handle->rxFrame[handle->frame_offset];
+void simUartRxProc( sUartRxHandle * handle, uint8_t byte ){
 
   if (SIM800.mqttServer.tcpconn == 0) {
     if( (handle->rxFrame[handle->frame_offset-1] == '\r') && (byte == '\n') ){
@@ -495,7 +299,7 @@ void simUartRxProc( sUartRxHandle * handle ){
     }
     else {
 //    memcpy(mqtt_buffer, handle->rxFrame, handle->frame_offset );
-      handle->rxFrame[handle->frame_offset] = '\0';
+      handle->rxFrame[handle->frame_offset + 1] = '\0';
 //        clearRxBuffer( (char *)handle->rxFrame, &handle->frame_offset );
       if( handle->reply != NULL ){
         if( strstr( (char*)handle->rxFrame, handle->reply ) ) {
@@ -520,10 +324,11 @@ void simUartRxProc( sUartRxHandle * handle ){
       {
         // Нет соединения с MQTT-сервером
         SIM800.mqttServer.tcpconn = 0;
+        SIM800.mqttServer.mqttconn = 0;
         mqttConnectCb( SIM800.mqttServer.tcpconn );
       }
       // Получили и обработали строку - если и принимали что-то, но не до конца - все потеряли
-      handle->frame_offset = 0;
+      mqttBufClean( handle, &SIM800 );
       return;
     }
 

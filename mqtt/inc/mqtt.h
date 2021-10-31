@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include "topic_id.h"
+#include "MQTTSim800.h"
 
 //#include "lwip/opt.h"
 //#include "lwip/stats.h"
@@ -32,17 +33,6 @@
 #define MAX_PACKET_SIZE 128
 
 #define KEEPALIVE 30000
-
-
-typedef enum {
-  MSG_NULL,
-  MSG_TYPE,
-  MSG_REMAINING_LEN,
-  MSG_TOP_LEN,
-  MSG_TOPIC,
-  MSG_PAY_LEN,
-  MSG_PAYLOAD,
-} eMsgState;
 
 typedef struct Mqtt sMqtt;
 
@@ -105,5 +95,14 @@ typedef struct MqttFixedHeader
 //void mqttDisconnectForced(sMqtt *this);
 //uint8_t mqttTcpConnect(sMqtt *this);
 //uint8_t mqttBrokConnect(sMqtt *this);
+
+static inline void mqttBufClean( sUartRxHandle *handle, SIM800_t * sim ){
+  // Очистим буфер
+  sim->mqttReceive.mqttData = handle->rxFrame;
+  handle->frame_offset = 0;
+  handle->rxProcFlag = RESET;
+  sim->mqttReceive.msgState = MSG_NULL;
+}
+
 
 #endif /* MQTT_H_ */

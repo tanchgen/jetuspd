@@ -250,15 +250,6 @@ void clock_usart_tx_data_v1(sUartTxHandle *handle);
 void clock_uart_tx_data_v2(sUartTxHandle  *handle);
 
 /**
-  * @brief  Инициализация структуры дескриптора приемного USART.
-  *
-  * @param[in]  handle  дескриптор приемного USART
-  *
-  * @retval none
-  */
-void init_uart_rx_handle(sUartRxHandle  *handle);
-
-/**
   * @brief  Инициализация структуры дескриптора передающего USART.
   *
   * @param[in]  handle  дескриптор передающего USART

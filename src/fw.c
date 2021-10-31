@@ -8,7 +8,7 @@
 
 //#include "stm32l1xx_hal_flash_ex.h"
 #include "uart.h"
-#include "MQTTSim800.h"
+#include "mqtt.h"
 #include "eeprom.h"
 #include "fw.h"
 
@@ -55,12 +55,12 @@ void fwManProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
 
   bch = (char*)(rxh->rxFrame + mqttrx->payOffset);
   // Читаем версию обновления
-  if( strstr( bch, "{ \"fwupd\": \"") == NULL ){
+  if( strstr( bch, "{\"fwupd\":\"") == NULL ){
     goto bad_man;
   }
   else {
     // Переносим начало строки
-    bch += 12;
+    bch += 10;
     ech = strstr( bch, "\"" );
     // Ограничиваем строку нулем
     *ech = '\0';
@@ -72,19 +72,19 @@ void fwManProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
   }
 
   // Читаем длину обновления
-  if( strstr( bch, "\"light\": ") == 0 ){
+  if( strstr( bch, "\"lght\":") == 0 ){
     goto bad_man;
   }
   else {
     // Переносим начало строки
-    bch += 9;
+    bch += 7;
     if( (pfw->fwLen = atoi( bch )) == 0 ){
       goto bad_man;
     }
   }
 
   // Читаем CRC обновления
-  if( (bch = strstr( bch, "\"crc\": ")) == 0 ){
+  if( (bch = strstr( bch, "\"crc\":\"")) == 0 ){
     goto bad_man;
   }
   else {
@@ -95,13 +95,16 @@ void fwManProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
     }
   }
   rxh->rxProcFlag = RESET;
+  // Очистим буфер
+  mqttBufClean( rxh, &SIM800 );
 
   return;
 
 bad_man:
   pfw->crc = ~0;
   pfw->fwLen = 0;
-  rxh->rxProcFlag = RESET;
+  // Очистим буфер
+  mqttBufClean( rxh, &SIM800 );
 
   return;
 }
@@ -120,8 +123,7 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
 
         // Это первый фрагмент прошивки
         fwup->fwStartAddr = (fwHandle.fwActive)? FW_1_START_ADDR : FW_2_START_ADDR;
-        fwup->fwEndAddr = fwup->fwStartAddr \
-                                  + (fwHandle.fwActive)? FW_1_SIZE : FW_2_SIZE;
+        fwup->fwEndAddr = fwup->fwStartAddr + ((fwHandle.fwActive)? FW_1_SIZE : FW_2_SIZE);
 
         // Сотрем данные неактивной прошивке
         stmEeWrite( (uint32_t)&(eeFwh->fw[!fwHandle.fwActive]), (uint32_t*)&tmpfw, sizeof(sFw) );
@@ -130,10 +132,6 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
         if( (FLASH->PECR & FLASH_PECR_PRGLOCK) != RESET ){
           HAL_FLASH_Unlock();
         }
-        /* Wait for last operation to be completed */
-        FLASH_WaitForLastOperation(FLASH_TIMEOUT_VALUE);
-        FLASH_PageErase(fwup->fwStartAddr );
-//        fwup->fwOpAddr = fwup->fwStartAddr;
         fwup->fwOffset = 0;
         fwHandle.fwFlashState = FWFLASH_ERASE;
       }
@@ -148,7 +146,8 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
     case FWFLASH_ERASE:
       if( (FLASH->SR & FLASH_SR_BSY) == RESET ){
         uint32_t addr = fwup->fwStartAddr + fwup->fwOffset;
-        if( addr < fwup->fwEndAddr ){
+        uint32_t fwend = (fwup->fwStartAddr + fwup->fwLen);
+        if( addr < fwend ){
           // Еще не всю область прошивки стерли
           assert_param( FLASH_PAGE_SIZE <= (fwup->fwEndAddr - addr));
           FLASH_PageErase( addr );
@@ -181,9 +180,9 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
           fwup->fwOffset += 4;
         }
         else {
-          rxh->frame_offset = 0;
-          rxh->rxProcFlag = RESET;
-          fwHandle.fwFlashState = FWFLASH_WRITE_START;
+          // Очистим буфер
+          mqttBufClean( rxh, &SIM800 );
+          fwHandle.fwFlashState = FWFLASH_WRITE_END;
         }
       }
       // TODO: Подсчет CRC очередного фрагмента
@@ -197,13 +196,14 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
         // TODO: Проверка CRC
         // TODO: Сохранение данных прошивки в EEPROM
         // TODO: Запуск выключения и перезагрузки
+        rxh->rxProcFlag = SET;
+        fwHandle.fwFlashState = FWFLASH_READY;
       }
-      fwHandle.fwFlashState = FWFLASH_WRITE_START;
       break;
     case FWFLASH_SKIP:
       // Пропускаем фрагмент
-      rxh->frame_offset = 0;
-      rxh->rxProcFlag = RESET;
+      // Очистим буфер
+      mqttBufClean( rxh, &SIM800 );
       break;
     default:
       //Сюда не должны попадать

@@ -8,12 +8,12 @@
 #include "stm32l1xx_ll_gpio.h"
 #include "stm32l1xx_ll_dma.h"
 #include "usart_arch.h"
-#include "../mqtt/inc/MQTTSim800.h"
+#include "MQTTSim800.h"
 
 //extern SIM800_t SIM800;
 //
 //void mqttConnectCb( FlagStatus conn );
-void simUartRxProc( sUartRxHandle * handle );
+void simUartRxProc( sUartRxHandle * handle, uint8_t byte );
 
 
 void uartEnable( sUartRxHandle *rxuart, sUartTxHandle *txuart ){
@@ -101,19 +101,6 @@ void do_usart_tx_irq(sUartTxHandle *handle){
 //}
 
 
-/**
-  * @brief  Сброс приемного USART версии 2.
-  *
-  * @param[in]  handle  дескриптор приемного USART
-  *
-  * @retval none
-  */
-void _reset_uart_rx_handle_v2(sUartRxHandle *handle){
-  handle->crc = 0;
-
-  handle->frame_offset = 0;
-}
-
 void uartRxClock(sUartRxHandle *handle){
   uint32_t n_bytes;
 //  uint32_t size;
@@ -146,7 +133,12 @@ void uartRxClock(sUartRxHandle *handle){
     handle->rxFrame[handle->frame_offset] = byte;
 
     if( handle == simHnd.rxh ){
-      simUartRxProc( handle );
+      simUartRxProc( handle, byte );
+      if( handle->rxProcFlag ){
+        // Временно приостоновим обработку принятых данных - до обработки принятого топика
+        n_bytes = 0;
+      }
+
     }
 
     handle->frame_offset++;
@@ -189,20 +181,18 @@ uint16_t uartTransmit( sUartTxHandle * handle, uint32_t size, uint32_t tout ){
     }
   }
 
-  handle->dma_tx_channel->CCR &= ~DMA_CCR_EN;
-
   // Выключаем UART_TX
-  handle->uart->CR1 &= ~USART_CR1_TE;
-  /* Clear the TC bit in the SR register by writing 0 to it. */
-  handle->uart->SR &= ~USART_SR_TC;
-  handle->dma_tx->IFCR = handle->dma_tx_it_tcif;
+  handle->uart->CR3 &= ~USART_CR3_DMAT;
+  handle->dma_tx_channel->CCR &= ~DMA_CCR_EN;
   handle->dma_tx_channel->CMAR = (uint32_t)handle->data;
   /* Укажем число передаваемых байт. */
   handle->dma_tx_channel->CNDTR = size;
+  handle->dma_tx->IFCR = handle->dma_tx_it_tcif;
+  /* Clear the TC bit in the SR register by writing 0 to it. */
+  handle->uart->SR &= ~USART_SR_TC;
   /* Activate the channel in the DMA register. */
   handle->dma_tx_channel->CCR |= DMA_CCR_EN;
-  // Включаем UART_TX
-  handle->uart->CR1 |= USART_CR1_TE;
+  handle->uart->CR3 |= USART_CR3_DMAT;
 
   return size;
 }
@@ -358,10 +348,6 @@ void uartDmaInit( sUartRxHandle * rxuart, sUartTxHandle * txuart ){
   }
 }
 
-void init_uart_rx_handle(sUartRxHandle *handle){
-  handle->frame_offset = 0;
-}
-
 void init_uart_tx_handle(sUartTxHandle *handle){
   INIT_LIST_HEAD(&handle->queue);
   handle->id = 0;
@@ -417,7 +403,7 @@ void uartIfaceInit( sUartTxHandle * txhandle, sUartRxHandle * rxhandle, eUartId 
   uartInit( rxhandle, txhandle );
 
   init_uart_tx_handle(txhandle);
-  init_uart_rx_handle(rxhandle);
+  rxhandle->frame_offset = 0;
 
   uartDmaInit( rxhandle, txhandle );
 

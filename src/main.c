@@ -28,7 +28,7 @@
 
 #include "isens.h"
 
-#include "../mqtt/inc/MQTTSim800.h"
+#include "MQTTSim800.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -47,6 +47,8 @@
 
 /* Private variables ---------------------------------------------------------*/
 extern eGsmRunPhase gsmRunPhase;
+
+extern const sUartHnd simHnd;
 
 RCC_ClocksTypeDef RCC_Clocks;
 
@@ -92,6 +94,7 @@ int main(void)
 
   ifaceEnable();
 
+  trace_puts("Hello USPD!");
   //Test data
 //  uint8_t pub_uint8 = 1;
 //  uint16_t pub_uint16 = 2;
@@ -100,6 +103,11 @@ int main(void)
 //  double pub_double = 2.2;
 
     gsmRunPhase = PHASE_NON;
+
+    SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
+    gsmState = GSM_WORK;
+    SIM800.mqttServer.mqttconn = SET;
+    SIM800.mqttServer.tcpconn = SET;
   /* USER CODE END 2 */
 
 
@@ -129,7 +137,6 @@ int main(void)
 void Error_Handler( int stop ){
   /* USER CODE BEGIN Error_Handler_Debug */
     /* User can add his own implementation to report the HAL error return state */
-    __disable_irq();
     GPIOB->BSRR = GPIO_PIN_9;
     while (stop) {
     }

@@ -134,9 +134,20 @@ exit:
   * @param packetid integer - the MQTT packet identifier
   * @return serialized length, or error if 0
   */
-int MQTTSerialize_puback(unsigned char* buf, int buflen, unsigned short packetid)
-{
+int MQTTSerialize_puback(unsigned char* buf, int buflen, unsigned short packetid){
 	return MQTTSerialize_ack(buf, buflen, MQTT_PUBACK, 0, packetid);
+}
+
+
+/**
+  * Serializes a pubrec packet into the supplied buffer.
+  * @param buf the buffer into which the packet will be serialized
+  * @param buflen the length in bytes of the supplied buffer
+  * @param packetid integer - the MQTT packet identifier
+  * @return serialized length, or error if 0
+  */
+int MQTTSerialize_pubrec(unsigned char* buf, int buflen, unsigned short packetid){
+  return MQTTSerialize_ack(buf, buflen, MQTT_PUBREC, 0, packetid);
 }
 
 
@@ -161,8 +172,7 @@ int MQTTSerialize_pubrel(unsigned char* buf, int buflen, unsigned char dup, unsi
   * @param packetid integer - the MQTT packet identifier
   * @return serialized length, or error if 0
   */
-int MQTTSerialize_pubcomp(unsigned char* buf, int buflen, unsigned short packetid)
-{
+int MQTTSerialize_pubcomp(unsigned char* buf, int buflen, unsigned short packetid){
 	return MQTTSerialize_ack(buf, buflen, MQTT_PUBCOMP, 0, packetid);
 }
 

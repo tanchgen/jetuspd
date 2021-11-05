@@ -22,17 +22,6 @@
 extern "C" {
 #endif
 
-#if defined(WIN32_DLL) || defined(WIN64_DLL)
-  #define DLLImport __declspec(dllimport)
-  #define DLLExport __declspec(dllexport)
-#elif defined(LINUX_SO)
-  #define DLLImport extern
-  #define DLLExport  __attribute__ ((visibility ("default")))
-#else
-  #define DLLImport
-  #define DLLExport  
-#endif
-
 enum errors
 {
 	MQTTPACKET_BUFFER_TOO_SHORT = -2,

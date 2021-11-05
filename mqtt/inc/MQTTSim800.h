@@ -59,7 +59,7 @@ typedef struct {
     unsigned char dup;
     int qos;
     unsigned char retained;
-    unsigned short msgId;
+    unsigned short pktId;
     uint8_t * mqttData;
     uint32_t remLenMp;
     uint32_t remLen;
@@ -101,12 +101,17 @@ int MQTT_Deinit(void);
 int mqttStart(void);
 void MQTT_Connect(void);
 
-void MQTT_Pub(char *topic, char *payload);
+uint16_t MQTT_Pub(char *topic, char *payload);
 void MQTT_PubUint8(char *topic, uint8_t data);
 void MQTT_PubUint16(char *topic, uint16_t data);
 void MQTT_PubUint32(char *topic, uint32_t data);
 void MQTT_PubFloat(char *topic, float payload);
 void MQTT_PubDouble(char *topic, double data);
+
+uint16_t MQTT_Puback(  unsigned short packetid );
+uint16_t MQTT_Pubrec(  unsigned short packetid );
+uint16_t MQTT_Pubrel(  unsigned short packetid );
+uint16_t MQTT_Pubcomp(  unsigned short packetid );
 
 void MQTT_PingReq(void);
 

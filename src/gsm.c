@@ -12,6 +12,7 @@
 #include "my_ntp.h"
 #include "MQTTSim800.h"
 #include "usart_arch.h"
+#include "gpio_arch.h"
 #include "gsm.h"
 
 extern const uint32_t baudrate[BAUD_NUM];
@@ -91,7 +92,12 @@ void gsmOffFunc( void ){
         break;
       case PHASE_OFF:
         // TODO: Выставляем будильник, если надо. Усыпляем контроллер
-        gsmRunPhase = PHASE_OFF_OK;
+        if( mcuReset ){
+          NVIC_SystemReset();
+        }
+        else {
+          gsmRunPhase = PHASE_OFF_OK;
+        }
         break;
       default:
         break;

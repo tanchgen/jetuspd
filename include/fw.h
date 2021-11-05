@@ -58,6 +58,7 @@ typedef struct __aligned(4) {
   uint32_t fwVer;
   uint32_t fwLen;
   uint32_t crc;
+  FlagStatus good;
 } sFw;
 
 typedef struct {

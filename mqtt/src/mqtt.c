@@ -52,6 +52,15 @@ const char * topicStr[TOPIC_NUM] = {
 void mqttConnectCb( FlagStatus conn );
 
 
+void mqttMsgReset( sUartRxHandle *handle, SIM800_t * sim ){
+//  mqttBufClean( handle, sim );
+  sim->mqttReceive.mqttData = handle->rxFrame;
+  handle->frame_offset = 0;
+  handle->rxProcFlag = RESET;
+  sim->mqttReceive.msgState = MSG_NULL;
+}
+
+
 void mqttPubTout( uintptr_t arg ){
   (void)arg;
 
@@ -69,11 +78,45 @@ void msgFlagSet( uint8_t flags, mqttReceive_t * receive ){
 }
 
 
-void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
-  uint8_t * msgptr = sim->mqttReceive.mqttData;
-  uint8_t len0;
-  const uint32_t len = ((handle->rxFrame + handle->frame_offset) - msgptr) + 1;
+// Обработка принятого контрольного пакета (НЕ PUBLISH)
+void mqttCtlProc( mqttReceive_t * mqttRec ){
+  uint16_t pktid = mqttRec->pktId;
 
+  switch( mqttRec->msgType ) {
+    case MQTT_SUBACK:
+      // TODO: Сбросить таймер сообветствующей подписки
+      trace_printf( "SUBACK: %d\n", pktid );
+      MQTT_Pubcomp( pktid );
+      break;
+    case MQTT_PUBACK:
+      // Отклик на отправку пакета с QOS1
+      // Отключить таймер для пакета с этим PKT_ID
+      break;
+    case MQTT_PUBREC:
+      // Отклик на получение пакета с QOS2 (фаза1 QOS2)
+      MQTT_Pubrel( pktid );
+      break;
+    case MQTT_PUBREL:
+      // Отклик на отправку пакета PUBREC (фаза2 QOS2)
+      trace_printf( "PUB rel: %d\n", pktid );
+      MQTT_Pubcomp( pktid );
+      break;
+    case MQTT_PUBCOMP:
+      // Отключить таймер для пакета с этим PKT_ID (QOS 2)
+      break;
+    default:
+      return;
+  }
+}
+
+
+void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
+  uint8_t * msgptr;
+  uint16_t len0;
+  uint32_t len;
+
+  msgptr = sim->mqttReceive.mqttData;
+  len  = ((handle->rxFrame + handle->frame_offset) - msgptr) + 1;
   len0 = len;
 
   while ( len0 ){
@@ -82,33 +125,38 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
         msgptr = handle->rxFrame;
 
         sim->mqttReceive.msgType = (*msgptr & 0xF0) >> 4;
+        msgFlagSet( *msgptr, &(sim->mqttReceive) );
+
         switch( sim->mqttReceive.msgType ) {
           case MQTT_PINGRESP:
             break;
           case MQTT_PUBLISH:
-            msgFlagSet( *msgptr, &(sim->mqttReceive) );
             break;
           case MQTT_CONNACK:
             sim->mqttServer.mqttconn = 1;
             mqttConnectCb( SIM800.mqttServer.mqttconn );
             break;
           case MQTT_SUBACK:
-//              this->subs = TRUE;
+            // TODO: Сбросить таймер сообветствующей подписки
             break;
           case MQTT_PUBACK:
             // Отклик на отправку пакета с QOS1
             // Отключить таймер для пакета с этим PKT_ID
             break;
           case MQTT_PUBREC:
-            // Отклик на отправку пакета с QOS2
+            // Отклик на аолучение пакета с QOS2 (фаза1 QOS2)
             // TODO: Send packet PUBREL
+            break;
+          case MQTT_PUBREL:
+            // Отклик на отправку пакета PUBREC (фаза2 QOS2)
+            // TODO: Send packet PUBCOMP
             break;
           case MQTT_PUBCOMP:
             // Отключить таймер для пакета с этим PKT_ID (QOS 2)
             break;
           default:
             // Топик не наш - Не сохраняем payload
-            mqttBufClean( handle, &SIM800 );
+            mqttMsgReset( handle, &SIM800 );
             return;
         }
         sim->mqttReceive.msgState = MSG_TYPE;
@@ -126,11 +174,11 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
             // Принята вся Remaining Lenght
             if( sim->mqttReceive.msgType != MQTT_PUBLISH ){
               // Сообщение принято полностью
-              sim->mqttReceive.msgState = MSG_NULL;
+              mqttMsgReset( handle, &SIM800 );
             }
             else if( (sim->mqttReceive.remLen < 3) || (sim->mqttReceive.remLen > 268435455) ){
               // Топик не наш - Не сохраняем payload
-              mqttBufClean( handle, &SIM800 );
+              mqttMsgReset( handle, &SIM800 );
             }
             else {
               sim->mqttReceive.msgState = MSG_REMAINING_LEN;
@@ -145,12 +193,20 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
       }
       case MSG_REMAINING_LEN:
         if( len0 >= 2 ){
-          // Принята длина топика
-          assert_param( msgptr != NULL );
-          sim->mqttReceive.topicLen = (*msgptr++ << 8)
-                                      | *msgptr++;
-          len0 -= 2;
-          sim->mqttReceive.msgState = MSG_TOP_LEN;
+          if( sim->mqttReceive.remLen == 2 ){
+            // Принят контрольный пакет
+            mqttCtlProc( &(sim->mqttReceive) );
+          }
+          else {
+            // Принята длина топика
+            assert_param( msgptr != NULL );
+            sim->mqttReceive.topicLen = *msgptr << 8;
+            msgptr++;
+            sim->mqttReceive.topicLen |= *msgptr;
+            msgptr++;
+            len0 -= 2;
+            sim->mqttReceive.msgState = MSG_TOP_LEN;
+          }
         }
         else {
           len0 = 0;
@@ -193,8 +249,10 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
         if( len0 >= 2 ){
           // Принят PACKET_ID
           assert_param( msgptr != NULL );
-          sim->mqttReceive.msgId = (*msgptr++ << 8)
-                                      | *msgptr++;
+          sim->mqttReceive.pktId = *msgptr << 8;
+          msgptr++;
+          sim->mqttReceive.pktId |= *msgptr;
+          msgptr++;
           len0 -= 2;
           sim->mqttReceive.msgState = MSG_PKT_ID;
         }
@@ -213,7 +271,7 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
         }
 
         if( sim->mqttReceive.payloadLen == 0 ){
-          sim->mqttReceive.msgState = MSG_NULL;
+          mqttMsgReset( handle, &SIM800 );
         }
         else {
           sim->mqttReceive.msgState = MSG_PAY_LEN;
@@ -224,37 +282,43 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
           // Payload получен в полном объеме
           if( sim->mqttReceive.topicId == TOPIC_NUM ){
             // Топик не наш - Не сохраняем payload
-            mqttBufClean( handle, &SIM800 );
+            mqttMsgReset( handle, &SIM800 );
             len0 = 0;
           }
           else {
+            ledOn( LED_G, 100 );
             // Получено сообщение целиком
             // TODO: Обработка полученых данных - сделать не в ПРЕРЫВАНИИ
             handle->rxProcFlag = SET;
             sim->mqttReceive.payOffset = msgptr - handle->rxFrame;
             if( sim->mqttReceive.qos == 1 ){
               // TODO: Send PUBACK packet (QOS 1)
+              MQTT_Puback( sim->mqttReceive.pktId );
             }
             else {
-              // TODO: Send PUBREC packet (QOS 2)
+              trace_printf( "PUB rec: %d\n", sim->mqttReceive.pktId );
+              MQTT_Pubrec( sim->mqttReceive.pktId );
             }
           }
           len0 = 0;
           sim->mqttReceive.msgState = MSG_NULL;
         }
-        else if( len >= 1024 ){
+        else if( len == 1024 ){
           if( sim->mqttReceive.topicId == TOPIC_FW_BIN ){
             // Прием прошивки - запись во флеш
+            ledOn( LED_G, 100 );
             // TODO: Запись во Флеш сделать не в ПРЕРЫВАНИИ
             sim->mqttReceive.payOffset = msgptr - handle->rxFrame;
             handle->rxProcFlag = SET;
+            len0 = 0;
           }
           else {
-            mqttBufClean( handle, &SIM800 );
+            mqttMsgReset( handle, &SIM800 );
             len0 = 0;
           }
         }
         else {
+          assert_param( len <= 1024);
           len0 = 0;
         }
 
@@ -279,7 +343,7 @@ void mqttPubProc( sUartRxHandle * handle ){
   // Надо обработать полученное PUBLISH
   switch( SIM800.mqttReceive.topicId ){
     case TOPIC_DEVID:
-      mqttBufClean( handle, &SIM800 );
+      mqttMsgReset( handle, &SIM800 );
       break;
     case TOPIC_DEV_IMEI:
 			break;

@@ -8,18 +8,15 @@
 //#include "usart_arch.h"
 
 
+// Флаг перезагрузки MCU
+FlagStatus mcuReset = RESET;
+
 
 /** Флаг наличия ПРОЧИХ_ОШИБОК системы */
 FlagStatus  otherError = RESET;
 
 /** Флаг наличия ОШИБОК системы */
 FlagStatus  alertFlag = RESET;
-
-/** Флаг направления включения-выключения системы:
- * SET - направление off->on
- * RESET - направление on->off
- */
-FlagStatus mcuRun = RESET;
 
 /** Флаг необходимости включения системы когда это станет возможно:
  * SET - направление off->on

@@ -161,6 +161,8 @@ typedef union {
 extern volatile FlagStatus sysAlrtOffQuery;
 extern volatile FlagStatus sysOffQuery;
 
+// Флаг перезагрузки MCU
+extern FlagStatus mcuReset;
 
 /** Флаг наличия ПРОЧИХ_ОШИБОК системы */
 extern FlagStatus  otherError;

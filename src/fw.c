@@ -10,6 +10,8 @@
 #include "uart.h"
 #include "mqtt.h"
 #include "eeprom.h"
+#include "gpio_arch.h"
+#include "gsm.h"
 #include "fw.h"
 
 /* Here for now until needed in other places in lwIP */
@@ -28,6 +30,8 @@
 #define ip4_addr_get_u32(src_ipaddr) ((src_ipaddr)->addr)
 
 sFwHandle fwHandle;
+//uint32_t * pfa;
+//uint32_t fa;
 
 //------------------- Function prototype -------------------------
 uint32_t ipaddr_addr(const char *cp);
@@ -59,12 +63,15 @@ void fwManProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
     goto bad_man;
   }
   else {
+    unsigned int v, sv, r;
     // Переносим начало строки
     bch += 10;
     ech = strstr( bch, "\"" );
     // Ограничиваем строку нулем
     *ech = '\0';
-    if( (pfw->fwVer = ipaddr_addr( bch )) == 0 ){
+    sscanf( bch, "%u.%u.%u", &v, &sv, &r );
+    pfw->fwVer = (v << 16) | (sv << 8) | r;
+    if( pfw->fwVer == 0 ){
       goto bad_man;
     }
     // Переходим на следующий кусок
@@ -94,9 +101,11 @@ void fwManProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
       goto bad_man;
     }
   }
+  // Начиннаем принимать с начала
+  pfw->fwOffset = 0;
   rxh->rxProcFlag = RESET;
   // Очистим буфер
-  mqttBufClean( rxh, &SIM800 );
+  mqttMsgReset( rxh, &SIM800 );
 
   return;
 
@@ -104,7 +113,7 @@ bad_man:
   pfw->crc = ~0;
   pfw->fwLen = 0;
   // Очистим буфер
-  mqttBufClean( rxh, &SIM800 );
+  mqttMsgReset( rxh, &SIM800 );
 
   return;
 }
@@ -113,6 +122,10 @@ bad_man:
 // Процедура обновления прошивки
 void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
   sFwUp * fwup = &fwHandle.fwUp;
+
+  if( fwup->fwLen == 0 ){
+    mqttMsgReset( rxh, &SIM800 );
+  }
 
   switch( fwHandle.fwFlashState ){
     case FWFLASH_READY:
@@ -124,6 +137,8 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
         // Это первый фрагмент прошивки
         fwup->fwStartAddr = (fwHandle.fwActive)? FW_1_START_ADDR : FW_2_START_ADDR;
         fwup->fwEndAddr = fwup->fwStartAddr + ((fwHandle.fwActive)? FW_1_SIZE : FW_2_SIZE);
+        // Сброс CRC
+        CRC->CR = CRC_CR_RESET;
 
         // Сотрем данные неактивной прошивке
         stmEeWrite( (uint32_t)&(eeFwh->fw[!fwHandle.fwActive]), (uint32_t*)&tmpfw, sizeof(sFw) );
@@ -132,7 +147,6 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
         if( (FLASH->PECR & FLASH_PECR_PRGLOCK) != RESET ){
           HAL_FLASH_Unlock();
         }
-        fwup->fwOffset = 0;
         fwHandle.fwFlashState = FWFLASH_ERASE;
       }
       else if( mqttrx->payOffset == 0 ){
@@ -155,13 +169,14 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
         }
         else {
           // Очистили всю нужную область
+          FLASH->PECR &= ~(FLASH_PECR_PROG | FLASH_PECR_ERASE);
           fwup->fwOffset = 0;
           fwHandle.fwFlashState = FWFLASH_WRITE_START;
         }
       }
       break;
     case FWFLASH_WRITE_START:
-      if( FLASH_WaitForLastOperation(FLASH_TIMEOUT_VALUE) == HAL_OK ){
+      if( (FLASH->SR & FLASH_FLAG_BSY) == RESET ){
         uint32_t addr = fwup->fwStartAddr + fwup->fwOffset;
         if( mqttrx->payOffset < rxh->frame_offset){
           if( (rxh->frame_offset - mqttrx->payOffset) < 4 ){
@@ -172,38 +187,62 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
           }
           // Еще не все записали
           //Считаем CRC
-          uint32_t u32data = *(uint32_t *)&(rxh->rxFrame[mqttrx->payOffset]);
-          CRC->DR = u32data;
+          volatile uint32_t u32data = *(uint32_t *)&(rxh->rxFrame[mqttrx->payOffset]);
           // Записываем во Флеш
           *(uint32_t *)addr = u32data;
+          u32data = *(uint32_t *)addr;
+          CRC->DR = u32data;
           mqttrx->payOffset += 4;
           fwup->fwOffset += 4;
         }
         else {
-          // Очистим буфер
-          mqttBufClean( rxh, &SIM800 );
-          fwHandle.fwFlashState = FWFLASH_WRITE_END;
+          if( fwup->fwOffset == fwup->fwLen ){
+            fwHandle.fwFlashState = FWFLASH_WRITE_END;
+          }
+          else {
+            // Очистим буфер
+            mqttBufClean( rxh, &SIM800 );
+            mqttrx->payloadLen = fwup->fwLen - fwup->fwOffset;
+          }
         }
       }
-      // TODO: Подсчет CRC очередного фрагмента
-      // TODO: Запуск записи фрагмента прошивки
       break;
     case FWFLASH_WRITE_END:
       // TODO: Проверка на окончание записи
       if( fwup->fwOffset == fwup->fwLen ){
         // Вся прошивка записана
-        // TODO: Залочить Флеш
-        // TODO: Проверка CRC
-        // TODO: Сохранение данных прошивки в EEPROM
-        // TODO: Запуск выключения и перезагрузки
-        rxh->rxProcFlag = SET;
+        // Залочить Флеш
+        FLASH->PECR |= FLASH_PECR_PRGLOCK;
+        // Проверка CRC
+        if( CRC->DR == fwup->crc ){
+          sFwHandle * eeFwh = (sFwHandle *)FW_HANDLE_ADDR_0;
+          sFw tmpfw;
+
+          // TODO: Сохранение данных прошивки в EEPROM
+          tmpfw.crc = fwup->crc;
+          tmpfw.fwLen = fwup->fwLen;
+          tmpfw.fwVer = fwup->fwVer;
+          // Запишем данные новой прошивки на место неактивной
+          stmEeWrite( (uint32_t)&(eeFwh->fw[!fwHandle.fwActive]), (uint32_t*)&tmpfw, sizeof(sFw) );
+          // TODO: Запуск выключения и перезагрузки
+          gsmFinal = SET;
+          mcuReset = SET;
+          gsmRun = RESET;
+        }
+        else {
+          fwup->crc = 0;
+          fwup->fwLen = 0;
+          fwup->fwVer = 0;
+        }
         fwHandle.fwFlashState = FWFLASH_READY;
+        // Очистим буфер
+        mqttMsgReset( rxh, &SIM800 );
       }
       break;
     case FWFLASH_SKIP:
       // Пропускаем фрагмент
       // Очистим буфер
-      mqttBufClean( rxh, &SIM800 );
+      mqttMsgReset( rxh, &SIM800 );
       break;
     default:
       //Сюда не должны попадать

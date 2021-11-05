@@ -101,8 +101,15 @@ static inline void mqttBufClean( sUartRxHandle *handle, SIM800_t * sim ){
   sim->mqttReceive.mqttData = handle->rxFrame;
   handle->frame_offset = 0;
   handle->rxProcFlag = RESET;
-  sim->mqttReceive.msgState = MSG_NULL;
 }
 
-
+void mqttMsgReset( sUartRxHandle *handle, SIM800_t * sim );
+//static inline void mqttMsgReset( sUartRxHandle *handle, SIM800_t * sim ){
+////  mqttBufClean( handle, sim );
+//  sim->mqttReceive.mqttData = handle->rxFrame;
+//  handle->frame_offset = 0;
+//  handle->rxProcFlag = RESET;
+//  sim->mqttReceive.msgState = MSG_NULL;
+//}
+//
 #endif /* MQTT_H_ */

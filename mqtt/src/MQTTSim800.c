@@ -72,7 +72,7 @@ int SIM800_SendCommand(char *command, char *reply, uint16_t delay){
   simHnd.txh->data = (uint8_t*)command;
   simHnd.rxh->reply = reply;
   simHnd.rxh->replyFlag = RESET;
-  if( uartTransmit(simHnd.txh, (uint16_t)strlen(command), 1000) != HAL_OK ){
+  if( uartTransmit(simHnd.txh, (uint16_t)strlen(command), 1000) == 0 ){
     trace_puts( "uart err" );
   }
 
@@ -105,7 +105,7 @@ int MQTT_Deinit(void) {
 
     mDelay(1000);
     simHnd.txh->data = (uint8_t*)cmd;
-    if( uartTransmit(simHnd.txh, 5, 1000) != HAL_OK ){
+    if( uartTransmit(simHnd.txh, 5, 1000) != 0 ){
       trace_puts( "uart err" );
     }
 
@@ -158,18 +158,16 @@ void MQTT_Connect(void) {
  * @param payload to be used to the set message for topic
  * @return NONE
  */
-void MQTT_Pub(char *topic, char *payload)
-{
-    unsigned char buf[256] = {0};
+uint16_t MQTT_Pub(char *topic, char *payload){
+  unsigned char buf[256] = {0};
 
-    MQTTString topicString = MQTTString_initializer;
-    topicString.cstring = topic;
+  MQTTString topicString = MQTTString_initializer;
+  topicString.cstring = topic;
 
-    int mqtt_len = MQTTSerialize_publish(buf, sizeof(buf), 0, 0, 0, 0,
-                                         topicString, (unsigned char *)payload, (int)strlen(payload));
-    simHnd.txh->data = buf;
-    uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
-    mDelay(100);
+  int mqtt_len = MQTTSerialize_publish(buf, sizeof(buf), 0, 0, 0, 0,
+                                       topicString, (unsigned char *)payload, (int)strlen(payload));
+  simHnd.txh->data = buf;
+  return uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
 }
 
 /**
@@ -238,6 +236,67 @@ void MQTT_PubDouble(char *topic, double payload)
 }
 
 /**
+ * A PUBACK Packet is the response to a PUBLISH Packet with QoS level 1.
+ * @param topic to be used to the set topic
+ * @param payload to be used to the set message for topic
+ * @return NONE
+ */
+uint16_t MQTT_Puback(  unsigned short packetid ){
+  unsigned char buf[4] = {0};
+
+  int mqtt_len = MQTTSerialize_puback(buf, sizeof(buf), packetid );
+  simHnd.txh->data = buf;
+  return uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
+}
+
+
+/**
+ * PUBREC – Publish received (QoS 2 publish received, part 1)
+ * @param topic to be used to the set topic
+ * @param payload to be used to the set message for topic
+ * @return NONE
+ */
+uint16_t MQTT_Pubrec(  unsigned short packetid ){
+  unsigned char buf[4] = {0};
+
+  int mqtt_len = MQTTSerialize_pubrec(buf, sizeof(buf), packetid );
+  simHnd.txh->data = buf;
+  return uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
+}
+
+
+/**
+ * PUBREL – Publish release (QoS 2 publish received, part 2)
+ * @param topic to be used to the set topic
+ * @param payload to be used to the set message for topic
+ * @return NONE
+ */
+uint16_t MQTT_Pubrel(  unsigned short packetid ){
+  unsigned char buf[4] = {0};
+
+  int mqtt_len = MQTTSerialize_pubrel(buf, sizeof(buf), 0, packetid );
+  simHnd.txh->data = buf;
+  return uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
+}
+
+
+/**
+ * The PUBCOMP Packet is the response to a PUBREL Packet.
+ * It is the fourth and final packet of the QoS 2 protocol exchange.
+ * @param topic to be used to the set topic
+ * @param payload to be used to the set message for topic
+ * @return NONE
+ */
+uint16_t MQTT_Pubcomp(  unsigned short packetid ){
+  unsigned char buf[4] = {0};
+
+  int mqtt_len = MQTTSerialize_pubcomp(buf, sizeof(buf), packetid );
+  simHnd.txh->data = buf;
+  return uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
+}
+
+
+/**
  * Send a PINGREQ to the MQTT broker (active session)
  * @param NONE
  * @return NONE
@@ -250,6 +309,7 @@ void MQTT_PingReq(void)
     simHnd.txh->data = buf;
     uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
 }
+
 
 /**
  * Subscribe on the MQTT broker of the message in a topic
@@ -326,9 +386,9 @@ void simUartRxProc( sUartRxHandle * handle, uint8_t byte ){
         SIM800.mqttServer.tcpconn = 0;
         SIM800.mqttServer.mqttconn = 0;
         mqttConnectCb( SIM800.mqttServer.tcpconn );
+        // Получили и обработали строку - если и принимали что-то, но не до конца - все потеряли
+        mqttMsgReset( handle, &SIM800 );
       }
-      // Получили и обработали строку - если и принимали что-то, но не до конца - все потеряли
-      mqttBufClean( handle, &SIM800 );
       return;
     }
 

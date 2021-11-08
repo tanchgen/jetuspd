@@ -78,6 +78,7 @@ typedef struct {
     mqttServer_t mqttServer;
     mqttClient_t mqttClient;
     mqttReceive_t mqttReceive;
+    FlagStatus ready;
 } SIM800_t;
 
 
@@ -93,10 +94,13 @@ extern FlagStatus mqttPubFlag;
 void Sim800_RxCallBack(void);
 void clearRxBuffer( char * buf, uint32_t * size );
 void clearMqttBuffer(void);
-int SIM800_SendCommand(char *command, char *reply, uint16_t delay);
+int SIM800_SendCommand(char *command, char *reply, uint16_t delay, void (*simreplycb)( sUartRxHandle *) );
 
 void mqttInit( void );
 int MQTT_Deinit(void);
+
+void saveSimReply( sUartRxHandle * handle );
+void connectSimReply( sUartRxHandle * handle );
 
 int mqttStart(void);
 void MQTT_Connect(void);

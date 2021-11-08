@@ -254,21 +254,6 @@ void USART3_IRQHandler(void)
 }
 
 
-/**
-  * @brief This function handles DMA1 channel1 global interrupt.
-  */
-void DMA1_Channel1_IRQHandler(void)
-{
-  /* USER CODE BEGIN DMA1_Channel1_IRQn 0 */
-
-  /* USER CODE END DMA1_Channel1_IRQn 0 */
-//  HAL_DMA_IRQHandler(&hdma_adc);
-  /* USER CODE BEGIN DMA1_Channel1_IRQn 1 */
-  while(1)
-  {}
-  /* USER CODE END DMA1_Channel1_IRQn 1 */
-}
-
 /* USER CODE BEGIN 1 */
 void WWDG_IRQHandler( void ) { while(1){} };
 void PVD_IRQHandler( void ) { while(1){} };
@@ -281,7 +266,7 @@ void RCC_IRQHandler( void ) { while(1){} };
 //void EXTI2_IRQHandler( void ) { while(1){} };
 //void EXTI3_IRQHandler( void ) { while(1){} };
 //void EXTI4_IRQHandler( void ) { while(1){} };
-//void DMA1_Channel1_IRQHandler( void ) { while(1){} };
+void DMA1_Channel1_IRQHandler( void ) { while(1){} };
 //void DMA1_Channel2_IRQHandler( void ) { while(1){} };
 //void DMA1_Channel3_IRQHandler( void ) { while(1){} };
 //void DMA1_Channel4_IRQHandler( void ) { while(1){} };

@@ -181,9 +181,9 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
         if( mqttrx->payOffset < rxh->frame_offset){
           if( (rxh->frame_offset - mqttrx->payOffset) < 4 ){
             // Дополним до 4-х байт '0'
+            rxh->rxFrame[rxh->frame_offset] = 0;
             rxh->rxFrame[rxh->frame_offset+1] = 0;
             rxh->rxFrame[rxh->frame_offset+2] = 0;
-            rxh->rxFrame[rxh->frame_offset+3] = 0;
           }
           // Еще не все записали
           //Считаем CRC

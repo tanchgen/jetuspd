@@ -133,14 +133,32 @@ void USART1_IRQHandler(void){
 }
 
 /**
-  * @brief  Обработчик прерываний DMA SIM_UART_RX (DMA2_Stream6).
+  * @brief  Обработчик прерываний DMA SIM_UART_RX (DMA1_Stream3).
   *
   * @param  none
   *
   * @retval none
   */
-void DMA1_Channel4_IRQHandler( void ){
+void DMA1_Channel3_IRQHandler( void ){
   do_usart_dma_rx_channel_irq(&simUartRxHandle);
+}
+
+
+/**
+  * @brief  Обработчик прерываний DMA SIM_UART_TX (DMA1_Stream2).
+  *
+  * @param  none
+  *
+  * @retval none
+  */
+void DMA1_Channel2_IRQHandler( void ){
+  if( (DMA1->ISR & DMA_ISR_TCIF2) != RESET ) {
+    DMA1->IFCR = DMA_IFCR_CTCIF2;
+    if( (uint32_t)(simHnd.txh->data) & 0x20000000 ){
+      // Память выделена из кучи
+      ta_free( simHnd.txh->data);
+    }
+  }
 }
 
 
@@ -197,7 +215,7 @@ void simUartInit( void ) {
   RCC->AHBENR |= RCC_AHBENR_DMA1EN;
 
   uartIfaceInit( &simUartTxHandle, &simUartRxHandle, UART_ID_SIM );
-  NVIC_SetPriority( DMA1_Channel4_IRQn, 1 );
+  NVIC_SetPriority( DMA1_Channel3_IRQn, 1 );
   timerSetup( &simEnTimer, uartEnTimeout, (uintptr_t)&simHnd );
 
 }
@@ -216,6 +234,8 @@ void simUartEnable( void ){
 
   NVIC_EnableIRQ( SIM_UART_RX_DMA_IRQn );
   NVIC_SetPriority( SIM_UART_RX_DMA_IRQn, 1);
+  NVIC_EnableIRQ( SIM_UART_RX_DMA_IRQn );
+  NVIC_SetPriority( SIM_UART_TX_DMA_IRQn, 4);
   NVIC_EnableIRQ( SIM_UART_IRQn );
   NVIC_SetPriority( SIM_UART_IRQn, 2);
 

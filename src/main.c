@@ -31,9 +31,12 @@
 #include "MQTTSim800.h"
 /* USER CODE END Includes */
 
+
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+#define TALLOC_ARRAY_SIZE   8192
 
+uint8_t tallocArray[TALLOC_ARRAY_SIZE] __aligned(4);
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -72,6 +75,8 @@ void adcProcess( void );
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+  // Tiny memory allocated init
+  ta_init( tallocArray, tallocArray+TALLOC_ARRAY_SIZE, 256, 16, sizeof(int) );
 
   /* USER CODE END 1 */
 
@@ -104,10 +109,10 @@ int main(void)
 
     gsmRunPhase = PHASE_NON;
 
-    SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
-    gsmState = GSM_WORK;
-    SIM800.mqttServer.mqttconn = SET;
-    SIM800.mqttServer.tcpconn = SET;
+//    SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
+//    gsmState = GSM_WORK;
+//    SIM800.mqttServer.mqttconn = SET;
+//    SIM800.mqttServer.tcpconn = SET;
   /* USER CODE END 2 */
 
 

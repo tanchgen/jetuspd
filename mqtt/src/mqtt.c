@@ -79,30 +79,44 @@ void msgFlagSet( uint8_t flags, mqttReceive_t * receive ){
 
 
 // Обработка принятого контрольного пакета (НЕ PUBLISH)
-void mqttCtlProc( mqttReceive_t * mqttRec ){
-  uint16_t pktid = mqttRec->pktId;
+void mqttCtlProc( SIM800_t * sim ){
+  uint16_t pktid = sim->mqttReceive.pktId;
 
-  switch( mqttRec->msgType ) {
+  switch( sim->mqttReceive.msgType ) {
+    case MQTT_CONNACK:
+      trace_printf( "CONACK: %d\n", pktid );
+      sim->mqttServer.mqttconn = SET;
+      mqttConnectCb( SIM800.mqttServer.mqttconn );
+      break;
     case MQTT_SUBACK:
       // TODO: Сбросить таймер сообветствующей подписки
       trace_printf( "SUBACK: %d\n", pktid );
-      MQTT_Pubcomp( pktid );
       break;
     case MQTT_PUBACK:
       // Отклик на отправку пакета с QOS1
+      trace_printf( "PUBACK: %d\n", pktid );
       // Отключить таймер для пакета с этим PKT_ID
       break;
     case MQTT_PUBREC:
       // Отклик на получение пакета с QOS2 (фаза1 QOS2)
+      trace_printf( "PUBREC: %d\n", pktid );
       MQTT_Pubrel( pktid );
       break;
     case MQTT_PUBREL:
       // Отклик на отправку пакета PUBREC (фаза2 QOS2)
-      trace_printf( "PUB rel: %d\n", pktid );
+      trace_printf( "PUBREL: %d\n", pktid );
       MQTT_Pubcomp( pktid );
       break;
     case MQTT_PUBCOMP:
+      trace_printf( "PUBCOMP: %d\n", pktid );
       // Отключить таймер для пакета с этим PKT_ID (QOS 2)
+      break;
+    case MQTT_PINGRESP:
+      trace_puts( "PINGRESP" );
+      break;
+    case MQTT_DISCONNECT:
+      sim->mqttServer.mqttconn = RESET;
+      mqttConnectCb( SIM800.mqttServer.mqttconn );
       break;
     default:
       return;
@@ -116,7 +130,7 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
   uint32_t len;
 
   msgptr = sim->mqttReceive.mqttData;
-  len  = ((handle->rxFrame + handle->frame_offset) - msgptr) + 1;
+  len  = ((handle->rxFrame + handle->frame_offset) - msgptr);
   len0 = len;
 
   while ( len0 ){
@@ -129,35 +143,17 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
 
         switch( sim->mqttReceive.msgType ) {
           case MQTT_PINGRESP:
-            break;
           case MQTT_PUBLISH:
-            break;
           case MQTT_CONNACK:
-            sim->mqttServer.mqttconn = 1;
-            mqttConnectCb( SIM800.mqttServer.mqttconn );
-            break;
           case MQTT_SUBACK:
-            // TODO: Сбросить таймер сообветствующей подписки
-            break;
           case MQTT_PUBACK:
-            // Отклик на отправку пакета с QOS1
-            // Отключить таймер для пакета с этим PKT_ID
-            break;
           case MQTT_PUBREC:
-            // Отклик на аолучение пакета с QOS2 (фаза1 QOS2)
-            // TODO: Send packet PUBREL
-            break;
           case MQTT_PUBREL:
-            // Отклик на отправку пакета PUBREC (фаза2 QOS2)
-            // TODO: Send packet PUBCOMP
-            break;
           case MQTT_PUBCOMP:
-            // Отключить таймер для пакета с этим PKT_ID (QOS 2)
             break;
           default:
             // Топик не наш - Не сохраняем payload
-            mqttMsgReset( handle, &SIM800 );
-            return;
+            goto msg_reset;
         }
         sim->mqttReceive.msgState = MSG_TYPE;
         sim->mqttReceive.remLenMp = 1;
@@ -167,18 +163,16 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
         break;
       case MSG_TYPE: {
         // Длина пакета (2097152 = 128*128*128)
-        for( ; len0 && (sim->mqttReceive.remLenMp <= 2097152); len0-- ){
+        for( ; len0 ; len0-- ){
           // Получаем длину данных
           sim->mqttReceive.remLen += (*msgptr % 128) * sim->mqttReceive.remLenMp;
           if( (*msgptr++ & 0x80) == 0 ){
             // Принята вся Remaining Lenght
-            if( sim->mqttReceive.msgType != MQTT_PUBLISH ){
-              // Сообщение принято полностью
-              mqttMsgReset( handle, &SIM800 );
-            }
-            else if( (sim->mqttReceive.remLen < 3) || (sim->mqttReceive.remLen > 268435455) ){
-              // Топик не наш - Не сохраняем payload
-              mqttMsgReset( handle, &SIM800 );
+            if( (sim->mqttReceive.remLen > 268435455)
+                || (sim->mqttReceive.remLen == 0) ){
+              // Ошибка длины или Нулевая длина
+              trace_printf( "REMLEN = 0, PKT_ID: %X", sim->mqttReceive.msgType );
+              goto msg_reset;
             }
             else {
               sim->mqttReceive.msgState = MSG_REMAINING_LEN;
@@ -187,17 +181,24 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
             break;
           }
           sim->mqttReceive.remLenMp *= 128;
+          if( sim->mqttReceive.remLenMp > 2097152){
+            goto msg_reset;
+          }
         }
 
         break;
       }
       case MSG_REMAINING_LEN:
-        if( len0 >= 2 ){
-          if( sim->mqttReceive.remLen == 2 ){
+        if( sim->mqttReceive.remLen <= 3 ) {
+          if( len0 == sim->mqttReceive.remLen ){
             // Принят контрольный пакет
-            mqttCtlProc( &(sim->mqttReceive) );
+            mqttCtlProc( sim );
+            goto msg_reset;
           }
-          else {
+          len0 = 0;
+        }
+        else {
+          if( len0 >= 2 ){
             // Принята длина топика
             assert_param( msgptr != NULL );
             sim->mqttReceive.topicLen = *msgptr << 8;
@@ -207,9 +208,9 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
             len0 -= 2;
             sim->mqttReceive.msgState = MSG_TOP_LEN;
           }
-        }
-        else {
-          len0 = 0;
+          else {
+            len0 = 0;
+          }
         }
         break;
       case MSG_TOP_LEN: {
@@ -271,7 +272,7 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
         }
 
         if( sim->mqttReceive.payloadLen == 0 ){
-          mqttMsgReset( handle, &SIM800 );
+          goto msg_reset;
         }
         else {
           sim->mqttReceive.msgState = MSG_PAY_LEN;
@@ -282,8 +283,7 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
           // Payload получен в полном объеме
           if( sim->mqttReceive.topicId == TOPIC_NUM ){
             // Топик не наш - Не сохраняем payload
-            mqttMsgReset( handle, &SIM800 );
-            len0 = 0;
+            goto msg_reset;
           }
           else {
             ledOn( LED_G, 100 );
@@ -295,7 +295,7 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
               // TODO: Send PUBACK packet (QOS 1)
               MQTT_Puback( sim->mqttReceive.pktId );
             }
-            else {
+            else if( sim->mqttReceive.qos == 2 ) {
               trace_printf( "PUB rec: %d\n", sim->mqttReceive.pktId );
               MQTT_Pubrec( sim->mqttReceive.pktId );
             }
@@ -313,8 +313,7 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
             len0 = 0;
           }
           else {
-            mqttMsgReset( handle, &SIM800 );
-            len0 = 0;
+            goto msg_reset;
           }
         }
         else {
@@ -331,7 +330,11 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
   }
 
   sim->mqttReceive.mqttData = msgptr;
+  return;
 
+msg_reset:
+  mqttMsgReset( handle, &SIM800 );
+  return;
 }
 
 
@@ -350,8 +353,10 @@ void mqttPubProc( sUartRxHandle * handle ){
     case TOPIC_INFO:
 			break;
     case TOPIC_TEMP:
-			break;
+      mqttMsgReset( handle, &SIM800 );
+      break;
     case TOPIC_VOLT:
+      mqttMsgReset( handle, &SIM800 );
 			break;
     case TOPIC_CMD_I:
 			break;
@@ -410,8 +415,8 @@ void mqttPubProc( sUartRxHandle * handle ){
  * @return error status, 0 - OK
  */
 void mqttInit(void) {
-  SIM800.mqttServer.tcpconn = 0;
-    SIM800.mqttServer.mqttconn = 0;
+  SIM800.mqttServer.tcpconn = RESET;
+    SIM800.mqttServer.mqttconn = RESET;
 //    char str[32] = {0};
 
     // MQQT settings
@@ -425,6 +430,7 @@ void mqttInit(void) {
     SIM800.mqttClient.pass = NULL;
     SIM800.mqttClient.clientID = "";
     SIM800.mqttClient.keepAliveInterval = 60;
+    SIM800.ready = RESET;
 
     timerSetup( &mqttPubTimer, mqttPubTout, (uintptr_t)NULL );
 }
@@ -436,8 +442,8 @@ void mqttInit(void) {
  * @return error status, 0 - OK
  */
 int mqttStart(void) {
-  SIM800_SendCommand("ATE0\r\n", "OK\r\n", CMD_DELAY_2);
-  return SIM800_SendCommand("AT+CIPMODE=1\r\n", "OK\r\n", CMD_DELAY_2);
+  SIM800_SendCommand("ATE0\r\n", "OK\r\n", CMD_DELAY_2, NULL );
+  return SIM800_SendCommand("AT+CIPMODE=1\r\n", "OK\r\n", CMD_DELAY_2, NULL );
 }
 
 
@@ -479,25 +485,26 @@ void mqttProcess( void ){
         }
       }
       else {
-        char str[64];
-        int tu, td;
-        uint32_t ut = getRtcTime();
-
-        tu = adcHandle.adcVbat / 1000;
-        td = adcHandle.adcVbat - (tu * 1000);
-        if( td < 0 ){
-          td = -td;
-        }
-        sprintf( str, "{time\":%ul,\"volt\":%d.%d}", (unsigned int)ut, tu, td );
-        MQTT_Pub( "imei/volt", str );
-
-        tu = adcHandle.adcTemp / 10;
-        td = adcHandle.adcTemp - (tu * 10);
-        if( td < 0 ){
-          td = -td;
-        }
-        sprintf( str, "{time\":%ul,\"temp\":%d.%d}", (unsigned int)ut, tu, td );
-        MQTT_Pub( "imei/temp", str );
+        MQTT_PingReq();
+//        char str[64];
+//        int tu, td;
+//        uint32_t ut = getRtcTime();
+//
+//        tu = adcHandle.adcVbat / 1000;
+//        td = adcHandle.adcVbat - (tu * 1000);
+//        if( td < 0 ){
+//          td = -td;
+//        }
+//        sprintf( str, "{time\":%u,\"volt\":%d.%d}", (unsigned int)ut, tu, td );
+//        MQTT_Pub( "imei/volt", str );
+//
+//        tu = adcHandle.adcTemp / 10;
+//        td = adcHandle.adcTemp - (tu * 10);
+//        if( td < 0 ){
+//          td = -td;
+//        }
+//        sprintf( str, "{time\":%u,\"temp\":%d.%d}", (unsigned int)ut, tu, td );
+//        MQTT_Pub( "imei/temp", str );
       }
     }
     timerMod( &mqttPubTimer, MQTT_PUB_TOUT );

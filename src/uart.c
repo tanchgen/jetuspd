@@ -52,9 +52,6 @@ void do_usart_dma_tx_channel_irq(sUartTxHandle *handle){
   if( (handle->dma_tx->ISR & handle->dma_tx_it_tcif) != RESET ) {
     handle->dma_tx->IFCR = handle->dma_tx_it_tcif;
 
-    // Включаем прерывание UART по окончание передачи
-    handle->uart->CR1 |= USART_CR1_TCIE;
-
   }
 }
 
@@ -130,7 +127,7 @@ void uartRxClock(sUartRxHandle *handle){
     byte = handle->rxBuf[handle->tail++];
     handle->tail &= USART_RX_RINGBUFFER_MASK;
 
-    handle->rxFrame[handle->frame_offset] = byte;
+    handle->rxFrame[handle->frame_offset++] = byte;
 
     if( handle == simHnd.rxh ){
       simUartRxProc( handle, byte );
@@ -140,8 +137,6 @@ void uartRxClock(sUartRxHandle *handle){
       }
 
     }
-
-    handle->frame_offset++;
 
     continue;
   }

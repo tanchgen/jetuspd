@@ -177,7 +177,9 @@ typedef struct uartRxHandle{
   uint32_t  frame_offset;
 
   char * reply;
+  char * replyBuf;      // Буфер для сохранения отклика от SIM800
   FlagStatus replyFlag;    // Отклик, на который указывает reply, получен
+  void (*replyCb)( struct uartRxHandle * rxhnd );
 } sUartRxHandle;
 
 typedef struct {

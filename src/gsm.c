@@ -97,6 +97,12 @@ void gsmOffFunc( void ){
         }
         else {
           gsmRunPhase = PHASE_OFF_OK;
+          tmpTick = mTick + 10000;
+        }
+        break;
+      case PHASE_OFF_OK:
+        if( tmpTick < mTick ){
+          gsmRun = SET;
         }
         break;
       default:
@@ -180,8 +186,8 @@ void gsmStartInitFunc( void ){
             gsmRunPhase = PHASE_ON;
             break;
           default:
-            // Закрываем соединение
-            gprsConnBreak();
+//            Error_Handler( NON_STOP );
+            mDelay(10);
             break;
         }
         break;
@@ -230,10 +236,10 @@ void gsmStartInitFunc( void ){
       }
       else if (tmpTick < mTick ){
         gsmRunPhase = PHASE_NON;
+        gsmState--;
       }
     }
 
-    gsmState--;
   }
 }
 
@@ -290,12 +296,13 @@ void gsmMqttStartFunc( void ){
     switch( gsmRunPhase ){
       case PHASE_NON:
         if( SIM800.mqttServer.tcpconn == 0 ){
+          trace_puts("tcp conn");
           TCP_Connect();
         }
         else if( SIM800.mqttServer.mqttconn == 0 ){
           MQTT_Connect();
           gsmRunPhase = PHASE_ON;
-          tmpTick = mTick + 3000;
+          tmpTick = mTick + 10000;
         }
         else {
           gsmRunPhase = PHASE_ON_OK;
@@ -307,7 +314,8 @@ void gsmMqttStartFunc( void ){
         }
         else if(tmpTick < mTick ){
           // Не дождались соединения MQTT
-          MQTT_Deinit();
+          trace_puts( "mqtt_deinit" );
+//          MQTT_Deinit();
           mDelay(TOUT_1000 * 15);
           gsmRunPhase = PHASE_NON;
         }
@@ -332,6 +340,7 @@ void gsmMqttStartFunc( void ){
 void gsmMqttConnFunc( void ){
   if( gsmRun ){
     if( mqttSubFlag ) {
+      trace_puts( "mqtt sub" );
       MQTT_Sub("imei/#");
       timerMod( &mqttPubTimer, 0 );
       mqttSubFlag = RESET;
@@ -442,7 +451,9 @@ int clkSet( void ) {
   uint8_t errCount;
 
   for( errCount = 0; errCount < 4; errCount++ ){
-    if( SIM800_SendCommand("AT+CCLK?\r\n", "+CCLK: \"", CMD_DELAY_30) == 0 ){
+    simHnd.rxh->replyBuf = mqtt_buffer;
+    *mqtt_buffer = '\0';
+    if( SIM800_SendCommand("AT+CCLK?\r\n", "+CCLK: \"", CMD_DELAY_30, saveSimReply ) == 0){
       int8_t tz;
       // Получили дату-время
       sscanf(mqtt_buffer, "+CCLK: \"%d/%d/%d,%d:%d:%d%d\"", \
@@ -456,7 +467,7 @@ int clkSet( void ) {
     else {
       if( errCount >= 2) {
         // Никак не получается включить GPRS
-        SIM800_SendCommand("AT+CFUN=1,1\r\n", "OK\r\n", CMD_DELAY_50);
+        SIM800_SendCommand("AT+CFUN=1,1\r\n", "OK\r\n", CMD_DELAY_50, NULL );
         mDelay(15000);
       }
     }
@@ -480,7 +491,7 @@ int simStartInit(void) {
 //    simWaitReady( NON_STOP );
     for( eBaudrate i = BAUD_9600; baud == BAUD_NUM; ){
       for( uint8_t j = 0; j < 3; j++ ){
-        if( SIM800_SendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2) == 0 ){
+        if( SIM800_SendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2, NULL ) == 0 ){
           // Есть контакт!
           baud = i;
           break;
@@ -504,7 +515,7 @@ int simStartInit(void) {
       Error_Handler( STOP );
     }
 
-    if( SIM800_SendCommand("AT+IFC=2,2\r\n", "OK\r\n", CMD_DELAY_2) == 0){
+    if( SIM800_SendCommand("AT+IFC=2,2\r\n", "OK\r\n", CMD_DELAY_2, NULL ) == 0){
       simUartHwFlow();
     }
 //    if( baud != BAUD_460800 ){
@@ -513,21 +524,23 @@ int simStartInit(void) {
 //      }
 //    }
 
-    if( SIM800_SendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2) != 0 ){
+    if( SIM800_SendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2, NULL ) != 0 ){
       Error_Handler( STOP );
     }
 
-    SIM800_SendCommand("AT+IFC=2,2\r\n", "OK\r\n", CMD_DELAY_2);
-    SIM800_SendCommand("ATE1\r\n", "OK\r\n", CMD_DELAY_2);
+    SIM800_SendCommand("AT+IFC=2,2\r\n", "OK\r\n", CMD_DELAY_2, NULL );
+    SIM800_SendCommand("ATE1\r\n", "OK\r\n", CMD_DELAY_2, NULL );
 
     return error;
 }
 
+/*
 int getClk( void ){
   int8_t tz;
   int rc = 0;
 
-  if( SIM800_SendCommand("AT+CCLK?\r\n", "+CCLK: \"", CMD_DELAY_30) == 0 ){
+  simHnd.rxh->replyBuf = mqtt_buffer;
+  if( SIM800_SendCommand("AT+CCLK?\r\n", "+CCLK: \"", CMD_DELAY_30) == 0, saveSimReply ){
     // Получили дату-время
     sscanf(mqtt_buffer, "[^:]*: \"%u/%u/%u,%u:%u:%u%d\"", \
                        (unsigned int*)&rtc.date, (unsigned int*)&rtc.month, (unsigned int*)&rtc.year, \
@@ -540,11 +553,14 @@ int getClk( void ){
 
   return rc;
 }
+*/
 
 
 int gprsConnTest( void ){
   int rc = -1;
-    if( SIM800_SendCommand("AT+SAPBR=2,1\r\n", "+SAPBR:", CMD_DELAY_5) == 0){
+  simHnd.rxh->replyBuf = mqtt_buffer;
+  *mqtt_buffer = '\0';
+    if( SIM800_SendCommand("AT+SAPBR=2,1\r\n", "+SAPBR:", CMD_DELAY_5, saveSimReply ) == 0){
       rc = mqtt_buffer[10];
     }
     else {
@@ -556,28 +572,24 @@ int gprsConnTest( void ){
 
 
 int gprsConnBreak( void ){
-  if( SIM800_SendCommand("AT+SAPBR=0,1\r\n", "OK\r\n", CMD_DELAY_5) == 0){
-    return RESET;
+  if( SIM800.mqttServer.tcpconn ){
+    return MQTT_Deinit();
   }
   else {
-    return SET;
+    return SIM800_SendCommand("ATE1\r\n", "OK\r\n", CMD_DELAY_2, NULL );
   }
 }
 
 
 int gprsConn( void ){
-  SIM800_SendCommand("AT+SAPBR=3,1,\"Contype\",\"GPRS\"\r\n", "OK\r\n", CMD_DELAY_5);
-  mDelay( 2000 );
-  SIM800_SendCommand("AT+SAPBR=3,1,\"APN\",\"internet\"\r\n", "OK\r\n", CMD_DELAY_5);
-  mDelay( 2000 );
+  SIM800_SendCommand("AT+SAPBR=3,1,\"Contype\",\"GPRS\"\r\n", "OK\r\n", CMD_DELAY_5, NULL );
+//  mDelay( 2000 );
+  SIM800_SendCommand("AT+SAPBR=3,1,\"APN\",\"internet\"\r\n", "OK\r\n", CMD_DELAY_5, NULL);
+//  mDelay( 2000 );
 
-  if( SIM800_SendCommand("AT+SAPBR=1,1\r\n", "OK\r\n", CMD_DELAY_50) == 0){
+  if( SIM800_SendCommand("AT+SAPBR=1,1\r\n", "OK\r\n", CMD_DELAY_50, NULL) == 0){
     // Есть соединение GPRS;
     // TODO: Получение IP
-    // Две вспышки оранжевого цвета с интервалом в 3 сек
-    ledOff( LED_R, 0 );
-    ledToggleSet( LED_R, LED_BLINK_ON_TOUT, TOUT_3000, 0, 0);
-    ledToggleSet( LED_G, LED_BLINK_ON_TOUT, TOUT_3000, 0, 0);
   }
   return 0;
 }
@@ -587,13 +599,13 @@ int ntpInit(void) {
   if( ntpFlag == RESET ){
     timeInit();
 
-    if( SIM800_SendCommand("AT+CNTPCID=1\r\n", "OK\r\n", CMD_DELAY_5) ){
+    if( SIM800_SendCommand("AT+CNTPCID=1\r\n", "OK\r\n", CMD_DELAY_5, NULL) ){
       return ntpFlag;
     }
     while( ntpFlag == RESET ){
 
-      if( SIM800_SendCommand("AT+CNTP=\""NTP_SERVER"\",12\r\n", "OK\r\n", CMD_DELAY_5) == 0){;
-        if( SIM800_SendCommand("AT+CNTP\r\n", "+CNTP: 1\r\n", CMD_DELAY_50 * 10) == 0 ){
+      if( SIM800_SendCommand("AT+CNTP=\""NTP_SERVER"\",12\r\n", "OK\r\n", CMD_DELAY_5, NULL) == 0){;
+        if( SIM800_SendCommand("AT+CNTP\r\n", "+CNTP: 1\r\n", CMD_DELAY_50 * 10, NULL) == 0 ){
           ntpFlag = SET;
         }
         else {
@@ -608,7 +620,7 @@ int ntpInit(void) {
 
 
 int simWaitReady( void ){
-  if( strstr(mqtt_buffer, "DST: 0\r\n"/*"SMS Ready\r\n"*/ ) != NULL ) {
+  if( SIM800.ready ){
     clearRxBuffer( (char *)(simHnd.rxh->rxFrame), &(simHnd.rxh->frame_offset) );
     return RESET;
   }

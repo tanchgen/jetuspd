@@ -19,11 +19,12 @@ void SystemClock_Config(void);
 void mqttInit(void);
 void fwInit( void );
 
+void simUartEnable( void );
 
 void ifaceInit( void ){
   SystemClock_Config();
 	gpioInit();
-  MX_DMA_Init();
+//  MX_DMA_Init();
   simUartInit();
   termUartInit();
   adcInit();
@@ -38,7 +39,7 @@ void ifaceInit( void ){
 void ifaceEnable( void ){
   logEnable();
   adcStart();
-
+  simUartEnable();
 //  loggerHwTest();
 //  while(1)
 //  {}

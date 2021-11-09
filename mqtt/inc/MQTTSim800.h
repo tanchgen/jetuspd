@@ -119,7 +119,7 @@ uint16_t MQTT_Pubcomp(  unsigned short packetid );
 
 void MQTT_PingReq(void);
 
-void MQTT_Sub(char *topic);
+void MQTT_Sub( char *topic, uint8_t qos );
 
 void MQTT_Receive(unsigned char *buf);
 

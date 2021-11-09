@@ -6,6 +6,7 @@
  */
 #include <string.h>
 
+#include "gpio_arch.h"
 #include "uart.h"
 #include "MQTTSim800.h"
 #include "adc.h"
@@ -14,6 +15,8 @@
 #include "isens.h"
 #include "logger.h"
 #include "mqtt.h"
+
+extern sFwHandle fwHandle;
 
 extern struct timer_list mqttPubTimer;
 extern uint16_t logRdBufFill;
@@ -50,15 +53,6 @@ const char * topicStr[TOPIC_NUM] = {
 
 
 void mqttConnectCb( FlagStatus conn );
-
-
-void mqttMsgReset( sUartRxHandle *handle, SIM800_t * sim ){
-//  mqttBufClean( handle, sim );
-  sim->mqttReceive.mqttData = handle->rxFrame;
-  handle->frame_offset = 0;
-  handle->rxProcFlag = RESET;
-  sim->mqttReceive.msgState = MSG_NULL;
-}
 
 
 void mqttPubTout( uintptr_t arg ){
@@ -106,6 +100,13 @@ void mqttCtlProc( SIM800_t * sim ){
       // Отклик на отправку пакета PUBREC (фаза2 QOS2)
       trace_printf( "PUBREL: %d\n", pktid );
       MQTT_Pubcomp( pktid );
+      if( fwHandle.fwUp.fwUpOk ){
+        // TODO: Запуск выключения и перезагрузки
+        mDelay(50);
+        gsmFinal = SET;
+        mcuReset = SET;
+        gsmRun = RESET;
+      }
       break;
     case MQTT_PUBCOMP:
       trace_printf( "PUBCOMP: %d\n", pktid );
@@ -171,7 +172,7 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
             if( (sim->mqttReceive.remLen > 268435455)
                 || (sim->mqttReceive.remLen == 0) ){
               // Ошибка длины или Нулевая длина
-              trace_printf( "REMLEN = 0, PKT_ID: %X", sim->mqttReceive.msgType );
+              trace_printf( "REMLEN = 0, PKT_ID: %X\n", sim->mqttReceive.msgType );
               goto msg_reset;
             }
             else {
@@ -306,7 +307,6 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
         else if( len == 1024 ){
           if( sim->mqttReceive.topicId == TOPIC_FW_BIN ){
             // Прием прошивки - запись во флеш
-            ledOn( LED_G, 100 );
             // TODO: Запись во Флеш сделать не в ПРЕРЫВАНИИ
             sim->mqttReceive.payOffset = msgptr - handle->rxFrame;
             handle->rxProcFlag = SET;

@@ -376,18 +376,20 @@ void MQTT_PingReq(void)
  * @param topic to be used to the set topic
  * @return NONE
  */
-void MQTT_Sub(char *topic)
-{
-    unsigned char buf[256] = {0};
+void MQTT_Sub(char *topic, uint8_t qos){
+
 
     MQTTString topicString = MQTTString_initializer;
     topicString.cstring = topic;
 
-    int mqtt_len = MQTTSerialize_subscribe(buf, sizeof(buf), 0, 1, 1,
-                                           &topicString, 0);
-    simHnd.txh->data = buf;
-    uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
-    mDelay(100);
+    if( (simHnd.txh->data = ta_alloc( 256 )) == NULL ){
+      Error_Handler( NON_STOP );
+    }
+    else {
+      int mqtt_len = MQTTSerialize_subscribe( simHnd.txh->data, 256, 0, 1, 1,
+                                             &topicString, (int *)&qos);
+      uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
+    }
 }
 
 

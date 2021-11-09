@@ -341,7 +341,7 @@ void gsmMqttConnFunc( void ){
   if( gsmRun ){
     if( mqttSubFlag ) {
       trace_puts( "mqtt sub" );
-      MQTT_Sub("imei/#");
+      MQTT_Sub("imei/#", 2);
       timerMod( &mqttPubTimer, 0 );
       mqttSubFlag = RESET;
       gsmState++;
@@ -528,7 +528,6 @@ int simStartInit(void) {
       Error_Handler( STOP );
     }
 
-    SIM800_SendCommand("AT+IFC=2,2\r\n", "OK\r\n", CMD_DELAY_2, NULL );
     SIM800_SendCommand("ATE1\r\n", "OK\r\n", CMD_DELAY_2, NULL );
 
     return error;

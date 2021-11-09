@@ -63,12 +63,12 @@ typedef struct __aligned(4) {
 
 typedef struct {
   uint32_t fwStartAddr;
-//  uint32_t fwOpAddr;
   uint32_t fwEndAddr;
   uint32_t fwOffset;
   uint32_t fwLen;
   uint32_t fwVer;
   uint32_t crc;
+  FlagStatus fwUpOk;
 } sFwUp;
 
 typedef struct {

@@ -51,7 +51,7 @@ uint8_t tallocArray[TALLOC_ARRAY_SIZE] __aligned(4);
 /* Private variables ---------------------------------------------------------*/
 extern eGsmRunPhase gsmRunPhase;
 
-extern const sUartHnd simHnd;
+//extern const sUartHnd simHnd;
 
 RCC_ClocksTypeDef RCC_Clocks;
 
@@ -100,12 +100,6 @@ int main(void)
   ifaceEnable();
 
   trace_puts("Hello USPD!");
-  //Test data
-//  uint8_t pub_uint8 = 1;
-//  uint16_t pub_uint16 = 2;
-//  uint32_t pub_uint32 = 3;
-//  float pub_float = 1.1;
-//  double pub_double = 2.2;
 
     gsmRunPhase = PHASE_NON;
 
@@ -114,7 +108,6 @@ int main(void)
 //    SIM800.mqttServer.mqttconn = SET;
 //    SIM800.mqttServer.tcpconn = SET;
   /* USER CODE END 2 */
-
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */

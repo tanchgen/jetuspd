@@ -47,7 +47,6 @@ void fwInit( void ){
   RCC->AHBENR |= RCC_AHBENR_CRCEN;
 
   // TODO: Настройка Флеш
-
 }
 
 
@@ -103,6 +102,7 @@ void fwManProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
   }
   // Начиннаем принимать с начала
   pfw->fwOffset = 0;
+  pfw->fwUpOk = RESET;
   rxh->rxProcFlag = RESET;
   // Очистим буфер
   mqttMsgReset( rxh, &SIM800 );
@@ -196,7 +196,7 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
           fwup->fwOffset += 4;
         }
         else {
-          if( fwup->fwOffset == fwup->fwLen ){
+          if( fwup->fwOffset >= fwup->fwLen ){
             fwHandle.fwFlashState = FWFLASH_WRITE_END;
           }
           else {
@@ -209,35 +209,34 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
       break;
     case FWFLASH_WRITE_END:
       // TODO: Проверка на окончание записи
-      if( fwup->fwOffset == fwup->fwLen ){
-        // Вся прошивка записана
-        // Залочить Флеш
-        FLASH->PECR |= FLASH_PECR_PRGLOCK;
-        // Проверка CRC
-        if( CRC->DR == fwup->crc ){
-          sFwHandle * eeFwh = (sFwHandle *)FW_HANDLE_ADDR_0;
-          sFw tmpfw;
+      assert_param( fwup->fwOffset >= fwup->fwLen );
+      // Вся прошивка записана
+      // Залочить Флеш
+      FLASH->PECR |= FLASH_PECR_PRGLOCK;
+      // Проверка CRC
+      if( CRC->DR == fwup->crc ){
+        sFwHandle * eeFwh = (sFwHandle *)FW_HANDLE_ADDR_0;
+        sFw tmpfw;
+        eFwNum fwact = !(fwHandle.fwActive);
 
-          // TODO: Сохранение данных прошивки в EEPROM
-          tmpfw.crc = fwup->crc;
-          tmpfw.fwLen = fwup->fwLen;
-          tmpfw.fwVer = fwup->fwVer;
-          // Запишем данные новой прошивки на место неактивной
-          stmEeWrite( (uint32_t)&(eeFwh->fw[!fwHandle.fwActive]), (uint32_t*)&tmpfw, sizeof(sFw) );
-          // TODO: Запуск выключения и перезагрузки
-          gsmFinal = SET;
-          mcuReset = SET;
-          gsmRun = RESET;
-        }
-        else {
-          fwup->crc = 0;
-          fwup->fwLen = 0;
-          fwup->fwVer = 0;
-        }
-        fwHandle.fwFlashState = FWFLASH_READY;
-        // Очистим буфер
-        mqttMsgReset( rxh, &SIM800 );
+        // TODO: Сохранение данных прошивки в EEPROM
+        tmpfw.crc = fwup->crc;
+        tmpfw.fwLen = fwup->fwLen;
+        tmpfw.fwVer = fwup->fwVer;
+        tmpfw.good = SET;
+        // Запишем данные новой прошивки на место неактивной
+        stmEeWrite( (uint32_t)&(eeFwh->fw[fwact]), (uint32_t*)&tmpfw, sizeof(sFw) );
+        fwup->fwUpOk = SET;
+        // Перезагрузка после отправки пакета PUBCOMP
       }
+      else {
+        fwup->crc = 0;
+        fwup->fwLen = 0;
+        fwup->fwVer = 0;
+      }
+      fwHandle.fwFlashState = FWFLASH_READY;
+      // Очистим буфер
+      mqttMsgReset( rxh, &SIM800 );
       break;
     case FWFLASH_SKIP:
       // Пропускаем фрагмент

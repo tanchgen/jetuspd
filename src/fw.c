@@ -47,6 +47,7 @@ void fwInit( void ){
   RCC->AHBENR |= RCC_AHBENR_CRCEN;
 
   // TODO: Настройка Флеш
+  fwHandle.fwActive = SCB->VTOR > FW_2_START_ADDR;
 }
 
 

@@ -2,13 +2,14 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm32l1xx_hal.h"
 #include "main.h"
+#include "fw.h"
 
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
-uFwVer fw1Ver;
-uFwVer fw2Ver;
+//uFwVer fw1Ver;
+//uFwVer fw2Ver;
 uFwRunState fwRunState;
 
 /* USER CODE BEGIN PV */
@@ -25,6 +26,9 @@ void SystemClock_Config(void);
 uint32_t fwAddrGet( void );
 void flash_jump_to_app( uint32_t appAddr );
 void _mDelay( uint32_t t_ms );
+
+HAL_StatusTypeDef   stmEeRead( uint32_t addr, uint32_t * data, uint32_t datalen) ;
+HAL_StatusTypeDef   stmEeWrite( uint32_t addr, uint32_t * data, uint32_t datalen) ;
 
 /* USER CODE END PFP */
 
@@ -125,22 +129,30 @@ void SystemClock_Config(void) {
 // Получение адреса последней рабочей прошивки
 uint32_t fwAddrGet( void ){
   uint32_t fwaddr = 0;
+  sFwHandle * eeFwh = (sFwHandle *)FW_HANDLE_ADDR_0;
+  sFw tmpfw = {0};
 
-  fw1Ver.u32fwver = RTC->BKP1R;
-  fw2Ver.u32fwver = RTC->BKP2R;
+  uint32_t fw1Ver;
+  uint32_t fw2Ver;
+
+  fw1Ver = RTC->BKP1R;
+  fw2Ver = RTC->BKP2R;
   fwRunState.u32fwst = RTC->BKP3R;
 
   // Ищем прошивку FW_1
-  if( fw1Ver.u32fwver == 0 ){
+  if( fw1Ver == 0 ){
     // Это первый запуск
-    if( (*(uint32_t *)FW_1_START_ADDR & 0xFFFF0000) == 0x20000000 ){
-      // Адрес вершины стека похож на правду
+    stmEeRead( (uint32_t)&(eeFwh->fw[FW_1]), (uint32_t*)&tmpfw, sizeof(sFw));
+
+    if( (tmpfw.good == SET) && ((*(uint32_t *)FW_1_START_ADDR & 0xFFFF0000) == 0x20000000) ){
+      // Флаг "хорошей" прошивки и Адрес вершины стека похож на правду
+
       /* Номер версии хранится по последнему адресу области памяти,
        * выделенной под прошивку
        */
-      fw1Ver.u32fwver = *(uint32_t *)(FW_1_END+1 - sizeof(uint32_t));
-      if( (fw1Ver.u32fwver < 0xFFFFFFFF) && (fw1Ver.u32fwver > 0) ){
-        RTC->BKP1R = fw1Ver.u32fwver;
+      fw1Ver = tmpfw.fwVer;
+      if( (fw1Ver < 0xFFFFFFFF) && (fw1Ver > 0) ){
+        RTC->BKP1R = fw1Ver;
         fwRunState.fwstate.fw1Bug = fwRunState.fwstate.fw1Count >= 3;
       }
       else {
@@ -157,22 +169,32 @@ uint32_t fwAddrGet( void ){
     fwRunState.fwstate.fw1Bug = fwRunState.fwstate.fw1Count >= 3;
   }
 
+  if( fwRunState.fwstate.fw1Bug ){
+    // Прошивка #1 "плохая" !
+    tmpfw.good = 0;
+    stmEeWrite( (uint32_t)&(eeFwh->fw[FW_1]), (uint32_t *)&tmpfw, sizeof(sFw));
+    fw1Ver = 0;
+  }
+
   // Ищем прошивку FW_2
-  if( fw2Ver.u32fwver == 0 ){
-    if( (*(uint32_t *)FW_2_START_ADDR & 0xFFFF0000) == 0x20000000 ){
-      // Адрес вершины стека похож на правду
+  if( fw2Ver == 0 ){
+    stmEeRead( (uint32_t)&(eeFwh->fw[FW_2]), (uint32_t*)&tmpfw, sizeof(sFw));
+
+    if( (tmpfw.good == SET) && ((*(uint32_t *)FW_2_START_ADDR & 0xFFFF0000) == 0x20000000) ){
+      // Флаг "хорошей" прошивки и Адрес вершины стека похож на правду
+
       /* Номер версии хранится по последнему адресу области памяти,
        * выделенной под прошивку
        */
-      fw2Ver.u32fwver = *(uint32_t *)(FW_2_END+1 - sizeof(uint32_t));
-      if( (fw2Ver.u32fwver < 0xFFFFFFFF) && (fw2Ver.u32fwver > 0) ){
-        RTC->BKP2R = fw2Ver.u32fwver;
+      fw2Ver = tmpfw.fwVer;
+      if( (fw2Ver < 0xFFFFFFFF) && (fw2Ver > 0) ){
+        RTC->BKP2R = fw2Ver;
         fwRunState.fwstate.fw2Bug = fwRunState.fwstate.fw2Count >= 3;
       }
       else {
         // Некорректный номер версии
         fwRunState.fwstate.fw2Bug = 1;
-        fw2Ver.u32fwver = 0;
+        fw2Ver = 0;
       }
     }
     else {
@@ -184,18 +206,24 @@ uint32_t fwAddrGet( void ){
     fwRunState.fwstate.fw2Bug = fwRunState.fwstate.fw2Count >= 3;
   }
 
-  if( ((fw1Ver.u32fwver > fw2Ver.u32fwver) && (fwRunState.fwstate.fw1Bug == 0))
-      || ((fwRunState.fwstate.fw2Bug == 1) && (fwRunState.fwstate.fw1Bug == 0))){
+  if( fwRunState.fwstate.fw2Bug ){
+    // Прошивка #2 "плохая" !
+    tmpfw.good = 0;
+    stmEeWrite( (uint32_t)&(eeFwh->fw[FW_2]), (uint32_t *)&tmpfw, sizeof(sFw));
+    fw2Ver = 0;
+  }
+
+
+  if( fw1Ver && ((fw1Ver > fw2Ver) || (fw2Ver == 0)) ){
     fwRunState.fwstate.fw1Count++;
     fwaddr = FW_1_START_ADDR;
   }
-  else if( (fw2Ver.u32fwver != 0)
-      && (fwRunState.fwstate.fw2Bug == 0) ){
+  else if( fw2Ver ){
    fwRunState.fwstate.fw2Count++;
    fwaddr = FW_2_START_ADDR;
   }
 
-//  RTC->BKP3R = fwRunState.u32fwst;
+  RTC->BKP3R = fwRunState.u32fwst;
 
   return fwaddr;
 }
@@ -268,12 +296,101 @@ void assert_failed(uint8_t* file, uint32_t line){
 }
 #endif /* USE_FULL_ASSERT */
 
-/**
-  * @}
-  */
+/*===============================================================================
+ *                    ##### DATA EEPROM Programming functions #####
+ *===============================================================================*/
 
 /**
-  * @}
-  */
+ * @brief  Unlocks the data memory and FLASH_PECR register access.
+ * @retval HAL_StatusTypeDef HAL Status
+ */
+void stmEeUnlock(void) {
+ if((FLASH->PECR & FLASH_PECR_PELOCK) != RESET) {
+   /* Unlocking the Data memory and FLASH_PECR register access*/
+   FLASH->PEKEYR = FLASH_PEKEY1;
+   FLASH->PEKEYR = FLASH_PEKEY2;
+ }
+ return;
+}
 
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+/**
+ * @brief  Locks the Data memory and FLASH_PECR register access.
+ * @retval HAL_StatusTypeDef HAL Status
+ */
+void stmEeLock(void) {
+ /* Set the PELOCK Bit to lock the data memory and FLASH_PECR register access */
+ FLASH->PECR |= FLASH_PECR_PELOCK;
+
+ return;
+}
+
+
+HAL_StatusTypeDef   stmEeRead( uint32_t addr, uint32_t * data, uint32_t datalen) {
+ HAL_StatusTypeDef status = HAL_ERROR;
+ uint32_t addrEnd;
+
+ addr += FLASH_EEPROM_BASE;
+ addrEnd = addr + datalen;
+
+ assert_param( addrEnd <= FLASH_EEPROM_END );
+
+ /* Wait for last operation to be completed */
+ if( FLASH_WaitForLastOperation(FLASH_TIMEOUT_VALUE) != HAL_OK){
+   return HAL_ERROR;
+ }
+
+ for( ;addr < addrEnd; addr += 4 ) {
+   *data++ = *(__IO uint32_t *)addr;
+ }
+
+ return status;
+}
+
+/**
+ * @brief  Program word at a specified address
+ * @note   To correctly run this function, the @ref HAL_FLASHEx_DATAEEPROM_Unlock() function
+ *         must be called before.
+ *         Call the @ref HAL_FLASHEx_DATAEEPROM_Unlock() to he data EEPROM access
+ *         and Flash program erase control register access(recommended to protect
+ *         the DATA_EEPROM against possible unwanted operation).
+ * @note   The function @ref HAL_FLASHEx_DATAEEPROM_EnableFixedTimeProgram() can be called before
+ *         this function to configure the Fixed Time Programming.
+ * @param  TypeProgram  Indicate the way to program at a specified address.
+ *         This parameter can be a value of @ref FLASHEx_Type_Program_Data
+ * @param  Address  specifie the address to be programmed.
+ * @param  Data     specifie the data to be programmed
+ *
+ * @retval HAL_StatusTypeDef HAL Status
+ */
+
+HAL_StatusTypeDef   stmEeWrite( uint32_t addr, uint32_t * data, uint32_t datalen) {
+ HAL_StatusTypeDef status = HAL_ERROR;
+ uint32_t addrEnd;
+
+ addr += FLASH_EEPROM_BASE;
+ addrEnd = addr + datalen;
+
+ assert_param( addrEnd <= FLASH_EEPROM_END );
+
+ while( addr < addrEnd) {
+   /* Wait for last operation to be completed */
+   status = FLASH_WaitForLastOperation(FLASH_TIMEOUT_VALUE);
+
+   if(status == HAL_OK) {
+     /* Clean the error context */
+     *(__IO uint32_t *)addr = *data++;
+     addr += 4;
+   }
+   else {
+     break;
+   }
+ }
+
+ return status;
+}
+
+
+void stmEeInit( void ){
+  RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+  stmEeUnlock();
+}

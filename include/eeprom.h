@@ -28,5 +28,6 @@ extern uint32_t EEPROMPageSize;
 
 void stmEeInit( void );
 HAL_StatusTypeDef   stmEeWrite( uint32_t addr, uint32_t * data, uint32_t datalen);
+HAL_StatusTypeDef   stmEeWrite( uint32_t addr, uint32_t * data, uint32_t datalen);
 
 #endif /* EEPROM_H_ */

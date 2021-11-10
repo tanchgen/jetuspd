@@ -257,16 +257,16 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
 /**
   * @brief This function handles DMA1 channel2 global interrupt.
   */
-void DMA1_Channel2_IRQHandler(void){
-  HAL_DMA_IRQHandler(&simUartDmaTx);
-}
-
-/**
-  * @brief This function handles DMA1 channel3 global interrupt.
-  */
-void DMA1_Channel3_IRQHandler(void) {
-  HAL_DMA_IRQHandler(&simUartDmaRx);
-}
+//void DMA1_Channel2_IRQHandler(void){
+//  HAL_DMA_IRQHandler(&simUartDmaTx);
+//}
+//
+///**
+//  * @brief This function handles DMA1 channel3 global interrupt.
+//  */
+//void DMA1_Channel3_IRQHandler(void) {
+//  HAL_DMA_IRQHandler(&simUartDmaRx);
+//}
 
 ///**
 //  * @brief This function handles DMA1 channel4 global interrupt.

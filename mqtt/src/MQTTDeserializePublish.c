@@ -15,8 +15,8 @@
  *******************************************************************************/
 
 #include "StackTrace.h"
-#include "MQTTPacket.h"
 #include <string.h>
+#include "MQTTPacket.h"
 
 //#define min(a, b) ((a < b) ? 1 : 0)
 
@@ -45,7 +45,7 @@ int MQTTDeserialize_publish(unsigned char* dup, int* qos, unsigned char* retaine
 
 	FUNC_ENTRY;
 	header.byte = readChar(&curdata);
-	if (header.bits.type != PUBLISH)
+	if (header.bits.type != MQTT_PUBLISH)
 		goto exit;
 	*dup = header.bits.dup;
 	*qos = header.bits.qos;

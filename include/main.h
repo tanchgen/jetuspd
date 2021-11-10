@@ -13,7 +13,7 @@ extern "C" {
 /* USER CODE BEGIN Includes */
 #include "diag/trace.h"
 
-//#include "tinyalloc.h"
+#include "tinyalloc.h"
 #include "times.h"
 #include "gpio.h"
 #include "led.h"

@@ -73,6 +73,7 @@ void ledOn( eLed led, uint32_t endure){
   gpioPinSetNow( &(pled->ledPin) );
   if(endure > 0){
     // Выставляем таймер
+    pled->ledOnTout = endure;
     pled->ledTim->ARR = pled->ledOnTout - 1;
     // Включаем
     pled->ledTim->CR1 |= TIM_CR1_CEN;
@@ -101,6 +102,7 @@ void ledOff( eLed led, uint32_t endure ){
   gpioPinResetNow( &(pled->ledPin) );
   if(endure > 0){
     // Выставляем таймер
+    pled->ledOffTout = endure;
     pled->ledTim->ARR = pled->ledOffTout - 1;
     // Включаем
     pled->ledTim->CR1 |= TIM_CR1_CEN;

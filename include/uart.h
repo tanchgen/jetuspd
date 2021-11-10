@@ -9,6 +9,17 @@
 #include "stm32l1xx.h"
 #include "list.h"
 
+typedef enum {
+  BAUD_9600,
+  BAUD_19200,
+  BAUD_38400,
+  BAUD_57600,
+  BAUD_115200,
+  BAUD_230400,
+  BAUD_460800,
+  BAUD_NUM
+} eBaudrate;
+
 #pragma pack(push, 1)
 /** Структура пакета USART версии 2. */
 __packed struct usart_frame_v2 {
@@ -116,7 +127,6 @@ typedef struct {
 
   /** Данные на передачу. */
   uint8_t * data;
-
 } sUartTxHandle;
 
 /** Структура дескриптора приемного USART. */
@@ -147,8 +157,8 @@ typedef struct uartRxHandle{
   /** Данные кольцевого буфера. */
   uint8_t  rxBuf[USART_RX_RINGBUFFER_SIZE];
 
-  /** Признак обнаруженного синхробайта пакета. */
-  bool  cr_found;
+  /** Возможность обработки принимаемых данных. */
+  FlagStatus rxProcFlag;
   /** Признак обнаруженного байт-стаффинга пакета. */
   FlagStatus  crcWait;
 
@@ -158,20 +168,18 @@ typedef struct uartRxHandle{
 //  uint8_t  next_byte;
 
   /** Текущее значение CRC. */
-  uint8_t  crc;
+  uint32_t  crc;
 
   /** Буфер для размещения структуры дескриптора текущего обрабатываемого пакета USART. */
-  uint8_t rxFrame[256];
+  uint8_t rxFrame[256 * 6] __aligned(4);
 
   /** Текущее смещение данных относительно начала пакета. */
   uint32_t  frame_offset;
 
-  FlagStatus uartTest;    // Фла тестирования UART (отправка пустого пакета - прием эха)
-
-//  /** Указатель на функцию определения ожидаемого размера принимаемого пакета USART. */
-//  size_t (*frame_size_func)(struct uartRxHandle *, const void *, size_t);
-//  /** Указатель на функцию разбора данных принятого пакета USART. */
-//  int16_t (*parse_frame_func)(struct uartRxHandle *);
+  char * reply;
+  char * replyBuf;      // Буфер для сохранения отклика от SIM800
+  FlagStatus replyFlag;    // Отклик, на который указывает reply, получен
+  void (*replyCb)( struct uartRxHandle * rxhnd );
 } sUartRxHandle;
 
 typedef struct {
@@ -242,15 +250,6 @@ void clock_usart_tx_data_v1(sUartTxHandle *handle);
   * @retval none
   */
 void clock_uart_tx_data_v2(sUartTxHandle  *handle);
-
-/**
-  * @brief  Инициализация структуры дескриптора приемного USART.
-  *
-  * @param[in]  handle  дескриптор приемного USART
-  *
-  * @retval none
-  */
-void init_uart_rx_handle(sUartRxHandle  *handle);
 
 /**
   * @brief  Инициализация структуры дескриптора передающего USART.

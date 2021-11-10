@@ -102,6 +102,8 @@ extern const sUartInitDesc uartInitDesc[];
 extern const sUartHnd simHnd;
 extern const sUartHnd termHnd;
 
+extern const uint32_t baudrate[BAUD_NUM];
+
 bool uartAddrTest( sUartRxHandle *handle );
 
 /**

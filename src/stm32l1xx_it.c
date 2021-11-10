@@ -45,7 +45,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-extern UART_HandleTypeDef simUart;
+//extern UART_HandleTypeDef simUart;
 
 /* USER CODE END PV */
 
@@ -244,30 +244,27 @@ void EXTI4_IRQHandler( void ){           // EXTI Line 4
   */
 void USART3_IRQHandler(void)
 {
-  /* USER CODE BEGIN DMA1_Channel1_IRQn 0 */
+  /* Overrun error interrupt. */
+  if( (USART3->SR & USART_SR_ORE) != RESET){
+    while( USART3->SR & USART_SR_RXNE ){
+      (void)USART3->DR;
+    }
+  }
 
-  /* USER CODE END DMA1_Channel1_IRQn 0 */
-  HAL_UART_IRQHandler(&simUart);
-  /* USER CODE BEGIN DMA1_Channel1_IRQn 1 */
-
-  /* USER CODE END DMA1_Channel1_IRQn 1 */
+  /*
+   * Noise error interrupt and Framing error interrupt.
+   *
+   * The NE bit is reset by a USART_SR register read operation followed by a USART_DR
+   * register read operation.
+   *
+   * The FE bit is reset by a USART_SR register read operation followed by a USART_DR
+   * register read operation.
+   */
+  if( ((USART3->SR & USART_SR_NE) != RESET) || ((USART3->SR & USART_SR_FE) != RESET) ){
+    (void)USART3->DR;
+  }
 }
 
-
-/**
-  * @brief This function handles DMA1 channel1 global interrupt.
-  */
-void DMA1_Channel1_IRQHandler(void)
-{
-  /* USER CODE BEGIN DMA1_Channel1_IRQn 0 */
-
-  /* USER CODE END DMA1_Channel1_IRQn 0 */
-//  HAL_DMA_IRQHandler(&hdma_adc);
-  /* USER CODE BEGIN DMA1_Channel1_IRQn 1 */
-  while(1)
-  {}
-  /* USER CODE END DMA1_Channel1_IRQn 1 */
-}
 
 /* USER CODE BEGIN 1 */
 void WWDG_IRQHandler( void ) { while(1){} };
@@ -281,11 +278,11 @@ void RCC_IRQHandler( void ) { while(1){} };
 //void EXTI2_IRQHandler( void ) { while(1){} };
 //void EXTI3_IRQHandler( void ) { while(1){} };
 //void EXTI4_IRQHandler( void ) { while(1){} };
-//void DMA1_Channel1_IRQHandler( void ) { while(1){} };
+void DMA1_Channel1_IRQHandler( void ) { while(1){} };
 //void DMA1_Channel2_IRQHandler( void ) { while(1){} };
 //void DMA1_Channel3_IRQHandler( void ) { while(1){} };
 //void DMA1_Channel4_IRQHandler( void ) { while(1){} };
-//void DMA1_Channel5_IRQHandler( void ) { while(1){} };
+void DMA1_Channel5_IRQHandler( void ) { while(1){} };
 void DMA1_Channel6_IRQHandler( void ) { while(1){} };
 void DMA1_Channel7_IRQHandler( void ) { while(1){} };
 //void ADC1_IRQHandler( void ) { while(1){} };

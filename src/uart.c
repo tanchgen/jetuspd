@@ -7,12 +7,14 @@
 #include "stm32l1xx_ll_usart.h"
 #include "stm32l1xx_ll_gpio.h"
 #include "stm32l1xx_ll_dma.h"
-#include "MQTTSim800.h"
 #include "usart_arch.h"
+#include "MQTTSim800.h"
 
-extern SIM800_t SIM800;
+//extern SIM800_t SIM800;
+//
+//void mqttConnectCb( FlagStatus conn );
+void simUartRxProc( sUartRxHandle * handle, uint8_t byte );
 
-void mqttConnectCb( FlagStatus conn );
 
 void uartEnable( sUartRxHandle *rxuart, sUartTxHandle *txuart ){
   rxuart->dma_rx_channel->CCR |= DMA_CCR_EN;
@@ -49,9 +51,6 @@ void do_usart_dma_tx_channel_irq(sUartTxHandle *handle){
 
   if( (handle->dma_tx->ISR & handle->dma_tx_it_tcif) != RESET ) {
     handle->dma_tx->IFCR = handle->dma_tx_it_tcif;
-
-    // Включаем прерывание UART по окончание передачи
-    handle->uart->CR1 |= USART_CR1_TCIE;
 
   }
 }
@@ -99,19 +98,6 @@ void do_usart_tx_irq(sUartTxHandle *handle){
 //}
 
 
-/**
-  * @brief  Сброс приемного USART версии 2.
-  *
-  * @param[in]  handle  дескриптор приемного USART
-  *
-  * @retval none
-  */
-void _reset_uart_rx_handle_v2(sUartRxHandle *handle){
-  handle->crc = 0;
-
-  handle->frame_offset = 0;
-}
-
 void uartRxClock(sUartRxHandle *handle){
   uint32_t n_bytes;
 //  uint32_t size;
@@ -120,6 +106,10 @@ void uartRxClock(sUartRxHandle *handle){
   FlagStatus oldhalf = handle->half;
 
   MAYBE_BUILD_BUG_ON(sizeof(handle->crc) < sizeof(crc));
+
+  if( handle->rxProcFlag == SET ){
+    return;
+  }
 
   handle->head = (USART_RX_RINGBUFFER_SIZE - handle->dma_rx_channel->CNDTR);
   /* Определим заполненность буфера. */
@@ -139,54 +129,13 @@ void uartRxClock(sUartRxHandle *handle){
 
     handle->rxFrame[handle->frame_offset++] = byte;
 
-    if (SIM800.mqttServer.connect == 0) {
-      if( (handle->rxFrame[handle->frame_offset-2] == '\r')
-          && (byte == '\n')
-          && (handle->frame_offset == 2) ) {
-        // Пустая строка
-        handle->frame_offset = 0;
-        continue;
+    if( handle == simHnd.rxh ){
+      simUartRxProc( handle, byte );
+      if( handle->rxProcFlag ){
+        // Временно приостоновим обработку принятых данных - до обработки принятого топика
+        n_bytes = 0;
       }
-      else if( (handle->rxFrame[handle->frame_offset-2] == '\r')
-                && (byte == '\n') ) {
-        memcpy(mqtt_buffer, handle->rxFrame, handle->frame_offset );
-        mqtt_buffer[handle->frame_offset] = '\0';
-        clearRxBuffer( (char *)handle->rxFrame, &handle->frame_offset );
-        if( strstr(mqtt_buffer, "DY CONNECT\r\n") || strstr(mqtt_buffer, "CONNECT\r\n") ) {
-          // Есть соединение с MQTT-сервером
-          SIM800.mqttServer.connect = 1;
-          mqttConnectCb( SIM800.mqttServer.connect );
-        }
-        continue;
-      }
-    }
 
-    if (strstr((char *)handle->rxFrame, "CLOSED\r\n")
-        || strstr((char *)handle->rxFrame, "ERROR\r\n")
-        || strstr((char *)handle->rxFrame, "DEACT\r\n"))
-    {
-      // Нет соединения с MQTT-сервером
-      SIM800.mqttServer.connect = 0;
-      mqttConnectCb( SIM800.mqttServer.connect );
-    }
-
-    if (SIM800.mqttServer.connect == 1 && handle->frame_offset== 48) {
-        mqtt_receive = 1;
-    }
-    if (mqtt_receive == 1) {
-        mqtt_buffer[mqtt_index++] = byte;
-        if (mqtt_index > 1 && mqtt_index - 1 > mqtt_buffer[1]) {
-            MQTT_Receive((unsigned char *)mqtt_buffer);
-            clearRxBuffer( (char *)handle->rxFrame, &handle->frame_offset );
-            clearMqttBuffer();
-        }
-        if (mqtt_index >= sizeof(mqtt_buffer)) {
-            clearMqttBuffer();
-        }
-    }
-    if (handle->frame_offset >= sizeof(mqtt_buffer)) {
-      clearRxBuffer( (char *)handle->rxFrame, &handle->frame_offset );
-        clearMqttBuffer();
     }
 
     continue;
@@ -227,20 +176,18 @@ uint16_t uartTransmit( sUartTxHandle * handle, uint32_t size, uint32_t tout ){
     }
   }
 
-  handle->dma_tx_channel->CCR &= ~DMA_CCR_EN;
-
   // Выключаем UART_TX
-  handle->uart->CR1 &= ~USART_CR1_TE;
-  /* Clear the TC bit in the SR register by writing 0 to it. */
-  handle->uart->SR &= ~USART_SR_TC;
-  handle->dma_tx->IFCR = handle->dma_tx_it_tcif;
+  handle->uart->CR3 &= ~USART_CR3_DMAT;
+  handle->dma_tx_channel->CCR &= ~DMA_CCR_EN;
   handle->dma_tx_channel->CMAR = (uint32_t)handle->data;
   /* Укажем число передаваемых байт. */
   handle->dma_tx_channel->CNDTR = size;
+  handle->dma_tx->IFCR = handle->dma_tx_it_tcif;
+  /* Clear the TC bit in the SR register by writing 0 to it. */
+  handle->uart->SR &= ~USART_SR_TC;
   /* Activate the channel in the DMA register. */
   handle->dma_tx_channel->CCR |= DMA_CCR_EN;
-  // Включаем UART_TX
-  handle->uart->CR1 |= USART_CR1_TE;
+  handle->uart->CR3 |= USART_CR3_DMAT;
 
   return size;
 }
@@ -396,10 +343,6 @@ void uartDmaInit( sUartRxHandle * rxuart, sUartTxHandle * txuart ){
   }
 }
 
-void init_uart_rx_handle(sUartRxHandle *handle){
-  handle->frame_offset = 0;
-}
-
 void init_uart_tx_handle(sUartTxHandle *handle){
   INIT_LIST_HEAD(&handle->queue);
   handle->id = 0;
@@ -430,6 +373,7 @@ void uartIfaceInit( sUartTxHandle * txhandle, sUartRxHandle * rxhandle, eUartId 
   rxhandle->half = RESET;
   rxhandle->tail = 0;
   rxhandle->baudrate = uartInitDesc[uartid].baudrate;
+  rxhandle->rxProcFlag = RESET;
 
   /* Инициализируем дескриптор USART_TX. */
   txhandle->uart = uartInitDesc[uartid].uartTx;
@@ -454,7 +398,7 @@ void uartIfaceInit( sUartTxHandle * txhandle, sUartRxHandle * rxhandle, eUartId 
   uartInit( rxhandle, txhandle );
 
   init_uart_tx_handle(txhandle);
-  init_uart_rx_handle(rxhandle);
+  rxhandle->frame_offset = 0;
 
   uartDmaInit( rxhandle, txhandle );
 

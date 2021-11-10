@@ -14,10 +14,10 @@
  *    Ian Craggs - initial API and implementation and/or initial documentation
  *******************************************************************************/
 
-#include "MQTTPacket.h"
 #include "StackTrace.h"
 
 #include <string.h>
+#include "../inc/MQTTPacket.h"
 
 /**
   * Determines the length of the MQTT connect packet that would be produced using the supplied connect options.
@@ -71,7 +71,7 @@ int MQTTSerialize_connect(unsigned char* buf, int buflen, MQTTPacket_connectData
 	}
 
 	header.byte = 0;
-	header.bits.type = CONNECT;
+	header.bits.type = MQTT_CONNECT;
 	writeChar(&ptr, header.byte); /* write header */
 
 	ptr += MQTTPacket_encode(ptr, len); /* write remaining length */
@@ -141,7 +141,7 @@ int MQTTDeserialize_connack(unsigned char* sessionPresent, unsigned char* connac
 
 	FUNC_ENTRY;
 	header.byte = readChar(&curdata);
-	if (header.bits.type != CONNACK)
+	if (header.bits.type != MQTT_CONNACK)
 		goto exit;
 
 	curdata += (rc = MQTTPacket_decodeBuf(curdata, &mylen)); /* read remaining length */
@@ -199,7 +199,7 @@ exit:
   */
 int MQTTSerialize_disconnect(unsigned char* buf, int buflen)
 {
-	return MQTTSerialize_zero(buf, buflen, DISCONNECT);
+	return MQTTSerialize_zero(buf, buflen, MQTT_DISCONNECT);
 }
 
 
@@ -211,5 +211,5 @@ int MQTTSerialize_disconnect(unsigned char* buf, int buflen)
   */
 int MQTTSerialize_pingreq(unsigned char* buf, int buflen)
 {
-	return MQTTSerialize_zero(buf, buflen, PINGREQ);
+	return MQTTSerialize_zero(buf, buflen, MQTT_PINGREQ);
 }

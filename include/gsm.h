@@ -8,6 +8,8 @@
 #ifndef GSM_H_
 #define GSM_H_
 
+#include "stm32l1xx.h"
+
 typedef enum {
   GSM_OFF,
   GSM_SIM_ON,
@@ -30,7 +32,9 @@ typedef enum {
   PHASE_OFF_OK,
 } eGsmRunPhase;
 
+extern FlagStatus gsmRun;
 extern eGsmState gsmState;
+extern FlagStatus gsmFinal;
 
 void gsmProcess( void );
 

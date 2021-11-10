@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+#include "stm32l1xx_ll_usart.h"
 
 #include "main.h"
 
@@ -9,23 +10,15 @@
 #include "usart_arch.h"
 //#include "arch_mco.h"
 
-
-/** Глобальный буфер данных телеметрии на передачу */
-//sTmdataTxFrame  txDataFrame;
-
-//uint8_t txFrameCount = 0;
-
-///** Структура пакета по приему из USART1. */
-//typedef struct __packed {
-//  /** Заголовок пакета USART по приему. */
-//  sXferFrameRx rxfr;
-//
-//  /** Адрес записываемого регистра. */
-//  uint16_t  reg_addr;
-//  /** Значение, записываемое в регистр. */
-//  uint16_t  reg_data;
-//} sUartFrameRx;
-
+const uint32_t baudrate[BAUD_NUM] = {
+  9600,
+  19200,
+  38400,
+  57600,
+  115200,
+  230400,
+  460800
+};
 
 // UART_RX_DESC
 GPIO_TypeDef  *gpio_rx;
@@ -83,6 +76,7 @@ const sUartInitDesc uartInitDesc[] = {
       .dmaTxChannel = DMA1_Channel4,
       .dmaTxItTcif = DMA_IFCR_CTCIF4,
       .baudrate = 9600,
+      .rxProcFlag = SET,
     },
 #endif // TERM_UART_ENABLE
 };
@@ -109,7 +103,7 @@ const sUartHnd termHnd = { &termUartRxHandle, &termUartTxHandle };
 
 //=====================================================================================
 //void simUartTxClock(sUartTxHandle *handle);
-
+//void simUartRxProc( sUartRxHandle * handle );
 
 
 void uartEnTimeout( uintptr_t arg ){
@@ -139,14 +133,62 @@ void USART1_IRQHandler(void){
 }
 
 /**
-  * @brief  Обработчик прерываний DMA SIM_UART_RX (DMA2_Stream6).
+  * @brief  Обработчик прерываний DMA SIM_UART_RX (DMA1_Stream3).
   *
   * @param  none
   *
   * @retval none
   */
-void DMA1_Channel4_IRQHandler( void ){
+void DMA1_Channel3_IRQHandler( void ){
   do_usart_dma_rx_channel_irq(&simUartRxHandle);
+}
+
+
+/**
+  * @brief  Обработчик прерываний DMA SIM_UART_TX (DMA1_Stream2).
+  *
+  * @param  none
+  *
+  * @retval none
+  */
+void DMA1_Channel2_IRQHandler( void ){
+  if( (DMA1->ISR & DMA_ISR_TCIF2) != RESET ) {
+    DMA1->IFCR = DMA_IFCR_CTCIF2;
+    if( (uint32_t)(simHnd.txh->data) & 0x20000000 ){
+      // Память выделена из кучи
+      ta_free( simHnd.txh->data);
+    }
+  }
+}
+
+
+void simUartBaud( uint32_t baudrate  ){
+  uint32_t clk;
+
+  if( (simHnd.rxh->uart == USART1) || (simHnd.rxh->uart == USART3) ) {
+    clk = rccClocks.PCLK2_Frequency;
+  }
+  else if( simHnd.rxh->uart == USART2) {
+    clk = rccClocks.PCLK1_Frequency;
+  }
+  else {
+    assert_param(0);
+    clk = 0;
+  }
+
+  while( (simHnd.rxh->uart->SR & USART_SR_TC) == 0 )
+  {}
+  simHnd.rxh->uart->CR1 &= ~USART_CR1_RE | USART_CR1_TE;
+  simHnd.rxh->uart->CR1 &= ~USART_CR1_UE;
+
+  LL_USART_SetBaudRate(simHnd.rxh->uart, clk, LL_USART_OVERSAMPLING_16, baudrate);
+  simHnd.rxh->uart->CR1 |= USART_CR1_UE;
+  simHnd.rxh->uart->CR1 |= USART_CR1_RE | USART_CR1_TE;
+}
+
+
+void simUartHwFlow( void ){
+  simHnd.rxh->uart->CR3 |= (USART_CR3_RTSE | USART_CR3_CTSE);
 }
 
 /**
@@ -173,16 +215,9 @@ void simUartInit( void ) {
   RCC->AHBENR |= RCC_AHBENR_DMA1EN;
 
   uartIfaceInit( &simUartTxHandle, &simUartRxHandle, UART_ID_SIM );
-  NVIC_SetPriority( DMA1_Channel4_IRQn, 1 );
+  NVIC_SetPriority( DMA1_Channel3_IRQn, 1 );
   timerSetup( &simEnTimer, uartEnTimeout, (uintptr_t)&simHnd );
 
-#if SIM_UART_TEST_ENABLE
-  simUartTxHandle.uartTest = 4;
-  simUartRxHandle.uartTest = SET;
-#else
-  simUartTxHandle.uartTest = 0;
-  simUartRxHandle.uartTest = RESET;
-#endif
 }
 
 /**
@@ -199,6 +234,8 @@ void simUartEnable( void ){
 
   NVIC_EnableIRQ( SIM_UART_RX_DMA_IRQn );
   NVIC_SetPriority( SIM_UART_RX_DMA_IRQn, 1);
+  NVIC_EnableIRQ( SIM_UART_RX_DMA_IRQn );
+  NVIC_SetPriority( SIM_UART_TX_DMA_IRQn, 4);
   NVIC_EnableIRQ( SIM_UART_IRQn );
   NVIC_SetPriority( SIM_UART_IRQn, 2);
 
@@ -219,7 +256,7 @@ void simUartClock( void ){
 #endif
 
   /* Обработаем данные SIM_UART. */
-  uartRxClock(&simUartRxHandle);
+  uartRxClock( simHnd.rxh );
 //  simUartTxClock( simHnd.txh );
 }
 

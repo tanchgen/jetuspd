@@ -18,6 +18,7 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
+#include <gsm.h>
 #include <ifaces.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,18 +27,16 @@
 #include "main.h"
 
 #include "isens.h"
-#include "gsm.h"
-//#include "adc.h"
-//#include "dma.h"
-//#include "rtc.h"
-//#include "usart.h"
-//
+
 #include "MQTTSim800.h"
 /* USER CODE END Includes */
 
+
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+#define TALLOC_ARRAY_SIZE   8192
 
+uint8_t tallocArray[TALLOC_ARRAY_SIZE] __aligned(4);
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -52,6 +51,8 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
 extern eGsmRunPhase gsmRunPhase;
+
+//extern const sUartHnd simHnd;
 
 RCC_ClocksTypeDef RCC_Clocks;
 #define VER_MAJOR     0x00
@@ -81,6 +82,8 @@ void adcProcess( void );
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+  // Tiny memory allocated init
+  ta_init( tallocArray, tallocArray+TALLOC_ARRAY_SIZE, 256, 16, sizeof(int) );
 
   /* USER CODE END 1 */
 
@@ -103,16 +106,15 @@ int main(void)
 
   ifaceEnable();
 
-  //Test data
-//  uint8_t pub_uint8 = 1;
-//  uint16_t pub_uint16 = 2;
-//  uint32_t pub_uint32 = 3;
-//  float pub_float = 1.1;
-//  double pub_double = 2.2;
+  trace_puts("Hello USPD!");
 
     gsmRunPhase = PHASE_NON;
-  /* USER CODE END 2 */
 
+//    SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
+//    gsmState = GSM_WORK;
+//    SIM800.mqttServer.mqttconn = SET;
+//    SIM800.mqttServer.tcpconn = SET;
+  /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -140,7 +142,6 @@ int main(void)
 void Error_Handler( int stop ){
   /* USER CODE BEGIN Error_Handler_Debug */
     /* User can add his own implementation to report the HAL error return state */
-    __disable_irq();
     GPIOB->BSRR = GPIO_PIN_9;
     while (stop) {
     }

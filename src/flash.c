@@ -20,7 +20,7 @@ extern logBuf_t logRdBuffer;
 extern logBuf_t logWrBuffer;
 extern uint16_t logRdBufFill;
 
-uint32_t tmpTick;
+static uint32_t tmpTick;
 
 sFlashDev flashDev = {
   .state = FLASH_READY,

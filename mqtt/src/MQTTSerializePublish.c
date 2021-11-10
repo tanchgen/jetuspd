@@ -15,10 +15,10 @@
  *    Ian Craggs - fix for https://bugs.eclipse.org/bugs/show_bug.cgi?id=453144
  *******************************************************************************/
 
-#include "MQTTPacket.h"
 #include "StackTrace.h"
 
 #include <string.h>
+#include "../inc/MQTTPacket.h"
 
 
 /**
@@ -67,7 +67,7 @@ int MQTTSerialize_publish(unsigned char* buf, int buflen, unsigned char dup, int
 		goto exit;
 	}
 
-	header.bits.type = PUBLISH;
+	header.bits.type = MQTT_PUBLISH;
 	header.bits.dup = dup;
 	header.bits.qos = qos;
 	header.bits.retain = retained;
@@ -115,7 +115,7 @@ int MQTTSerialize_ack(unsigned char* buf, int buflen, unsigned char packettype, 
 	}
 	header.bits.type = packettype;
 	header.bits.dup = dup;
-	header.bits.qos = (packettype == PUBREL) ? 1 : 0;
+	header.bits.qos = (packettype == MQTT_PUBREL) ? 1 : 0;
 	writeChar(&ptr, header.byte); /* write header */
 
 	ptr += MQTTPacket_encode(ptr, 2); /* write remaining length */
@@ -134,9 +134,20 @@ exit:
   * @param packetid integer - the MQTT packet identifier
   * @return serialized length, or error if 0
   */
-int MQTTSerialize_puback(unsigned char* buf, int buflen, unsigned short packetid)
-{
-	return MQTTSerialize_ack(buf, buflen, PUBACK, 0, packetid);
+int MQTTSerialize_puback(unsigned char* buf, int buflen, unsigned short packetid){
+	return MQTTSerialize_ack(buf, buflen, MQTT_PUBACK, 0, packetid);
+}
+
+
+/**
+  * Serializes a pubrec packet into the supplied buffer.
+  * @param buf the buffer into which the packet will be serialized
+  * @param buflen the length in bytes of the supplied buffer
+  * @param packetid integer - the MQTT packet identifier
+  * @return serialized length, or error if 0
+  */
+int MQTTSerialize_pubrec(unsigned char* buf, int buflen, unsigned short packetid){
+  return MQTTSerialize_ack(buf, buflen, MQTT_PUBREC, 0, packetid);
 }
 
 
@@ -150,7 +161,7 @@ int MQTTSerialize_puback(unsigned char* buf, int buflen, unsigned short packetid
   */
 int MQTTSerialize_pubrel(unsigned char* buf, int buflen, unsigned char dup, unsigned short packetid)
 {
-	return MQTTSerialize_ack(buf, buflen, PUBREL, dup, packetid);
+	return MQTTSerialize_ack(buf, buflen, MQTT_PUBREL, dup, packetid);
 }
 
 
@@ -161,9 +172,8 @@ int MQTTSerialize_pubrel(unsigned char* buf, int buflen, unsigned char dup, unsi
   * @param packetid integer - the MQTT packet identifier
   * @return serialized length, or error if 0
   */
-int MQTTSerialize_pubcomp(unsigned char* buf, int buflen, unsigned short packetid)
-{
-	return MQTTSerialize_ack(buf, buflen, PUBCOMP, 0, packetid);
+int MQTTSerialize_pubcomp(unsigned char* buf, int buflen, unsigned short packetid){
+	return MQTTSerialize_ack(buf, buflen, MQTT_PUBCOMP, 0, packetid);
 }
 
 

@@ -2,6 +2,7 @@
 
 #include "main.h"
 #include "stm32l1xx_hal.h"
+#include "stm32l1xx_ll_iwdg.h"
 
 #include "times.h"
 #include "uart.h"
@@ -698,6 +699,11 @@ uint8_t timPscSet( TIM_TypeDef * tim, uint32_t tim_frequency, uint16_t * psc){
   */
 void SysTick_Handler(void){
 	++mTick;
+  if( (mTick & 0x400) == 0 ){
+    //Пока пауза - обновляем IWDG каждые 1024мс
+    LL_IWDG_ReloadCounter(IWDG);
+  }
+
 	// Нужно проверять регулярно и достаточно часто
 	uartRxClock( simHnd.rxh );
 }

@@ -23,34 +23,48 @@ extern uint16_t logRdBufFill;
 extern const sUartHnd simHnd;
 
 const char * topicStr[TOPIC_NUM] = {
-  "r/device",     		//  TOPIC_DEVID,
-  "d/imei",        		//  TOPIC_DEV_IMEI,
-  "info",         		  //  TOPIC_INFO,
-  "temp",       		    //  TOPIC_TEMP,
-  "volt",       		    //  TOPIC_VOLT,
-  "cmdi",           		//  TOPIC_CMD_I,
-  "cmdo",           		//  TOPIC_CMD_O,
-  "cfi",       	    	//  TOPIC_CFG_I,
-  "cfo",       		    //  TOPIC_CFG_O,
-  "alrm",       		    //  TOPIC_ALRM,
-  "log",       		    //  TOPIC_LOG,
-  "i/%d",       		    //  TOPIC_ISENS,
-  "i/%d/arx",      		//  TOPIC_ISENS_ARX,
-  "i/%d/state",     		//  TOPIC_ISENS_STATE,
-  "i/%d/adc",       		//  TOPIC_ISENS_ADC,
-  "i/%d/temp",     		//  TOPIC_ISENS_TEMP,
-  "o/%d",       		//  TOPIC_OUT,
-  "o/%d/state",       		//  TOPIC_OUT_STATE,
-  "fw",       		//  TOPIC_FW,
-  "fw/man",       		//  TOPIC_FW_MAN,
-  "fw/bin",       		//  TOPIC_FW_BIN,
-  "rs",       		//  TOPIC_RS,
-  "rs/tx",       		//  TOPIC_RS_TX,
-  "rs/rx",       		//  TOPIC_RS_RX,
-  "gsm",       		//  TOPIC_GSM,
+  "r/device",     		      //  TOPIC_DEVID,
+  "d/"IMEI,                 //  TOPIC_DEV_IMEI,
+  IMEI"/info",         		  //  TOPIC_INFO,
+  IMEI"/temp",       		    //  TOPIC_TEMP,
+  IMEI"/volt",       		    //  TOPIC_VOLT,
+  IMEI"/cmdi",           		//  TOPIC_CMD_I,      *
+  IMEI"/cmdo",           		//  TOPIC_CMD_O,
+  IMEI"/cfi",       	    	//  TOPIC_CFG_I,      *
+  IMEI"/cfo",       		    //  TOPIC_CFG_O,
+  IMEI"/alrm",       		    //  TOPIC_ALRM,
+  IMEI"/log",       		    //  TOPIC_LOG,
+  IMEI"/i/0",       		    //  TOPIC_ISENS,
+  IMEI"/i/0/arx",      		  //  TOPIC_ISENS_ARX,
+  IMEI"/i/0/state",     		//  TOPIC_ISENS_STATE,
+  IMEI"/i/0/adc",       		//  TOPIC_ISENS_ADC,
+  IMEI"i/0/temp",     		  //  TOPIC_ISENS_TEMP,
+  IMEI"/o/0",       		    //  TOPIC_OUT,        *
+  IMEI"/o/0/state",       	//  TOPIC_OUT_STATE,
+  IMEI"/fw",       		      //  TOPIC_FW,
+  IMEI"/fw/man",       		  //  TOPIC_FW_MAN,     *
+  IMEI"/fw/bin",       		  //  TOPIC_FW_BIN,     *
+  IMEI"/rs",       		      //  TOPIC_RS,
+  IMEI"/rs/tx",       		  //  TOPIC_RS_TX,      *
+  IMEI"/rs/rx",       		  //  TOPIC_RS_RX,      *
+  IMEI"/gsm",       		    //  TOPIC_GSM,
   //  TOPIC_NUM
 };
 
+
+// Список для Подписки
+const struct {
+  eTopicId subtpc;
+  uint8_t qos;
+} subList = {
+  { TOPIC_CMD_I, 2 },
+  { TOPIC_CFG_I, 2 },
+  { TOPIC_OUT, 1 },
+  { TOPIC_FW_MAN, 2 },
+  { TOPIC_FW_BIN, 2 },
+  { TOPIC_RS_TX, 1 },
+  { TOPIC_RS_RX, 1 },
+};
 
 void mqttConnectCb( FlagStatus conn );
 
@@ -80,10 +94,12 @@ void mqttCtlProc( SIM800_t * sim ){
     case MQTT_CONNACK:
       trace_printf( "CONACK: %d\n", pktid );
       sim->mqttServer.mqttconn = SET;
+      sim->mqttClient.subCount = 0;
       mqttConnectCb( SIM800.mqttServer.mqttconn );
       break;
     case MQTT_SUBACK:
       // TODO: Сбросить таймер сообветствующей подписки
+      sim->mqttClient.subCount++;
       trace_printf( "SUBACK: %d\n", pktid );
       break;
     case MQTT_PUBACK:
@@ -146,11 +162,11 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
           case MQTT_PINGRESP:
           case MQTT_PUBLISH:
           case MQTT_CONNACK:
-          case MQTT_SUBACK:
           case MQTT_PUBACK:
           case MQTT_PUBREC:
           case MQTT_PUBREL:
           case MQTT_PUBCOMP:
+          case MQTT_SUBACK:
             break;
           default:
             // Топик не наш - Не сохраняем payload
@@ -420,14 +436,14 @@ void mqttInit(void) {
 //    char str[32] = {0};
 
     // MQQT settings
-    SIM800.sim.apn = "internet";
-    SIM800.sim.apn_user = "";
-    SIM800.sim.apn_pass = "";
-    SIM800.mqttServer.host = "test.mosquitto.org";
-    SIM800.mqttServer.port = 1883;
+    SIM800.sim.apn = uspdCfg.simcfg.gprsApn;
+    SIM800.sim.apn_user = uspdCfg.simcfg.gprsUser;
+    SIM800.sim.apn_pass = uspdCfg.simcfg.gprsPass;
+    SIM800.mqttServer.host = uspdCfg.mqttHost;
+    SIM800.mqttServer.port = &(uspdCfg.mqttPort);
     SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
-    SIM800.mqttClient.username = NULL;
-    SIM800.mqttClient.pass = NULL;
+    SIM800.mqttClient.username = uspdCfg.mqttUser;
+    SIM800.mqttClient.pass = uspdCfg.mqttPass;
     SIM800.mqttClient.clientID = "";
     SIM800.mqttClient.keepAliveInterval = 60;
     SIM800.ready = RESET;

@@ -143,6 +143,9 @@ void gsmInitFunc( void ){
         tmpTick = 0;
         break;
       case PHASE_ON:
+        if ( simReadyProccess() == 0 ){
+
+        }
         if( (simWaitReady() == RESET) || (tmpTick < mTick) ) {
 //          // TODO: Усыпить на 2с
 //          mDelay(2000);
@@ -336,16 +339,22 @@ void gsmMqttStartFunc( void ){
 }
 
 
-// Состояние "GSM PWR ON": Установка сохраненной конфигурации
+// Состояние "MQTT_CONN": Подписка SUBSCIPTION
 void gsmMqttConnFunc( void ){
   if( gsmRun ){
     if( mqttSubFlag ) {
-      trace_puts( "mqtt sub" );
-      MQTT_Sub("imei/#", 2);
-      timerMod( &mqttPubTimer, 0 );
-      mqttSubFlag = RESET;
-      gsmState++;
-      gsmRunPhase = PHASE_NON;
+      uint8_t sc = SIM800.mqttClient.subCount;
+      if( sc < ARRAY_SIZE(subList) ){
+        // Подписываемся, пока не получим подтверждение на ВСЕ подписки
+        MQTT_Sub( subList[sc].subtpc, subList[sc].qos );
+      }
+      else {
+        trace_puts( "mqtt sub" );
+        timerMod( &mqttPubTimer, 0 );
+        mqttSubFlag = RESET;
+        gsmState++;
+        gsmRunPhase = PHASE_NON;
+      }
     }
   }
   else {
@@ -394,51 +403,6 @@ void gsmWorkFunc( void ){
     // Выключаем питание GSM
     gsmState--;
   }
-}
-
-
-// ----------------------------------------------------------------------------
-// Машина состояния break;
-void gsmProcess( void ){
-  switch( gsmState ){
-    case GSM_OFF:
-      gsmOffFunc();
-      break;
-    case GSM_SIM_ON:
-      gsmSimOnFunc();
-      break;
-    case GSM_INIT:
-      gsmInitFunc();
-      break;
-    case GSM_START_INIT:
-      gsmStartInitFunc();
-      break;
-    case GSM_GPRS_CONN:
-      gsmGprsConnFunc();
-      break;
-    case GSM_NTP_INIT:
-      gsmNtpInitFunc();
-      break;
-    case GSM_MQTT_START:
-      gsmMqttStartFunc();
-      break;
-    case GSM_MQTT_CONN:
-      gsmMqttConnFunc();
-      break;
-    case GSM_SERV_CONN:
-      gsmServConnFunc();
-      break;
-    case GSM_CFG_ON:
-      gsmCfgOnFunc();
-      break;
-    case GSM_WORK:
-      gsmWorkFunc();
-      break;
-    default:
-      break;
-  }
-
-
 }
 
 
@@ -618,6 +582,11 @@ int ntpInit(void) {
 }
 
 
+int simReadyProcess( void ){
+  switch( )
+
+}
+
 int simWaitReady( void ){
   if( SIM800.ready ){
     clearRxBuffer( (char *)(simHnd.rxh->rxFrame), &(simHnd.rxh->frame_offset) );
@@ -627,4 +596,46 @@ int simWaitReady( void ){
   return SET;
 }
 
+
+// ----------------------------------------------------------------------------
+// Машина состояния break;
+void gsmProcess( void ){
+  switch( gsmState ){
+    case GSM_OFF:
+      gsmOffFunc();
+      break;
+    case GSM_SIM_ON:
+      gsmSimOnFunc();
+      break;
+    case GSM_INIT:
+      gsmInitFunc();
+      break;
+    case GSM_START_INIT:
+      gsmStartInitFunc();
+      break;
+    case GSM_GPRS_CONN:
+      gsmGprsConnFunc();
+      break;
+    case GSM_NTP_INIT:
+      gsmNtpInitFunc();
+      break;
+    case GSM_MQTT_START:
+      gsmMqttStartFunc();
+      break;
+    case GSM_MQTT_CONN:
+      gsmMqttConnFunc();
+      break;
+    case GSM_SERV_CONN:
+      gsmServConnFunc();
+      break;
+    case GSM_CFG_ON:
+      gsmCfgOnFunc();
+      break;
+    case GSM_WORK:
+      gsmWorkFunc();
+      break;
+    default:
+      break;
+  }
+}
 

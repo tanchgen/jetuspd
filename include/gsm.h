@@ -10,6 +10,8 @@
 
 #include "stm32l1xx.h"
 
+#define IMEI       "000000000000000"
+
 typedef enum {
   GSM_OFF,
   GSM_SIM_ON,

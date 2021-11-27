@@ -42,7 +42,7 @@ typedef struct {
 
 typedef struct {
     char *host;
-    uint16_t port;
+    uint16_t * port;
     FlagStatus tcpconn;
     uint8_t mqttconn;
 } mqttServer_t;
@@ -52,6 +52,7 @@ typedef struct {
     char *pass;
     char *clientID;
     unsigned short keepAliveInterval;
+    uint8_t subCount;
 //    uint32_t toutTick;
 } mqttClient_t;
 
@@ -78,7 +79,7 @@ typedef struct {
     mqttServer_t mqttServer;
     mqttClient_t mqttClient;
     mqttReceive_t mqttReceive;
-    FlagStatus ready;
+     ready;
 } SIM800_t;
 
 

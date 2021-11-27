@@ -12,6 +12,8 @@
 #include "topic_id.h"
 #include "MQTTSim800.h"
 
+#include "topic_id.h"
+
 //#include "lwip/opt.h"
 //#include "lwip/stats.h"
 //#include "lwip/sys.h"
@@ -44,6 +46,61 @@ enum QoS {
 	QOS2
 };
 
+typedef enum {
+  MSG_NULL,
+  MSG_TYPE,
+  MSG_REMAINING_LEN,
+  MSG_TOP_LEN,
+  MSG_PKT_ID,
+  MSG_TOPIC,
+  MSG_PAY_LEN,
+  MSG_PAYLOAD,
+} eMsgState;
+
+typedef struct {
+    uint16_t pin;
+    char *apn;
+    char *apn_user;
+    char *apn_pass;
+    eSimReady ready;
+} sim_t;
+
+typedef struct {
+    char *host;
+    uint16_t * port;
+    FlagStatus tcpconn;
+    uint8_t mqttconn;
+} mqttServer_t;
+
+typedef struct {
+    char *username;
+    char *pass;
+    char *clientID;
+    unsigned short keepAliveInterval;
+    uint8_t subCount;
+//    uint32_t toutTick;
+} mqttClient_t;
+
+typedef struct {
+    unsigned char dup;
+    int qos;
+    unsigned char retained;
+    unsigned short pktId;
+    uint8_t * mqttData;
+    uint32_t remLenMp;
+    uint32_t remLen;
+    unsigned char payload[64];
+    uint32_t payloadLen;
+    uint32_t payOffset;
+    unsigned char topic[64];
+    int topicLen;
+    eTopicId topicId;
+    eMsgType msgType;
+    eMsgState msgState;
+} mqttReceive_t;
+
+
+#if 0
 struct Mqtt
 {
 //	struct ip_addr server;
@@ -67,9 +124,6 @@ struct Mqtt
 };
 
 
-extern sMqtt mqtt;
-
-
 typedef struct MqttFixedHeader
 {
 	uint8_t header;
@@ -85,6 +139,7 @@ typedef struct MqttFixedHeader
 
 #define MQTT_PINGREQ_HEADER (MQTT_MSGT_PINGREQ)
 
+extern sMqtt mqtt;
 
 //void mqttInit(sMqtt *mqtt, struct ip_addr serverIp, int port, msgReceived fn, char *devId);
 //uint8_t mqttConnect(sMqtt *this);
@@ -95,6 +150,19 @@ typedef struct MqttFixedHeader
 //void mqttDisconnectForced(sMqtt *this);
 //uint8_t mqttTcpConnect(sMqtt *this);
 //uint8_t mqttBrokConnect(sMqtt *this);
+
+#endif // 0
+extern SIM800_t SIM800;
+
+//extern uint8_t mqtt_receive;
+extern char mqtt_buffer[1460];
+extern uint16_t mqtt_index;
+
+extern FlagStatus mqttSubFlag;
+extern FlagStatus mqttPubFlag;
+
+void mqttInit( void );
+
 
 static inline void mqttBufClean( sUartRxHandle *handle, SIM800_t * sim ){
   // Очистим буфер

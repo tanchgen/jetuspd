@@ -21,6 +21,10 @@ extern "C" {
 
 /* USER CODE END Includes */
 
+#define UID_0     (*((uint32_t*)UID_BASE))
+#define UID_1     (*((uint32_t*)(UID_BASE + 0x4)))
+#define UID_2     (*((uint32_t*)(UID_BASE + 0x14)))
+
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 enum {

@@ -432,7 +432,10 @@ void simUartRxProc( sUartRxHandle * handle, uint8_t byte ){
             else {
               // Callback == NULL
               if( strstr(mqtt_buffer, "SMS Ready\r\n" ) != NULL ) {
-                SIM800.ready = SET;
+                SIM800.ready = SIM_GSM_READY;
+              }
+              else if( strstr(mqtt_buffer, "PIN Ready\r\n" ) != NULL ) {
+                SIM800.ready = SIM_PIN_READY;
               }
               clearRxBuffer( (char *)(simHnd.rxh->rxFrame), &(simHnd.rxh->frame_offset) );
             }

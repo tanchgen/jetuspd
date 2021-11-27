@@ -436,6 +436,8 @@ void mqttInit(void) {
 //    char str[32] = {0};
 
     // MQQT settings
+    SIM800.sim.ready = SIM_NOT_READY;
+    SIM800.sim.pin = uspdCfg.simcfg.pin;
     SIM800.sim.apn = uspdCfg.simcfg.gprsApn;
     SIM800.sim.apn_user = uspdCfg.simcfg.gprsUser;
     SIM800.sim.apn_pass = uspdCfg.simcfg.gprsPass;
@@ -446,7 +448,6 @@ void mqttInit(void) {
     SIM800.mqttClient.pass = uspdCfg.mqttPass;
     SIM800.mqttClient.clientID = "";
     SIM800.mqttClient.keepAliveInterval = 60;
-    SIM800.ready = RESET;
 
     timerSetup( &mqttPubTimer, mqttPubTout, (uintptr_t)NULL );
 }

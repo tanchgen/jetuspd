@@ -581,14 +581,55 @@ int ntpInit(void) {
   return ntpFlag;
 }
 
+int simPinEnter( char * pin, char * newpin ){
+  char str[20] = "AT+CPIN=";
+
+  if( pin == NULL ){
+    return -1;
+  }
+
+  memcpy(str+8, pin, 4);
+
+  if( newpin != NULL ){
+    // Добавляем новый PIN-код
+    memcpy( str+12, newpin, 4 );
+    memcpy( str+16, "\r\n\0", 3 );
+  }
+  else {
+    memcpy( str+16, "\r\n\0", 3 );
+  }
+
+  if( SIM800_SendCommand( str, "OK\r\n", CMD_DELAY_5, NULL ) == 0 ){
+    return 0;
+  }
+
+  return -1;
+}
 
 int simReadyProcess( void ){
-  switch( )
+  switch( SIM800.sim.ready ){
+    case SIM_NOT_READY:
+      // Отправка команды CPIN
+      if( SIM800_SendCommand("AT+CPIN?\r\n", "+CPIN:", CMD_DELAY_5, saveSimReply ) == 0 ){
+        if( strstr( mqtt_buffer + 5, "READY" ) != NULL ){
+          // Пин не нужен
+          SIM800.sim.ready = SIM_PIN_READY;
+        }
+        else if( strstr( mqtt_buffer + 5, "SIM_PIN" ) != NULL ){
+          char * str[5];
+          simPinEnter( utoa( SIM800.sim.pin, str, 10 ), NULL );
+        }
+      }
+      else {
+        return -1;
+      }
+
+  }
 
 }
 
 int simWaitReady( void ){
-  if( SIM800.ready ){
+  if( SIM800.sim.ready == SIM_GSM_READY ){
     clearRxBuffer( (char *)(simHnd.rxh->rxFrame), &(simHnd.rxh->frame_offset) );
     return RESET;
   }

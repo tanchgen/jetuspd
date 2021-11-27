@@ -8,7 +8,6 @@
 #include "gpio.h"
 #include "adc.h"
 #include "rtc.h"
-#include "usart.h"
 #include "isens.h"
 #include "logger.h"
 #include "ifaces.h"
@@ -18,6 +17,8 @@ void SystemClock_Config(void);
 
 void mqttInit(void);
 void fwInit( void );
+void simUartInit( void );
+void gpsPppInit( void );
 
 void simUartEnable( void );
 
@@ -26,13 +27,16 @@ void ifaceInit( void ){
 	gpioInit();
 //  MX_DMA_Init();
   simUartInit();
+#if TERM_UART_ENABLE
   termUartInit();
+#endif // TERM_UART_ENABLE
   adcInit();
   MX_RTC_Init();
   logInit();
   mqttInit();
   isensInit();
   fwInit();
+  gpsPppInit();
 }
 
 

@@ -7,12 +7,16 @@
 #ifndef MQTT_SIM_800_H_
 #define MQTT_SIM_800_H_
 
+#include "lwip/ip_addr.h"
+#include "lwip/err.h"
+#include "lwip/apps/mqtt.h"
 
 #include "main.h"
 #include "uart.h"
 #include "MQTTPacket.h"
 //#include "mqtt.h"
 #include "topic_id.h"
+
 
 // === CONFIG ===
 #define UART_SIM800     &simUart
@@ -42,51 +46,36 @@ typedef struct {
 
 typedef struct {
     char *host;
-    uint16_t * port;
-    FlagStatus tcpconn;
-    uint8_t mqttconn;
+    ip_addr_t addr;
+    uint16_t port;
+    FlagStatus pppconn;
+    FlagStatus gprsconn;
 } mqttServer_t;
 
 typedef struct {
-    char *username;
-    char *pass;
-    char *clientID;
-    unsigned short keepAliveInterval;
-    uint8_t subCount;
-//    uint32_t toutTick;
+  struct mqtt_connect_client_info_t clientInfo;
+  mqtt_client_t client;
+  unsigned char payload[1024] __aligned(4);
+  uint16_t payLen;
+  uint16_t payOffset;
+  FlagStatus last;
+  eTopicId topicId;
 } mqttClient_t;
-
-typedef struct {
-    unsigned char dup;
-    int qos;
-    unsigned char retained;
-    unsigned short pktId;
-    uint8_t * mqttData;
-    uint32_t remLenMp;
-    uint32_t remLen;
-    unsigned char payload[64];
-    uint32_t payloadLen;
-    uint32_t payOffset;
-    unsigned char topic[64];
-    int topicLen;
-    eTopicId topicId;
-    eMsgType msgType;
-    eMsgState msgState;
-} mqttReceive_t;
 
 typedef struct {
     sim_t sim;
     mqttServer_t mqttServer;
     mqttClient_t mqttClient;
-    mqttReceive_t mqttReceive;
-     ready;
+    FlagStatus ready;
 } SIM800_t;
 
 
 extern SIM800_t SIM800;
 
+#define MQTT_BUF_SIZE   256
+
 //extern uint8_t mqtt_receive;
-extern char mqtt_buffer[1460];
+extern char mqtt_buffer[MQTT_BUF_SIZE];
 extern uint16_t mqtt_index;
 
 extern FlagStatus mqttSubFlag;
@@ -95,7 +84,6 @@ extern FlagStatus mqttPubFlag;
 void Sim800_RxCallBack(void);
 void clearRxBuffer( char * buf, uint32_t * size );
 void clearMqttBuffer(void);
-int SIM800_SendCommand(char *command, char *reply, uint16_t delay, void (*simreplycb)( sUartRxHandle *) );
 
 void mqttInit( void );
 int MQTT_Deinit(void);

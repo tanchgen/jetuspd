@@ -187,6 +187,7 @@ struct timer_list {
 
 /** Счетчик тиков системного таймера. */
 extern volatile uint32_t  mTick;
+extern FlagStatus rtcSetFlag;
 
 /*
  * These inlines deal with timer wrapping correctly. You are 

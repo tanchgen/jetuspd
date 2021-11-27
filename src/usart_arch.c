@@ -8,7 +8,7 @@
 
 #include "gpio_arch.h"
 #include "usart_arch.h"
-//#include "arch_mco.h"
+#include "lwip/mem.h"
 
 const uint32_t baudrate[BAUD_NUM] = {
   9600,
@@ -156,7 +156,7 @@ void DMA1_Channel2_IRQHandler( void ){
     DMA1->IFCR = DMA_IFCR_CTCIF2;
     if( (uint32_t)(simHnd.txh->data) & 0x20000000 ){
       // Память выделена из кучи
-      ta_free( simHnd.txh->data);
+      my_free( simHnd.txh->data);
     }
   }
 }
@@ -191,6 +191,23 @@ void simUartHwFlow( void ){
   simHnd.rxh->uart->CR3 |= (USART_CR3_RTSE | USART_CR3_CTSE);
 }
 
+
+uint16_t simUartSend( uint8_t * buf, uint16_t size ){
+
+  if( (uint32_t)buf & SRAM_BASE ){
+    // Буфер НЕ во флеш выделяем для передачи память из кучи
+    if( (simHnd.txh->data = my_alloc( size )) == NULL ){
+      Error_Handler( NON_STOP );
+      return 0;
+    }
+    else {
+      memcpy( simHnd.txh->data, buf, size );
+    }
+  }
+
+  return  uartTransmit( simHnd.txh, size, TOUT_100 );
+}
+
 /**
   * @brief  Инициализация интерфейса SIM_UART (USART1).
   *
@@ -216,6 +233,7 @@ void simUartInit( void ) {
 
   uartIfaceInit( &simUartTxHandle, &simUartRxHandle, UART_ID_SIM );
   NVIC_SetPriority( DMA1_Channel3_IRQn, 1 );
+  NVIC_SetPriority( DMA1_Channel3_IRQn, 4 );
   timerSetup( &simEnTimer, uartEnTimeout, (uintptr_t)&simHnd );
 
 }
@@ -234,7 +252,7 @@ void simUartEnable( void ){
 
   NVIC_EnableIRQ( SIM_UART_RX_DMA_IRQn );
   NVIC_SetPriority( SIM_UART_RX_DMA_IRQn, 1);
-  NVIC_EnableIRQ( SIM_UART_RX_DMA_IRQn );
+  NVIC_EnableIRQ( SIM_UART_TX_DMA_IRQn );
   NVIC_SetPriority( SIM_UART_TX_DMA_IRQn, 4);
   NVIC_EnableIRQ( SIM_UART_IRQn );
   NVIC_SetPriority( SIM_UART_IRQn, 2);

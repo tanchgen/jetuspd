@@ -1,3 +1,4 @@
+#include "diag/trace.h"
 #include "tinyalloc.h"
 #include <stdint.h>
 
@@ -269,4 +270,17 @@ size_t ta_num_fresh() {
 
 bool ta_check() {
     return heap_max_blocks == ta_num_free() + ta_num_used() + ta_num_fresh();
+}
+
+bool my_free( void * free ){
+  trace_printf("free %x\n", (uint32_t)free );
+  return ta_free( free );
+}
+
+void * my_alloc( uint32_t size ){
+  void * ptr;
+
+  ptr = ta_alloc( size );
+  trace_printf("alloc %x\n", (uint32_t)ptr );
+  return ptr;
 }

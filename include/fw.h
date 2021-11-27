@@ -36,8 +36,6 @@ struct ip_addr {
   uint32_t addr;
 };
 
-typedef struct ip_addr ip_addr_t;
-
 typedef enum{
   FW_1 = 0,       // Структура прошивки №1
   FW_2 = 1,       // Структура прошивки №2
@@ -78,7 +76,7 @@ typedef struct {
   eFwFlashState fwFlashState;
 } sFwHandle;
 
-void fwManProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx );
-void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx );
+void fwManProc( sUartRxHandle * rxh, mqttClient_t * mqttcl );
+void fwUpProc( sUartRxHandle * rxh, mqttClient_t * mqttcl );
 
 #endif /* FW_H_ */

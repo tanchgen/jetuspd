@@ -11,12 +11,13 @@
 #include "stm32l1xx_ll_iwdg.h"
 #include "stm32l1xx_ll_rcc.h"
 #include "MQTTSim800.h"
+#include "usart_arch.h"
 /* USER CODE END Includes */
 
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-#define TALLOC_ARRAY_SIZE   8192
+#define TALLOC_ARRAY_SIZE   2048
 
 uint8_t tallocArray[TALLOC_ARRAY_SIZE] __aligned(4);
 /* USER CODE END PTD */
@@ -57,14 +58,12 @@ void Check_IWDG_Reset(void);
   * @brief  The application entry point.
   * @retval int
   */
-int main(void)
-{
+int main(void) {
   /* USER CODE BEGIN 1 */
   // Tiny memory allocated init
-  ta_init( tallocArray, tallocArray+TALLOC_ARRAY_SIZE, 256, 16, sizeof(int) );
+  ta_init( tallocArray, tallocArray+TALLOC_ARRAY_SIZE-1, 64, 16, sizeof(int) );
 
   /* USER CODE END 1 */
-
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
@@ -76,6 +75,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   ifaceInit();
+
 
 //  DBGMCU->APB1FZ |= DBGMCU_APB1_FZ_DBG_TIM6_STOP | DBGMCU_APB1_FZ_DBG_TIM7_STOP;
 
@@ -108,6 +108,8 @@ int main(void)
       isensProcess();
       mqttProcess();
       gsmProcess();
+      simUartClock();
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

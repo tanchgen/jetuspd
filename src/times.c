@@ -10,6 +10,7 @@
 extern const sUartHnd simHnd;
 
 volatile uint32_t  mTick = 0;
+FlagStatus rtcSetFlag = RESET;
 
 const uint8_t SynchPrediv = 0xFF;
 const uint8_t AsynchPrediv = 0x7F;
@@ -264,7 +265,7 @@ void xUtime2Tm( volatile tRtc * prtc, tUxTime secsarg){
 }
 
 void setRtcTime( tUxTime xtime ){
-
+  rtcSetFlag = SET;
   xUtime2Tm( &rtc, xtime);
   rtcSetTime( &rtc );
   rtcSetDate( &rtc );

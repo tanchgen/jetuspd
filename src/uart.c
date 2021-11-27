@@ -126,7 +126,6 @@ void uartRxClock(sUartRxHandle *handle){
     /* Извлекаем очередной принятый байт. */
     byte = handle->rxBuf[handle->tail++];
     handle->tail &= USART_RX_RINGBUFFER_MASK;
-
     handle->rxFrame[handle->frame_offset++] = byte;
 
     if( handle == simHnd.rxh ){
@@ -299,6 +298,7 @@ void uartDmaInit( sUartRxHandle * rxuart, sUartTxHandle * txuart ){
     LL_DMA_Init(txuart->dma_tx, chnum, &dmaInitStruct);
     // Стираем флаги прерываний канала 1
     txuart->dma_tx->IFCR = txuart->dma_tx_it_tcif;
+    txuart->dma_tx_channel->CCR |= DMA_CCR_TCIE;
 
     txuart->uart->CR3 |= USART_CR3_DMAT;
   }

@@ -8,6 +8,9 @@
 #ifndef MY_NTP_H_
 #define MY_NTP_H_
 
+#define SNTP_SET_SYSTEM_TIME(sec)     setRtcTime( sec );
+#include "lwip/apps/sntp.h"
+#include "times.h"
 
 #define NTP_SERVER    "3.pool.ntp.org"
 

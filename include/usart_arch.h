@@ -118,31 +118,10 @@ bool uartAddrTest( sUartRxHandle *handle );
 void uartIfaceInit( sUartTxHandle * txhandle, sUartRxHandle * rxhandle, eUartId uartid );
 
 #if SIM_UART_ENABLE
-/**
-  * @brief  Инициализация интерфейса SIM_UART.
-  *
-  * @param[in]  self  дескриптор интерфейса
-  *
-  * @retval none
-  */
+uint16_t simUartSend( uint8_t * buf, uint16_t size );
+
 void simUartInit( void );
-
-/**
-  * @brief  Разрешение работы интерфейса SIM_UART.
-  *
-  * @param[in]  self  дескриптор интерфейса
-  *
-  * @retval none
-  */
 void simUartEnable( void );
-
-/**
-  * @brief  Обработка данных интерфейса  SIM_UART.
-  *
-  * @param[in]  self  дескриптор интерфейса
-  *
-  * @retval none
-  */
 void simUartClock( void );
 #endif // DBG_UART_ENABLE
 

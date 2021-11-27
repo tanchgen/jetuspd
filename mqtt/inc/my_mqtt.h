@@ -98,18 +98,19 @@ typedef struct MqttFixedHeader
 
 static inline void mqttBufClean( sUartRxHandle *handle, SIM800_t * sim ){
   // Очистим буфер
-  sim->mqttReceive.mqttData = handle->rxFrame;
-  handle->frame_offset = 0;
+  sim->mqttClient.payload[0] = '\0';
+  sim->mqttClient.payOffset = 0;
   handle->rxProcFlag = RESET;
 }
 
 //void mqttMsgReset( sUartRxHandle *handle, SIM800_t * sim );
 static inline void mqttMsgReset( sUartRxHandle *handle, SIM800_t * sim ){
-//  mqttBufClean( handle, sim );
-  sim->mqttReceive.mqttData = handle->rxFrame;
-  handle->frame_offset = 0;
+  sim->mqttClient.payload[0] = '\0';
+  sim->mqttClient.payOffset = 0;
   handle->rxProcFlag = RESET;
-  sim->mqttReceive.msgState = MSG_NULL;
 }
+
+void mqttConnectCb( mqtt_client_t *client, void *arg, mqtt_connection_status_t conn );
+void mqttSubStart( void * arg);
 
 #endif /* MQTT_H_ */

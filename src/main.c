@@ -174,6 +174,7 @@ void Check_IWDG_Reset(void)
 void Error_Handler( int stop ){
   /* USER CODE BEGIN Error_Handler_Debug */
     /* User can add his own implementation to report the HAL error return state */
+    trace_puts( "ErrorHandler" );
     GPIOB->BSRR = GPIO_PIN_9;
     while (stop) {
     }

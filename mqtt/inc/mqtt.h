@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include "topic_id.h"
 #include "MQTTSim800.h"
+#include "gsm.h"
 
 #include "topic_id.h"
 
@@ -58,14 +59,6 @@ typedef enum {
 } eMsgState;
 
 typedef struct {
-    uint16_t pin;
-    char *apn;
-    char *apn_user;
-    char *apn_pass;
-    eSimReady ready;
-} sim_t;
-
-typedef struct {
     char *host;
     uint16_t * port;
     FlagStatus tcpconn;
@@ -99,6 +92,12 @@ typedef struct {
     eMsgState msgState;
 } mqttReceive_t;
 
+typedef struct {
+    sim_t sim;
+    mqttServer_t mqttServer;
+    mqttClient_t mqttClient;
+    mqttReceive_t mqttReceive;
+} SIM800_t;
 
 #if 0
 struct Mqtt

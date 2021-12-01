@@ -19,51 +19,54 @@
 extern sFwHandle fwHandle;
 
 extern struct timer_list mqttPubTimer;
+extern struct timer_list mqttSubTimer;
 extern uint16_t logRdBufFill;
 extern const sUartHnd simHnd;
 
-const char * topicStr[TOPIC_NUM] = {
+const char * tpcTempl[TOPIC_NUM] = {
   "r/device",     		      //  TOPIC_DEVID,
-  "d/"IMEI,                 //  TOPIC_DEV_IMEI,
-  IMEI"/info",         		  //  TOPIC_INFO,
-  IMEI"/temp",       		    //  TOPIC_TEMP,
-  IMEI"/volt",       		    //  TOPIC_VOLT,
-  IMEI"/cmdi",           		//  TOPIC_CMD_I,      *
-  IMEI"/cmdo",           		//  TOPIC_CMD_O,
-  IMEI"/cfi",       	    	//  TOPIC_CFG_I,      *
-  IMEI"/cfo",       		    //  TOPIC_CFG_O,
-  IMEI"/alrm",       		    //  TOPIC_ALRM,
-  IMEI"/log",       		    //  TOPIC_LOG,
-  IMEI"/i/0",       		    //  TOPIC_ISENS,
-  IMEI"/i/0/arx",      		  //  TOPIC_ISENS_ARX,
-  IMEI"/i/0/state",     		//  TOPIC_ISENS_STATE,
-  IMEI"/i/0/adc",       		//  TOPIC_ISENS_ADC,
-  IMEI"i/0/temp",     		  //  TOPIC_ISENS_TEMP,
-  IMEI"/o/0",       		    //  TOPIC_OUT,        *
-  IMEI"/o/0/state",       	//  TOPIC_OUT_STATE,
-  IMEI"/fw",       		      //  TOPIC_FW,
-  IMEI"/fw/man",       		  //  TOPIC_FW_MAN,     *
-  IMEI"/fw/bin",       		  //  TOPIC_FW_BIN,     *
-  IMEI"/rs",       		      //  TOPIC_RS,
-  IMEI"/rs/tx",       		  //  TOPIC_RS_TX,      *
-  IMEI"/rs/rx",       		  //  TOPIC_RS_RX,      *
-  IMEI"/gsm",       		    //  TOPIC_GSM,
+  "d/%d",                 //  TOPIC_DEV_IMEI,
+  "%s/info",         		  //  TOPIC_INFO,
+  "%s/temp",       		    //  TOPIC_TEMP,
+  "%s/volt",       		    //  TOPIC_VOLT,
+  "%s/cmdi",           		//  TOPIC_CMD_I,      *
+  "%s/cmdo",           		//  TOPIC_CMD_O,
+  "%s/cfi",       	    	//  TOPIC_CFG_I,      *
+  "%s/cfo",       		    //  TOPIC_CFG_O,
+  "%s/alrm",       		    //  TOPIC_ALRM,
+  "%s/log",       		    //  TOPIC_LOG,
+  "%s/i/%d",       		    //  TOPIC_ISENS,
+  "%s/i/%d/arx",      		  //  TOPIC_ISENS_ARX,
+  "%s/i/%d/state",     		//  TOPIC_ISENS_STATE,
+  "%s/i/%d/adc",       		//  TOPIC_ISENS_ADC,
+  "%s/i/%d/temp",     		  //  TOPIC_ISENS_TEMP,
+  "%s/o/%d",       		    //  TOPIC_OUT,        *
+  "%s/o/%d/state",       	//  TOPIC_OUT_STATE,
+  "%s/fw",       		      //  TOPIC_FW,
+  "%s/fw/man",       		  //  TOPIC_FW_MAN,     *
+  "%s/fw/bin",       		  //  TOPIC_FW_BIN,     *
+  "%s/rs",       		      //  TOPIC_RS,
+  "%s/rs/tx",       		  //  TOPIC_RS_TX,      *
+  "%s/rs/rx",       		  //  TOPIC_RS_RX,      *
+  "%s/gsm",       		    //  TOPIC_GSM,
   //  TOPIC_NUM
 };
 
+SIM800_t SIM800;
 
 // Список для Подписки
 const struct {
-  eTopicId subtpc;
+  char * subtpc;
+  eTopicId tpid;
   uint8_t qos;
-} subList = {
-  { TOPIC_CMD_I, 2 },
-  { TOPIC_CFG_I, 2 },
-  { TOPIC_OUT, 1 },
-  { TOPIC_FW_MAN, 2 },
-  { TOPIC_FW_BIN, 2 },
-  { TOPIC_RS_TX, 1 },
-  { TOPIC_RS_RX, 1 },
+} subList[] = {
+  { "%s/cmdi", TOPIC_CMD_I, 2 },
+  { "%s/cfi", TOPIC_CFG_I, 2 },
+  { "%s/o/1", TOPIC_OUT, 1 },
+  { "%s/fw/man", TOPIC_FW_MAN, 2 },
+  { "%s/fw/bin", TOPIC_FW_BIN, 2 },
+  { "%s/rs/tx", TOPIC_RS_TX, 1 },
+  { "%s/rs/rx", TOPIC_RS_RX, 1 },
 };
 
 void mqttConnectCb( FlagStatus conn );
@@ -77,6 +80,34 @@ void mqttPubTout( uintptr_t arg ){
   }
 }
 
+
+void mqttSubTout( uintptr_t arg ){
+  (void)arg;
+
+  if( SIM800.mqttServer.mqttconn == 1 ) {
+    mqttSubFlag = SET;
+  }
+  timerMod( &mqttSubTimer, MQTT_SUB_TOUT );
+}
+
+
+int mqttSubProcess(void){
+  uint8_t sc = SIM800.mqttClient.subCount;
+
+  if( mqttSubFlag ){
+    char topicstr[23];
+    if( sc == ARRAY_SIZE(subList) ){
+      timerDel( &mqttSubTimer );
+      return 0;
+    }
+    sprintf(topicstr, subList[sc].subtpc, SIM800.sim.imei);
+    // Подписываемся, пока не получим подтверждение на ВСЕ подписки
+    MQTT_Sub( topicstr, subList[sc].qos );
+  }
+
+  mqttSubFlag = RESET;
+  return 1;
+}
 
 // Получение  флагов сообщения
 void msgFlagSet( uint8_t flags, mqttReceive_t * receive ){
@@ -100,6 +131,7 @@ void mqttCtlProc( SIM800_t * sim ){
     case MQTT_SUBACK:
       // TODO: Сбросить таймер сообветствующей подписки
       sim->mqttClient.subCount++;
+      timerMod( &mqttSubTimer, 0 );
       trace_printf( "SUBACK: %d\n", pktid );
       break;
     case MQTT_PUBACK:
@@ -235,20 +267,25 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
 
         if( len >= size ){
           // Приняn топик
-          uint8_t offset = strlen("imei") + 1;
+          // (15бит<IMEI> + '\0' - 1 + 1бит'/'
+          uint8_t offset = sizeof(IMEI) - 1 + 1;
           eTopicId tp;
           uint8_t * tpc = msgptr + offset;
           uint16_t tpsize = size - offset;
 
           // Сохраняем только значимую часть топика, без "<IMEI>/"
-          for( tp = TOPIC_DEVID; tp < TOPIC_NUM; tp++ ){
-            if( memcmp( tpc, topicStr[tp], tpsize ) == 0 ){
+          for( tp = 0; tp < ARRAY_SIZE(subList); tp++ ){
+            if( *tpc == 'o' ){
+              // Топик "o" - проверяем без продолжения
+              tpsize = 1;
+            }
+            if( memcmp( tpc, (subList[tp].subtpc+3), tpsize ) == 0 ){
               memcpy(sim->mqttReceive.topic, tpc, tpsize );
               break;
             }
           }
 
-          sim->mqttReceive.topicId = tp;
+          sim->mqttReceive.topicId = subList[tp].tpid;
           len0 -= size;
           msgptr += size;
           if( sim->mqttReceive.qos ){
@@ -379,6 +416,7 @@ void mqttPubProc( sUartRxHandle * handle ){
     case TOPIC_CMD_O:
 			break;
     case TOPIC_CFG_I:
+      uspdCfgProc();
 			break;
     case TOPIC_CFG_O:
 			break;
@@ -437,7 +475,7 @@ void mqttInit(void) {
 
     // MQQT settings
     SIM800.sim.ready = SIM_NOT_READY;
-    SIM800.sim.pin = uspdCfg.simcfg.pin;
+    SIM800.sim.pin = uspdCfg.simcfg.pin = UID_0 % 10000;
     SIM800.sim.apn = uspdCfg.simcfg.gprsApn;
     SIM800.sim.apn_user = uspdCfg.simcfg.gprsUser;
     SIM800.sim.apn_pass = uspdCfg.simcfg.gprsPass;
@@ -450,6 +488,7 @@ void mqttInit(void) {
     SIM800.mqttClient.keepAliveInterval = 60;
 
     timerSetup( &mqttPubTimer, mqttPubTout, (uintptr_t)NULL );
+    timerSetup( &mqttSubTimer, mqttSubTout, (uintptr_t)NULL );
 }
 
 
@@ -459,8 +498,8 @@ void mqttInit(void) {
  * @return error status, 0 - OK
  */
 int mqttStart(void) {
-  SIM800_SendCommand("ATE0\r\n", "OK\r\n", CMD_DELAY_2, NULL );
-  return SIM800_SendCommand("AT+CIPMODE=1\r\n", "OK\r\n", CMD_DELAY_2, NULL );
+  gsmSendCommand("ATE0\r\n", "OK\r\n", CMD_DELAY_2, NULL );
+  return gsmSendCommand("AT+CIPMODE=1\r\n", "OK\r\n", CMD_DELAY_2, NULL );
 }
 
 

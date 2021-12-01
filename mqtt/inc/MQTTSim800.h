@@ -16,11 +16,11 @@
 void Sim800_RxCallBack(void);
 void clearRxBuffer( char * buf, uint32_t * size );
 void clearMqttBuffer(void);
-int SIM800_SendCommand(char *command, char *reply, uint16_t delay, void (*simreplycb)( sUartRxHandle *) );
 
 int MQTT_Deinit(void);
 
 void saveSimReply( sUartRxHandle * handle );
+void saveImeiReply( sUartRxHandle * handle );
 void connectSimReply( sUartRxHandle * handle );
 
 int mqttStart(void);
@@ -35,7 +35,7 @@ uint16_t MQTT_Pubcomp(  unsigned short packetid );
 
 void MQTT_PingReq(void);
 
-void MQTT_Sub( char *topic, uint8_t qos );
+void MQTT_Sub( char const *topic, uint8_t qos );
 
 void MQTT_Receive(unsigned char *buf);
 

@@ -79,7 +79,7 @@ typedef struct
 
 typedef struct
 {
-	char* cstring;
+	char const * cstring;
 	MQTTLenString lenstring;
 } MQTTString;
 

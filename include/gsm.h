@@ -9,6 +9,8 @@
 #define GSM_H_
 
 #include "stm32l1xx.h"
+#include "uspd.h"
+#include "uart.h"
 
 // === CONFIG ===
 #define UART_SIM800     &simUart
@@ -50,15 +52,20 @@ typedef enum {
 } eGsmRunPhase;
 
 typedef struct {
-    sim_t sim;
-    mqttServer_t mqttServer;
-    mqttClient_t mqttClient;
-    mqttReceive_t mqttReceive;
-} SIM800_t;
+    uint16_t pin;
+    char *apn;
+    char *apn_user;
+    char *apn_pass;
+    uint8_t csq;
+    char imei[16];
+    eSimReady ready;
+} sim_t;
 
 extern FlagStatus gsmRun;
 extern eGsmState gsmState;
 extern FlagStatus gsmFinal;
+
+int gsmSendCommand(char *command, char *reply, uint16_t delay, void (*simreplycb)( sUartRxHandle *) );
 
 void gsmProcess( void );
 

@@ -7,6 +7,7 @@
 #include <gsm.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "main.h"
 #include "usart_arch.h"
@@ -27,6 +28,7 @@ FlagStatus mqttSubFlag = RESET;
 FlagStatus mqttPubFlag = RESET;
 
 struct timer_list mqttPubTimer;
+struct timer_list mqttSubTimer;
 
 // ------------------- Function prototype ---------------------------
 void mqttConnectCb( FlagStatus conn );
@@ -66,50 +68,27 @@ void saveSimReply( sUartRxHandle * handle ){
 }
 
 
-// SIM800 reply callback: Сохранение отклика в буфере mqtt_buf
-void connectSimReply( sUartRxHandle * handle ){
-  if( strcmp( handle->reply, "CONNECT\r\n") == 0 ) {
-    // Есть соединение с MQTT-сервером
-    SIM800.mqttServer.tcpconn = 1;
+// SIM800 reply callback: Сохранение IMEI в буфере mqtt_buf
+void saveImeiReply( sUartRxHandle * handle ){
+  if( handle->replyBuf != NULL ){
+    if( isdigit(handle->rxFrame[0]) && isdigit(handle->rxFrame[14]) ){
+      // Похоже, получен IMEI
+      memcpy( handle->replyBuf, (char*)handle->rxFrame, 15 );
+      handle->replyBuf[15] = '\0';
+    }
   }
   clearRxBuffer( (char *)(handle->rxFrame), &(handle->frame_offset) );
 }
 
 
-/**
- * Send AT command to SIM800 over UART.
- * @param command the command to be used the send AT command
- * @param reply to be used to set the correct answer to the command
- * @param delay to be used to the set pause to the reply
- * @return error, 0 is OK
- */
-int SIM800_SendCommand(char *command, char *reply, uint16_t delay, void (*simreplycb)( sUartRxHandle *) ){
-  uint32_t tmptick;
-  tmptick = mTick + delay;
-  uint8_t rc = 1;
-
-  simHnd.rxh->replyCb = simreplycb;
-
-  simHnd.txh->data = (uint8_t*)command;
-  simHnd.rxh->reply = reply;
-  simHnd.rxh->replyFlag = RESET;
-  trace_write( command, strlen(command) );
-  if( uartTransmit(simHnd.txh, (uint16_t)strlen(command), 1000) == 0 ){
-    trace_puts( "uart err" );
+// SIM800 reply callback: Сохранение отклика в буфере mqtt_buf
+void connectSimReply( sUartRxHandle * handle ){
+  if( strcmp( handle->reply, "CONNECT\r\n") == 0 ) {
+    // Есть соединение с MQTT-сервером
+    SIM800.mqttServer.tcpconn = SET;
+    trace_puts("tcp conn");
   }
-
-  if( reply == NULL ){
-    mDelay(delay);
-    return 0;
-  }
-
-  while( tmptick >= mTick ) {
-    if( simHnd.rxh->replyFlag ) {
-      rc = 0;
-      break;
-    }
-  }
-  return rc;
+  clearRxBuffer( (char *)(handle->rxFrame), &(handle->frame_offset) );
 }
 
 
@@ -121,17 +100,9 @@ int SIM800_SendCommand(char *command, char *reply, uint16_t delay, void (*simrep
 int MQTT_Deinit(void) {
   int error = 0;
 
-  mDelay(1000);
-  simHnd.txh->data = (uint8_t *)"+++\r\n";
-  if( uartTransmit(simHnd.txh, 5, 1000) == 0 ){
-    trace_puts( "uart err" );
-  }
-
-  mDelay(1000);
-
-  error += SIM800_SendCommand("ATE1\r\n", "OK\r\n", CMD_DELAY_2, NULL );
-  error += SIM800_SendCommand("AT+CGATT=0\r\n", "OK\r\n", CMD_DELAY_5, NULL );
-  error += SIM800_SendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY_5, NULL );
+  error += gsmSendCommand("ATE1\r\n", "OK\r\n", CMD_DELAY_2, NULL );
+  error += gsmSendCommand("AT+CGATT=0\r\n", "OK\r\n", CMD_DELAY_5, NULL );
+  error += gsmSendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY_5, NULL );
   SIM800.mqttServer.tcpconn = 0;
   SIM800.mqttServer.mqttconn = 0;
   return error;
@@ -153,8 +124,8 @@ int TCP_Connect(void) {
     Error_Handler( NON_STOP );
   }
   else {
-    sprintf(str, "AT+CIPSTART=\"TCP\",\"%s\",%d\r\n", SIM800.mqttServer.host, SIM800.mqttServer.port);
-    rc = SIM800_SendCommand(str, "CONNECT\r\n", CMD_DELAY_10*30, connectSimReply );
+    sprintf(str, "AT+CIPSTART=\"TCP\",\"%s\",%u\r\n", SIM800.mqttServer.host, *SIM800.mqttServer.port);
+    rc = gsmSendCommand(str, "CONNECT\r\n", CMD_DELAY_10*30, connectSimReply );
   }
   return rc;
 }
@@ -180,7 +151,6 @@ void MQTT_Connect(void) {
   }
   else {
     memcpy( simHnd.txh->data, buf, mqtt_len);
-    trace_puts( "mqtt conn ");
     uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
   }
 }
@@ -209,70 +179,6 @@ uint16_t MQTT_Pub(char *topic, char *payload){
   return rc;
 }
 
-/**
- * Public on the MQTT broker of the message in a topic
- * @param topic (uint8_t)  to be used to the set topic
- * @param payload to be used to the set message for topic
- * @return NONE
- */
-void MQTT_PubUint8(char *topic, uint8_t payload)
-{
-    char str[32] = {0};
-    sprintf(str, "%u", payload);
-    MQTT_Pub(topic, str);
-}
-
-/**
- * Public on the MQTT broker of the message in a topic
- * @param topic (uint16_t)  to be used to the set topic
- * @param payload to be used to the set message for topic
- * @return NONE
- */
-void MQTT_PubUint16(char *topic, uint16_t payload)
-{
-    char str[32] = {0};
-    sprintf(str, "%u", payload);
-    MQTT_Pub(topic, str);
-}
-
-/**
- * Public on the MQTT broker of the message in a topic
- * @param topic (uint32_t)  to be used to the set topic
- * @param payload to be used to the set message for topic
- * @return NONE
- */
-void MQTT_PubUint32(char *topic, uint32_t payload)
-{
-    char str[32] = {0};
-    sprintf(str, "%lu", payload);
-    MQTT_Pub(topic, str);
-}
-
-/**
- * Public on the MQTT broker of the message in a topic
- * @param topic (float)  to be used to the set topic
- * @param payload to be used to the set message for topic
- * @return NONE
- */
-void MQTT_PubFloat(char *topic, float payload)
-{
-    char str[32] = {0};
-    sprintf(str, "%f", payload);
-    MQTT_Pub(topic, str);
-}
-
-/**
- * Public on the MQTT broker of the message in a topic
- * @param topic (double)  to be used to the set topic
- * @param payload to be used to the set message for topic
- * @return NONE
- */
-void MQTT_PubDouble(char *topic, double payload)
-{
-    char str[32] = {0};
-    sprintf(str, "%f", payload);
-    MQTT_Pub(topic, str);
-}
 
 /**
  * A PUBACK Packet is the response to a PUBLISH Packet with QoS level 1.
@@ -376,7 +282,7 @@ void MQTT_PingReq(void)
  * @param topic to be used to the set topic
  * @return NONE
  */
-void MQTT_Sub(char *topic, uint8_t qos){
+void MQTT_Sub( char const *topic, uint8_t qos){
 
 
     MQTTString topicString = MQTTString_initializer;
@@ -395,13 +301,14 @@ void MQTT_Sub(char *topic, uint8_t qos){
 
 void mqttConnectCb( FlagStatus conn ){
   if( conn ){
-    mqttSubFlag = SET;
+    timerMod( &mqttSubTimer, 0 );
     mqttPubFlag = SET;
     ledOff( LED_R, 0 );
   }
   else {
     mqttPubFlag = RESET;
     mqttSubFlag = RESET;
+    timerDel( &mqttSubTimer );
     // Две вспышки оранжевого цвета с интервалом в 3 сек
     ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, TOUT_3000, 2);
     ledToggleSet( LED_G, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, TOUT_3000, 2);
@@ -432,10 +339,10 @@ void simUartRxProc( sUartRxHandle * handle, uint8_t byte ){
             else {
               // Callback == NULL
               if( strstr(mqtt_buffer, "SMS Ready\r\n" ) != NULL ) {
-                SIM800.ready = SIM_GSM_READY;
+                SIM800.sim.ready = SIM_GSM_READY;
               }
               else if( strstr(mqtt_buffer, "PIN Ready\r\n" ) != NULL ) {
-                SIM800.ready = SIM_PIN_READY;
+                SIM800.sim.ready = SIM_PIN_READY;
               }
               clearRxBuffer( (char *)(simHnd.rxh->rxFrame), &(simHnd.rxh->frame_offset) );
             }

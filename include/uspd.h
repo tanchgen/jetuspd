@@ -25,6 +25,7 @@ typedef struct {
   uint8_t min;
   uint8_t hour;
   uint8_t day[5];
+  uint8_t mon;
 } sArxCal;
 
 typedef enum {
@@ -53,7 +54,7 @@ typedef struct {
 // Текущие значения
   uint16_t simActivDay;               // Кодличество прошедших дней с последней активации
   uint8_t simActivCount;              // Кол-во попыток активации SIM
-} eSimCfg;
+} sSimCfg;
 
 typedef struct uspdCfg {
  eSensType isensType[ISENS_NUM];      // Режим работы входов датчиков
@@ -65,7 +66,7 @@ typedef struct uspdCfg {
  eSimSelect simSel;                   // Режим выбора SIM
  eGprsClass gprsClass;                // Класс GPRS
  uint16_t gprsConnTout;               // Макс. длительность соединения GPRS
- eSimCfg simcfg;
+ sSimCfg simcfg[2];
  char mqttHost[32];
  uint16_t mqttPort;
  char mqttUser[32];

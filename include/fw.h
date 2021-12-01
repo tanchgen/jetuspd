@@ -10,6 +10,7 @@
 
 #include "sys/cdefs.h"
 #include "stm32l1xx.h"
+#include "mqtt.h"
 
 //#define FLASH_SIZE              (FLASH_END - FLASH_BASE + 1)
 #define BOOTLOADER_SIZE         ((uint32_t)0x2000)

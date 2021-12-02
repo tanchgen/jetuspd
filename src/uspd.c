@@ -69,6 +69,127 @@ eUspdCfg uspdCfg = {
 };
 
 
+FlagStatus cfgUpdateFinal;
+
+
+void cfgUpdate( FlagStatus change );
+
+// ======================= Формирование сообщения с конфигурацией =================================
+static const char * cfgiMsgTedmpl =
+"{ "
+  "\"i\" : [%d,%d,%d,%d,%d,%d],"            // Режим работы входов датчиков (isensType)
+  "\"o\" : [%d],"                           // UP/DOWN вывода Выхода (outState)
+  "\"arxtime\": %d,"                        // Период записи данных в архив (arxTout)
+  "\"arxupl\": %s,"                         // Флаг разрешения отправки архива на сервер (arxSend: "true"/"false")
+  "\"arxsend\" : \"%s * *\","   // Календарь отправки архива (arxCalend: { <min>, <hour>, {<d1>, <d2>, <d3>, <d4>, <d5>} }
+  "\"autonamur\": %s,"                      // Автоматическое определение уровней срабатывания по сопротивлению (autonamur: "true"/"false")
+  "\"sim\": %d,"                            // Режим выбора SIM (simSel)
+  "\"gprs\": %d,"                           // Класс GPRS (gprsClass)
+  "\"regtime\" : %d,"                       // Макс. длительность соединения GPRS (gprsConnTout)
+  "\"pin\" : [%04d,%04d],"
+  "\"syspin\" : [false,false],"             // ["true"/"false","true"/"false"]
+  "\"op\" : [\"%05d\",\"%05d\"],"           // PLMN_1,PLMN_2
+  "\"gprsnm\" : [\"%s\",\"%s\"],"
+  "\"gprsps\" : [\"%s\",\"%s\"],"
+  "\"gprsapn\" : [\"%s\",\"%s\"],"
+  "\"simctl\" : %s,"                        // Флаг периодической активации SIM  ("true"/"false")
+  "\"simctlday\" : %d,"                     // Период активации SIM в ДНЯХ (simActivTout)
+  "\"simctlnum\" : %d,"                     // Макс. кол-во попыток активации SIM (simActivMax)
+  "\"mqad\" : \"%s\","
+  "\"mqpr\" : \"%d\","
+  "\"mqnm\" : \"%s\","
+  "\"mqps\" : \"%s\","
+  "\"232\" : %s"                            // Прозрачный режим терминала (termGate)
+" }";
+
+#define BOOL_STR(x)    ((x)? "true" : "false")
+
+void calStrCreate( char str[], sArxCal * cal ){
+  char * beg = str;
+
+  utoa( cal->min, str, 10 );
+  while( *str++ != '\0' )
+  {}
+  *str++ = ' ';
+  utoa( cal->hour, str, 10 );
+  while( *str++ != '\0' )
+  {}
+  *str++ = ' ';
+  for( uint8_t i = 0; i < 5; i++ ){
+    if( cal->day[i] ){
+      utoa( cal->day[i], str, 10 );
+      while( *str++ != '\0' )
+      {}
+      *str++ = ',';
+    }
+  }
+  // Вместо последней запятой ставим терминатор
+  str--;
+  *str = '\0';
+
+  assert_param( strlen(beg) < 21);
+}
+
+
+// Формируем сообщение для топика "TOPIC_CFG_I"
+char * cfgiMsgCreate( void ){
+  char * msg;
+  char calStr[21];
+
+  if( (msg = ta_alloc(800)) == NULL ){
+    Error_Handler( NON_STOP );
+    return NULL;
+  }
+
+  calStrCreate( calStr, &(uspdCfg.arxCalend) );
+
+  sprintf( msg, cfgiMsgTedmpl, \
+      /* Режим работы входов датчиков (isensType) */
+      uspdCfg.isensType[0], uspdCfg.isensType[0], uspdCfg.isensType[0],
+      uspdCfg.isensType[0], uspdCfg.isensType[0], uspdCfg.isensType[0],
+      /* UP/DOWN вывода Выхода (outState) */
+      uspdCfg.outState,
+      /* Период записи данных в архив (arxTout) */
+      uspdCfg.arxTout,
+      /* Флаг разрешения отправки архива на сервер (arxSend: "true"/"false") */
+      BOOL_STR(uspdCfg.arxSend),
+      /* Календарь отправки архива (arxCalend: { <min>, <hour>, {<d1>, <d2>, <d3>, <d4>, <d5>} } */
+      calStr,
+      /* Автоматическое определение уровней срабатывания по сопротивлению (autonamur: "true"/"false")*/
+      BOOL_STR(uspdCfg.autonamur),
+      /* Режим выбора SIM (simSel) */
+      uspdCfg.simSel,
+      /* Класс GPRS (gprsClass) */
+      uspdCfg.gprsClass,
+      /* Макс. длительность соединения GPRS (gprsConnTout) */
+      uspdCfg.gprsConnTout,
+      uspdCfg.simcfg[0].pin, uspdCfg.simcfg[1].pin,
+      BOOL_STR(uspdCfg.simcfg[0].pinAuto), BOOL_STR(uspdCfg.simcfg[1].pinAuto),
+      /* PLMN_1,PLMN_2 */
+      uspdCfg.simcfg[0].plmn, uspdCfg.simcfg[1].plmn,
+      uspdCfg.simcfg[0].gprsUser, uspdCfg.simcfg[1].gprsUser,
+      uspdCfg.simcfg[0].gprsPass, uspdCfg.simcfg[1].gprsPass,
+      uspdCfg.simcfg[0].gprsApn, uspdCfg.simcfg[1].gprsApn,
+      /* Флаг периодической активации SIM  ("true"/"false") */
+      BOOL_STR(uspdCfg.simcfg[0].simActiv),
+      /* Период активации SIM в ДНЯХ (simActivTout) */
+      uspdCfg.simcfg[0].simActivDay,
+      /* Макс. кол-во попыток активации SIM (simActivMax) */
+      uspdCfg.simcfg[0].simActivCount,
+      uspdCfg.mqttHost,
+      uspdCfg.mqttPort,
+      uspdCfg.mqttUser,
+      uspdCfg.mqttPass,
+      /* Прозрачный режим терминала (termGate) */
+      uspdCfg.termGate
+  );
+
+  assert_param( strlen(msg) < 800 );
+  return msg;
+}
+
+
+// ==================== Парсинг полученого сообщения с конфигурацией ==============================
 // Поиск имени и величины
 // Возврашает указатель на продолжение JSON или NULL, если конец строки
 char * volParse( const char * str, char ** name, char ** vol ){
@@ -478,12 +599,28 @@ void uspdCfgProc( sUartRxHandle * rxh, SIM800_t * sim ){
     }
   }
 
-  if( change ){
-    // Обновляем конфигурацию устройства
-    cfgUpdate();
-  }
+  // Обновляем конфигурацию устройства
+  cfgUpdate( change );
 
   mqttMsgReset( rxh, &SIM800 );
 
   return;
+}
+
+
+// Обновление конфигурации
+void cfgUpdate( FlagStatus change ){
+  if( change || (uspdCfg.updateFlag == RESET) ){
+    // Записать в EEPROM
+    uspdCfg.updateFlag = SET;
+    if( stmEeWrite( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg) ) != HAL_OK){
+      // Ошибка при записи в EEPROM
+      uspdCfg.updateFlag = RESET;
+      stmEeWrite( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg.updateFlag) );
+      return;
+    }
+  }
+  // Отмечаем
+  SIM800.mqttClient.pubFlags.cfgoPub = SET;
+  cfgUpdateFinal = SET;
 }

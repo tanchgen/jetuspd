@@ -9,7 +9,7 @@
 #define GSM_H_
 
 #include "stm32l1xx.h"
-#include "uspd.h"
+//#include "uspd.h"
 #include "uart.h"
 
 // === CONFIG ===

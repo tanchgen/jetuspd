@@ -8,7 +8,13 @@
 #ifndef USPD_H_
 #define USPD_H_
 
+#include <sys/cdefs.h>
+
 #include "isens.h"
+#include "eeprom.h"
+#include "mqtt.h"
+
+#define USPD_CFG_ADDR      (EE_CFG_ADDR - FLASH_EEPROM_BASE)
 
 typedef enum {
   SENS_TYPE_COUNT,
@@ -56,7 +62,8 @@ typedef struct {
   uint8_t simActivCount;              // Кол-во попыток активации SIM
 } sSimCfg;
 
-typedef struct uspdCfg {
+typedef struct __aligned(4) uspdCfg{
+ FlagStatus updateFlag;
  eSensType isensType[ISENS_NUM];      // Режим работы входов датчиков
  eOutState outState;                  // UP/DOWN вывода Выхода
  uint32_t arxTout;                    // Период записи данных в архив
@@ -75,5 +82,10 @@ typedef struct uspdCfg {
 } eUspdCfg;
 
 extern eUspdCfg uspdCfg;
+extern FlagStatus cfgUpdateFinal;
+
+void uspdCfgProc( sUartRxHandle * rxh, SIM800_t * sim );
+// Формируем сообщение для топика "TOPIC_CFG_I"
+char * cfgiMsgCreate( void );
 
 #endif /* USPD_H_ */

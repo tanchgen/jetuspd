@@ -14,6 +14,7 @@
 #include "gsm.h"
 #include "isens.h"
 #include "logger.h"
+#include "uspd.h"
 #include "mqtt.h"
 
 extern sFwHandle fwHandle;
@@ -416,7 +417,7 @@ void mqttPubProc( sUartRxHandle * handle ){
     case TOPIC_CMD_O:
 			break;
     case TOPIC_CFG_I:
-      uspdCfgProc();
+      uspdCfgProc( handle, &SIM800 );
 			break;
     case TOPIC_CFG_O:
 			break;
@@ -475,10 +476,10 @@ void mqttInit(void) {
 
     // MQQT settings
     SIM800.sim.ready = SIM_NOT_READY;
-    SIM800.sim.pin = uspdCfg.simcfg.pin = UID_0 % 10000;
-    SIM800.sim.apn = uspdCfg.simcfg.gprsApn;
-    SIM800.sim.apn_user = uspdCfg.simcfg.gprsUser;
-    SIM800.sim.apn_pass = uspdCfg.simcfg.gprsPass;
+    SIM800.sim.pin = uspdCfg.simcfg[0].pin = UID_0 % 10000;
+    SIM800.sim.apn = uspdCfg.simcfg[0].gprsApn;
+    SIM800.sim.apn_user = uspdCfg.simcfg[0].gprsUser;
+    SIM800.sim.apn_pass = uspdCfg.simcfg[0].gprsPass;
     SIM800.mqttServer.host = uspdCfg.mqttHost;
     SIM800.mqttServer.port = &(uspdCfg.mqttPort);
     SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
@@ -504,21 +505,28 @@ int mqttStart(void) {
 
 
 void mqttProcess( void ){
+  sPubFlags * pubfl;
+  char str[64];
+  char * cfgimsg;
 
-  if(gsmState < GSM_WORK){
+  if(SIM800.mqttServer.mqttconn == RESET){
     return;
   }
 
+  pubfl = &(SIM800.mqttClient.pubFlags);
   if( mqttPubFlag ) {
     mqttPubFlag = RESET;
-  //    MQTT_Pub( "imei/test/string", "String message" );
-  //    MQTT_PubUint8( "imei/test/uint8", pub_uint8 );
-  //    MQTT_PubUint16( "imei/test/uint16", pub_uint16 );
-  //    MQTT_PubUint32( "imei/test/uint32", pub_uint32 );
-  //    MQTT_PubFloat( "imei/test/float", pub_float );
-  //    MQTT_PubDouble( "imei/test/double", pub_double );
+    if( pubfl->cfgoPub ){
+      sprintf( str, tpcTempl[TOPIC_CFG_I], SIM800.sim.imei );
+      cfgimsg = cfgiMsgCreate();
+      if( MQTT_Pub( str, cfgimsg )){
+        cfgUpdateFinal = SET;
+        Error_Handler( NON_STOP );
+      }
+      // Передали на отправку в UART. Удачно-нет - освобождаем;
+      ta_free( cfgimsg );
+    }
     if( iSens[ISENS_1].isensFlag ){
-      char str[64];
       uint32_t ut = getRtcTime();
 
       sprintf( str, "{\"state\":[{time\":%ul,\"pls\":%ul}]}", (unsigned int)ut, (unsigned int)iSens[ISENS_1].isensCount );

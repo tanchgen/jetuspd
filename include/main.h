@@ -2,10 +2,6 @@
 #ifndef __MAIN_H
 #define __MAIN_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* Includes ------------------------------------------------------------------*/
 #include "stm32l1xx_hal.h"
 
@@ -77,7 +73,6 @@ enum {
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
-void Error_Handler( int stop );
 
 /* USER CODE BEGIN EFP */
 
@@ -101,9 +96,20 @@ void enable_nvic_irq(IRQn_Type irq, uint8_t priority);
 void disable_nvic_irq(IRQn_Type irq);
 /* USER CODE END Private defines */
 
-#ifdef __cplusplus
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+static inline void Error_Handler( int stop ){
+  /* USER CODE BEGIN Error_Handler_Debug */
+    /* User can add his own implementation to report the HAL error return state */
+    trace_printf( "ErrorHandler: file \"%s\",line %d", (uint8_t *)__FILE__, __LINE__ );
+    GPIOB->BSRR = GPIO_PIN_9;
+    while (stop) {
+    }
+  /* USER CODE END Error_Handler_Debug */
 }
-#endif
+
 
 #endif /* __MAIN_H */
 

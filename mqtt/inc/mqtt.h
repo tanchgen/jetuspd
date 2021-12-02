@@ -59,6 +59,10 @@ typedef enum {
 } eMsgState;
 
 typedef struct {
+  FlagStatus cfgoPub;
+} sPubFlags;
+
+typedef struct {
     char *host;
     uint16_t * port;
     FlagStatus tcpconn;
@@ -71,7 +75,8 @@ typedef struct {
     char *clientID;
     unsigned short keepAliveInterval;
     uint8_t subCount;
-//    uint32_t toutTick;
+    sPubFlags pubFlags;
+    //    uint32_t toutTick;
 } mqttClient_t;
 
 typedef struct {
@@ -93,10 +98,11 @@ typedef struct {
 } mqttReceive_t;
 
 typedef struct {
-    sim_t sim;
-    mqttServer_t mqttServer;
-    mqttClient_t mqttClient;
-    mqttReceive_t mqttReceive;
+  uint8_t simActive;        // Номер активной SIM
+  sim_t sim;
+  mqttServer_t mqttServer;
+  mqttClient_t mqttClient;
+  mqttReceive_t mqttReceive;
 } SIM800_t;
 
 #if 0

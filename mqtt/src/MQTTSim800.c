@@ -73,8 +73,8 @@ void saveImeiReply( sUartRxHandle * handle ){
   if( handle->replyBuf != NULL ){
     if( isdigit(handle->rxFrame[0]) && isdigit(handle->rxFrame[14]) ){
       // Похоже, получен IMEI
-      memcpy( handle->replyBuf, (char*)handle->rxFrame, 15 );
-      handle->replyBuf[15] = '\0';
+      memcpy( SIM800.sim.imei, (char*)handle->rxFrame, 15 );
+      SIM800.sim.imei[15] = '\0';
     }
   }
   clearRxBuffer( (char *)(handle->rxFrame), &(handle->frame_offset) );

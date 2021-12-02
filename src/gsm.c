@@ -13,6 +13,7 @@
 #include "mqtt.h"
 #include "usart_arch.h"
 #include "gpio_arch.h"
+#include "uspd.h"
 #include "gsm.h"
 
 extern SIM800_t SIM800;
@@ -528,9 +529,10 @@ void gsmMqttConnFunc( void ){
 // Состояние "GSM PWR ON": Установка сохраненной конфигурации
 void gsmServConnFunc( void ){
   if( gsmRun ){
-    if( )
-    gsmState++;
-    gsmRunPhase = PHASE_NON;
+    if( uspdCfg.updateFlag ){
+      gsmState++;
+      gsmRunPhase = PHASE_NON;
+    }
   }
   else {
     // Выключаем питание GSM

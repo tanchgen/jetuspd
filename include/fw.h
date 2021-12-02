@@ -10,6 +10,7 @@
 
 #include "sys/cdefs.h"
 #include "stm32l1xx.h"
+#include "eeprom.h"
 #include "mqtt.h"
 
 //#define FLASH_SIZE              (FLASH_END - FLASH_BASE + 1)
@@ -23,9 +24,7 @@
 #define FW_2_END                (FW_2_START_ADDR + FW_2_SIZE - 1)
 #define FW_2_VER_ADDR           (FW_2_START_ADDR + FW_2_SIZE - 4)
 
-#define EE_FW_HANDLE_ADDR_0          (FLASH_EEPROM_BASE + 0x80)
-
-#define FW_HANDLE_ADDR_0       (0x80UL)
+#define FW_HANDLE_ADDR_0       (EE_FW_HANDLE_ADDR_0 - FLASH_EEPROM_BASE)
 
 #ifndef FLASH_PAGE_SIZE
 #define FLASH_PAGE_SIZE         (256U)

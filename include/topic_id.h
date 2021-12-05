@@ -37,6 +37,6 @@ typedef enum topicId {
   TOPIC_NUM
 } eTopicId;
 
-
+extern const char * tpcTempl[TOPIC_NUM];
 
 #endif /* TOPIC_ID_H_ */

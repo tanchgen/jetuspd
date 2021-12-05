@@ -75,7 +75,7 @@ FlagStatus cfgUpdateFinal;
 void cfgUpdate( FlagStatus change );
 
 // ======================= Формирование сообщения с конфигурацией =================================
-static const char * cfgiMsgTedmpl =
+const char * cfgiMsgTedmpl =
 "{ "
   "\"i\" : [%d,%d,%d,%d,%d,%d],"            // Режим работы входов датчиков (isensType)
   "\"o\" : [%d],"                           // UP/DOWN вывода Выхода (outState)
@@ -87,7 +87,7 @@ static const char * cfgiMsgTedmpl =
   "\"gprs\": %d,"                           // Класс GPRS (gprsClass)
   "\"regtime\" : %d,"                       // Макс. длительность соединения GPRS (gprsConnTout)
   "\"pin\" : [%04d,%04d],"
-  "\"syspin\" : [false,false],"             // ["true"/"false","true"/"false"]
+  "\"syspin\" : [%s,%s],"             // ["true"/"false","true"/"false"]
   "\"op\" : [\"%05d\",\"%05d\"],"           // PLMN_1,PLMN_2
   "\"gprsnm\" : [\"%s\",\"%s\"],"
   "\"gprsps\" : [\"%s\",\"%s\"],"
@@ -102,24 +102,28 @@ static const char * cfgiMsgTedmpl =
   "\"232\" : %s"                            // Прозрачный режим терминала (termGate)
 " }";
 
+
 #define BOOL_STR(x)    ((x)? "true" : "false")
 
 void calStrCreate( char str[], sArxCal * cal ){
   char * beg = str;
 
   utoa( cal->min, str, 10 );
-  while( *str++ != '\0' )
-  {}
+  while( *str != '\0' ){
+    str++;
+  }
   *str++ = ' ';
   utoa( cal->hour, str, 10 );
-  while( *str++ != '\0' )
-  {}
+  while( *str != '\0' ){
+    str++;
+  }
   *str++ = ' ';
   for( uint8_t i = 0; i < 5; i++ ){
     if( cal->day[i] ){
       utoa( cal->day[i], str, 10 );
-      while( *str++ != '\0' )
-      {}
+      while( *str != '\0' ){
+        str++;
+      }
       *str++ = ',';
     }
   }
@@ -136,7 +140,7 @@ char * cfgiMsgCreate( void ){
   char * msg;
   char calStr[21];
 
-  if( (msg = ta_alloc(800)) == NULL ){
+  if( (msg = my_alloc(1024)) == NULL ){
     Error_Handler( NON_STOP );
     return NULL;
   }
@@ -144,45 +148,46 @@ char * cfgiMsgCreate( void ){
   calStrCreate( calStr, &(uspdCfg.arxCalend) );
 
   sprintf( msg, cfgiMsgTedmpl, \
-      /* Режим работы входов датчиков (isensType) */
-      uspdCfg.isensType[0], uspdCfg.isensType[0], uspdCfg.isensType[0],
-      uspdCfg.isensType[0], uspdCfg.isensType[0], uspdCfg.isensType[0],
-      /* UP/DOWN вывода Выхода (outState) */
-      uspdCfg.outState,
-      /* Период записи данных в архив (arxTout) */
-      uspdCfg.arxTout,
-      /* Флаг разрешения отправки архива на сервер (arxSend: "true"/"false") */
-      BOOL_STR(uspdCfg.arxSend),
-      /* Календарь отправки архива (arxCalend: { <min>, <hour>, {<d1>, <d2>, <d3>, <d4>, <d5>} } */
-      calStr,
-      /* Автоматическое определение уровней срабатывания по сопротивлению (autonamur: "true"/"false")*/
-      BOOL_STR(uspdCfg.autonamur),
-      /* Режим выбора SIM (simSel) */
-      uspdCfg.simSel,
-      /* Класс GPRS (gprsClass) */
-      uspdCfg.gprsClass,
-      /* Макс. длительность соединения GPRS (gprsConnTout) */
-      uspdCfg.gprsConnTout,
-      uspdCfg.simcfg[0].pin, uspdCfg.simcfg[1].pin,
-      BOOL_STR(uspdCfg.simcfg[0].pinAuto), BOOL_STR(uspdCfg.simcfg[1].pinAuto),
-      /* PLMN_1,PLMN_2 */
-      uspdCfg.simcfg[0].plmn, uspdCfg.simcfg[1].plmn,
-      uspdCfg.simcfg[0].gprsUser, uspdCfg.simcfg[1].gprsUser,
-      uspdCfg.simcfg[0].gprsPass, uspdCfg.simcfg[1].gprsPass,
-      uspdCfg.simcfg[0].gprsApn, uspdCfg.simcfg[1].gprsApn,
-      /* Флаг периодической активации SIM  ("true"/"false") */
-      BOOL_STR(uspdCfg.simcfg[0].simActiv),
-      /* Период активации SIM в ДНЯХ (simActivTout) */
-      uspdCfg.simcfg[0].simActivDay,
-      /* Макс. кол-во попыток активации SIM (simActivMax) */
-      uspdCfg.simcfg[0].simActivCount,
-      uspdCfg.mqttHost,
-      uspdCfg.mqttPort,
-      uspdCfg.mqttUser,
-      uspdCfg.mqttPass,
-      /* Прозрачный режим терминала (termGate) */
-      uspdCfg.termGate
-  );
+          /* Режим работы входов датчиков (isensType) */
+          uspdCfg.isensType[0], uspdCfg.isensType[0], uspdCfg.isensType[0],
+          uspdCfg.isensType[0], uspdCfg.isensType[0], uspdCfg.isensType[0],
+          /* UP/DOWN вывода Выхода (outState) */
+          uspdCfg.outState,
+          /* Период записи данных в архив (arxTout) */
+          uspdCfg.arxTout,
+          /* Флаг разрешения отправки архива на сервер (arxSend: "true"/"false") */
+          BOOL_STR(uspdCfg.arxSend),
+          /* Календарь отправки архива (arxCalend: { <min>, <hour>, {<d1>, <d2>, <d3>, <d4>, <d5>} } */
+          calStr,
+          /* Автоматическое определение уровней срабатывания по сопротивлению (autonamur: "true"/"false")*/
+          BOOL_STR(uspdCfg.autonamur),
+          /* Режим выбора SIM (simSel) */
+          uspdCfg.simSel,
+          /* Класс GPRS (gprsClass) */
+          uspdCfg.gprsClass,
+          /* Макс. длительность соединения GPRS (gprsConnTout) */
+          uspdCfg.gprsConnTout,
+          uspdCfg.simcfg[0].pin, uspdCfg.simcfg[1].pin,
+          BOOL_STR(uspdCfg.simcfg[0].pinAuto), BOOL_STR(uspdCfg.simcfg[1].pinAuto),
+          /* PLMN_1,PLMN_2 */
+          uspdCfg.simcfg[0].plmn, uspdCfg.simcfg[1].plmn,
+          uspdCfg.simcfg[0].gprsUser, uspdCfg.simcfg[1].gprsUser,
+          uspdCfg.simcfg[0].gprsPass, uspdCfg.simcfg[1].gprsPass,
+          uspdCfg.simcfg[0].gprsApn, uspdCfg.simcfg[1].gprsApn,
+          /* Флаг периодической активации SIM  ("true"/"false") */
+          BOOL_STR(uspdCfg.simcfg[0].simActiv),
+          /* Период активации SIM в ДНЯХ (simActivTout) */
+          uspdCfg.simcfg[0].simActivDay,
+          /* Макс. кол-во попыток активации SIM (simActivMax) */
+          uspdCfg.simcfg[0].simActivCount,
+          uspdCfg.mqttHost,
+          uspdCfg.mqttPort,
+          uspdCfg.mqttUser,
+          uspdCfg.mqttPass,
+          /* Прозрачный режим терминала (termGate) */
+          BOOL_STR(uspdCfg.termGate)
+      );
+
 
   assert_param( strlen(msg) < 800 );
   return msg;
@@ -190,37 +195,76 @@ char * cfgiMsgCreate( void ){
 
 
 // ==================== Парсинг полученого сообщения с конфигурацией ==============================
+static inline char * skipch( char * ptr, char ch ){
+  while( *ptr != ch ){
+    if(*ptr == '\0'){
+      return NULL;
+    }
+    ptr++;
+  }
+  return ptr;
+}
+
 // Поиск имени и величины
 // Возврашает указатель на продолжение JSON или NULL, если конец строки
-char * volParse( const char * str, char ** name, char ** vol ){
-  char * ptr;
+char * volParse( char * str, char ** name, char ** vol ){
+  char * ptr = str;
   char * ptr0;
 
-  if( (ptr = strstr( str, "\"" )) == NULL ){
-    return ptr;
+  if( (ptr = skipch( ptr, '\"')) == NULL){
+    goto fault_parse;
+  }
+  ptr0 = ++ptr;
+
+  if( (ptr = skipch( ptr, '\"')) == NULL){
+    goto fault_parse;
   }
 
-  ptr0 = ptr;
-  if( (ptr = strstr( ptr, "\"" )) == NULL ){
-    return ptr;
-  }
-
-  *ptr = '\0';
+  *ptr++ = '\0';
   *name = ptr0;
 
+  if( (ptr = skipch( ptr, ':')) == NULL){
+    goto fault_parse;
+  }
   ptr++;
-  ptr0 = ptr;
-
-  if( (ptr = strstr( ptr, "," )) != NULL ){
-    *ptr = '\0';
+  while( isspace((int)*ptr) ){
+    if(*ptr == '\0'){
+      goto fault_parse;
+    }
     ptr++;
-    *vol = ptr0;
+  }
+
+  if( *ptr == '[' ){
+    ptr0 = ++ptr;
+    if( (ptr = skipch( ptr, ']')) == NULL){
+      goto fault_parse;
+    }
+  }
+  else if( *ptr == '\"' ){
+    ptr0 = ++ptr;
+    if( (ptr = skipch( ptr, '\"')) == NULL){
+      goto fault_parse;
+    }
   }
   else {
-    *vol = NULL;
+    ptr0 = ptr;
+    while( isalnum((int)*ptr) ){
+      if(*ptr == '\0'){
+        goto fault_parse;
+      }
+      ptr++;
+    }
   }
+  *ptr = '\0';
+  ptr++;
+  *vol = ptr0;
 
   return ptr;
+
+fault_parse:
+  name = NULL;
+  vol = NULL;
+  return NULL;
 }
 
 // ======================= Обработка отдельных полей конфигкрации ============================
@@ -250,7 +294,7 @@ FlagStatus cfgCalProc( sArxCal * cal, char * str ){
     cal0.hour = -1;
   }
   else {
-    cal->hour = strtol( str, &str, 10 );
+    cal0.hour = strtol( str, &str, 10 );
   }
   if( cal->hour != cal0.hour ){
     cal->hour = cal0.hour;
@@ -262,15 +306,9 @@ FlagStatus cfgCalProc( sArxCal * cal, char * str ){
   // Дни
   for( uint8_t i = 0; (isspace((int)*str) == 0) && (i < ARRAY_SIZE(cal->day)); i++ ){
     if( *str == '*' ){
-      // Каждый час - дальнейшая обработка бесполезна
       cal0.day[0] = -1;
-      if( cal->day[0] != (uint8_t)-1 ){
-        cal->day[0] = -1;
-        while(isspace((int)*str) == 0){
-          str++;
-        }
-        break;
-      }
+      // Каждый день - дальнейшая обработка списка дней бесполезна
+      i = ARRAY_SIZE(cal->day);
     }
     else {
       cal0.day[i] = strtol( str, &str, 10 );
@@ -284,10 +322,10 @@ FlagStatus cfgCalProc( sArxCal * cal, char * str ){
       str++;
     }
   }
-  if( isspace((int)*str) != 0 ){
-    // Ошибка формата - выходимж
+  if( isspace((int)*str) == 0 ){
+    // Ошибка формата - выходим
     Error_Handler( NON_STOP );
-    return change;
+    return RESET;
   }
 
   return change;
@@ -307,6 +345,9 @@ FlagStatus cfgPinProc( sSimCfg sim[], char * str ){
   if( sim[0].pin != p ){
     sim[0].pin = p;
     change = SET;
+  }
+  while( isdigit((int)*str) ){
+    str++;
   }
   while( ispunct((int)*str) ){
     str++;
@@ -375,7 +416,7 @@ FlagStatus cfgBoolFieldProc( FlagStatus * field0, FlagStatus * field1, char * st
 }
 
 
-// Обработка конфигурации Код Оператора PLMN
+// Обработка числового поля конфигурации
 FlagStatus cfgNumFieldProc( int * field0, int * field1, char * str ){
   FlagStatus change = RESET;
   int v;
@@ -394,6 +435,9 @@ FlagStatus cfgNumFieldProc( int * field0, int * field1, char * str ){
     return change;
   }
 
+  while( isdigit((int)*str) ){
+    str++;
+  }
   while( isspace((int)*str) || ispunct((int)*str) ){
     str++;
   }
@@ -449,8 +493,9 @@ void uspdCfgProc( sUartRxHandle * rxh, SIM800_t * sim ){
   bch = (char*)(rxh->rxFrame + sim->mqttReceive.payOffset);
   // Читаем версию обновления
 
-  while( isspace((int)*bch) || ispunct((int)*bch) ){
-    bch++;
+  if( (bch = skipch(bch, '\"')) == NULL){
+    mqttMsgReset( rxh, &SIM800 );
+    return;
   }
 
   while( *bch != '\0' ){
@@ -458,144 +503,96 @@ void uspdCfgProc( sUartRxHandle * rxh, SIM800_t * sim ){
     char * vol;
 
     bch = volParse( bch, &top, &vol );
-    if( strcmp( top, "i") != 0 ){
+    if( strcmp( top, "i") == 0 ){
       int v[6];
-      sscanf( vol, "[%d,%d,%d,%d,%d,%d]", &(v[0]), &(v[1]), &(v[2]), &(v[3]), &(v[4]), &(v[5]));
-      if( v[0] != uspdCfg.isensType[0] ){
-        uspdCfg.isensType[0] = v[0];
-        change = SET;
-      }
-      if( v[0] != uspdCfg.isensType[0] ){
-        uspdCfg.isensType[0] = v[0];
-        change = SET;
-      }
-      if( v[1] != uspdCfg.isensType[1] ){
-        uspdCfg.isensType[1] = v[1];
-        change = SET;
-      }
-      if( v[2] != uspdCfg.isensType[2] ){
-        uspdCfg.isensType[2] = v[2];
-        change = SET;
-      }
-      if( v[3] != uspdCfg.isensType[3] ){
-        uspdCfg.isensType[3] = v[3];
-        change = SET;
-      }
-      if( v[4] != uspdCfg.isensType[4] ){
-        uspdCfg.isensType[4] = v[4];
-        change = SET;
-      }
-      if( v[5] != uspdCfg.isensType[5] ){
-        uspdCfg.isensType[5] = v[5];
-        change = SET;
+      sscanf( vol, "%d,%d,%d,%d,%d,%d", &(v[0]), &(v[1]), &(v[2]), &(v[3]), &(v[4]), &(v[5]));
+      for( uint8_t i = 0; i < ISENS_NUM; i++ ){
+        if( v[i] != uspdCfg.isensType[i] ){
+          uspdCfg.isensType[i] = v[i];
+          change = SET;
+        }
       }
     }
-    else if( strcmp( top, "o") != 0 ){
-      uint8_t v = *(vol+1) - '0';
+    else if( strcmp( top, "o") == 0 ){
+      uint8_t v = *vol - '0';
 
       if( uspdCfg.outState != v ){
         uspdCfg.outState = v;
         change = SET;
       }
     }
-    else if( strcmp( top, "arxtime") != 0 ){
-      change = cfgNumFieldProc( (int*)&(uspdCfg.arxTout), NULL, vol );
-      uint8_t v = atoi( vol );
-
-      if( uspdCfg.arxTout != v ){
-        uspdCfg.arxTout = v;
-        change = SET;
-      }
+    else if( strcmp( top, "arxtime") == 0 ){
+      change |= cfgNumFieldProc( (int*)&(uspdCfg.arxTout), NULL, vol );
     }
-    else if( strcmp( top, "arxupl") != 0 ){
-      change = cfgBoolFieldProc( &(uspdCfg.arxSend), NULL, vol );
+    else if( strcmp( top, "arxupl") == 0 ){
+      change |= cfgBoolFieldProc( &(uspdCfg.arxSend), NULL, vol );
     }
-    else if( memcmp( top, "arxsend", 7 ) == 0 ){
-      change = cfgCalProc( &(uspdCfg.arxCalend), vol );
+    else if( strcmp( top, "arxsend") == 0 ){
+      change |= cfgCalProc( &(uspdCfg.arxCalend), vol );
     }
     else if( strcmp( top, "autonamur") == 0 ){
-      change = cfgBoolFieldProc( &(uspdCfg.autonamur), NULL, vol );
+      change |= cfgBoolFieldProc( &(uspdCfg.autonamur), NULL, vol );
     }
-    else if( memcmp( top, "sim", 3) != 0 ){
-      eSimSelect v = *vol - '0';
-
-      if( v <= SIM_SEL_2 ){
-        if( uspdCfg.simSel != v ){
-          uspdCfg.simSel = v;
-          change = SET;
-        }
-      }
+    else if( strcmp( top, "sim" ) == 0 ){
+      change |= cfgNumFieldProc( (int*)&(uspdCfg.simSel), NULL, vol );
     }
-    else if( memcmp( top, "gprs", 4 ) == 0 ){
-      eGprsClass v = *vol - '0';
-
-      if( v <= GPRS_CLASS_8 ){
-        if( uspdCfg.gprsClass != v ){
-          uspdCfg.gprsClass = v;
-          change = SET;
-        }
-      }
+    else if( strcmp( top, "gprs" ) == 0 ){
+      change |= cfgNumFieldProc( (int*)&(uspdCfg.gprsClass), NULL, vol );
     }
-    else if( memcmp( top, "regtime", 7 ) == 0 ){
-      uint16_t v;
-
-      v = atol( vol );
-      if( uspdCfg.gprsConnTout != v ){
-        uspdCfg.gprsConnTout = v;
-        change = SET;
-      }
+    else if( strcmp( top, "regtime" ) == 0 ){
+      change |= cfgNumFieldProc( (int*)&(uspdCfg.gprsConnTout), NULL, vol );
     }
-    else if( memcmp( top, "pin", 3 ) == 0 ){
-      change = cfgPinProc( uspdCfg.simcfg, vol );
+    else if( strcmp( top, "pin" ) == 0 ){
+      change |= cfgPinProc( uspdCfg.simcfg, vol );
     }
-    else if( memcmp( top, "syspin", 6 ) == 0 ){
-      change = cfgBoolFieldProc( &(uspdCfg.simcfg[0].pinAuto), &(uspdCfg.simcfg[1].pinAuto), vol );
+    else if( strcmp( top, "syspin" ) == 0 ){
+      change |= cfgBoolFieldProc( &(uspdCfg.simcfg[0].pinAuto), &(uspdCfg.simcfg[1].pinAuto), vol );
     }
-    else if( memcmp( top, "op", 2 ) == 0 ){
-      change = cfgNumFieldProc( (int*)&(uspdCfg.simcfg[0].plmn), (int*)&(uspdCfg.simcfg[1].plmn), vol );
+    else if( strcmp( top, "op" ) == 0 ){
+      change |= cfgNumFieldProc( (int*)&(uspdCfg.simcfg[0].plmn), (int*)&(uspdCfg.simcfg[1].plmn), vol );
     }
-    else if( memcmp( top, "gprsnm", 6 ) == 0 ){
-      change = cfgStrFieldProc( uspdCfg.simcfg[0].gprsUser, uspdCfg.simcfg[1].gprsUser, vol );
+    else if( strcmp( top, "gprsnm" ) == 0 ){
+      change |= cfgStrFieldProc( uspdCfg.simcfg[0].gprsUser, uspdCfg.simcfg[1].gprsUser, vol );
     }
-    else if( memcmp( top, "gprsps", 6 ) == 0 ){
-      change = cfgStrFieldProc( uspdCfg.simcfg[0].gprsPass, uspdCfg.simcfg[1].gprsPass, vol );
+    else if( strcmp( top, "gprsps" ) == 0 ){
+      change |= cfgStrFieldProc( uspdCfg.simcfg[0].gprsPass, uspdCfg.simcfg[1].gprsPass, vol );
     }
-    else if( memcmp( top, "gprsapn", 7 ) == 0 ){
-      change = cfgStrFieldProc( uspdCfg.simcfg[0].gprsApn, uspdCfg.simcfg[1].gprsApn, vol );
+    else if( strcmp( top, "gprsapn" ) == 0 ){
+      change |= cfgStrFieldProc( uspdCfg.simcfg[0].gprsApn, uspdCfg.simcfg[1].gprsApn, vol );
     }
-    else if( memcmp( top, "simctl", 6 ) == 0 ){
-      change = cfgBoolFieldProc( &(uspdCfg.simcfg[0].simActiv), &(uspdCfg.simcfg[1].simActiv), vol );
+    else if( strcmp( top, "simctl" ) == 0 ){
+      change |= cfgBoolFieldProc( &(uspdCfg.simcfg[0].simActiv), &(uspdCfg.simcfg[1].simActiv), vol );
     }
-    else if( memcmp( top, "simctlday", 9 ) == 0 ){
-      change = cfgNumFieldProc( (int*)&(uspdCfg.simcfg[0].simActivTout), \
+    else if( strcmp( top, "simctlday" ) == 0 ){
+      change |= cfgNumFieldProc( (int*)&(uspdCfg.simcfg[0].simActivTout), \
                                 (int*)&(uspdCfg.simcfg[1].simActivTout), \
                                 vol );
     }
-    else if( memcmp( top, "simctlnum", 9 ) == 0 ){
-      change = cfgNumFieldProc( (int*)&(uspdCfg.simcfg[0].simActivMax), \
+    else if( strcmp( top, "simctlnum" ) == 0 ){
+      change |= cfgNumFieldProc( (int*)&(uspdCfg.simcfg[0].simActivMax), \
                                 (int*)&(uspdCfg.simcfg[1].simActivMax), \
                                 vol );
     }
-    else if( memcmp( top, "mqad", 4 ) == 0 ){
-      change = cfgStrFieldProc( uspdCfg.mqttHost, NULL, vol );
+    else if( strcmp( top, "mqad" ) == 0 ){
+      change |= cfgStrFieldProc( uspdCfg.mqttHost, NULL, vol );
     }
-    else if( memcmp( top, "mqpr", 4 ) == 0 ){
-      change = cfgNumFieldProc( (int*)&(uspdCfg.mqttPort), NULL, vol );
+    else if( strcmp( top, "mqpr" ) == 0 ){
+      change |= cfgNumFieldProc( (int*)&(uspdCfg.mqttPort), NULL, vol );
     }
-    else if( memcmp( top, "mqnm", 4 ) == 0 ){
-      change = cfgStrFieldProc( uspdCfg.mqttUser, NULL, vol );
+    else if( strcmp( top, "mqnm" ) == 0 ){
+      change |= cfgStrFieldProc( uspdCfg.mqttUser, NULL, vol );
     }
-    else if( memcmp( top, "mqps", 4 ) == 0 ){
-      change = cfgStrFieldProc( uspdCfg.mqttPass, NULL, vol );
+    else if( strcmp( top, "mqps" ) == 0 ){
+      change |= cfgStrFieldProc( uspdCfg.mqttPass, NULL, vol );
     }
-    else if( memcmp( top, "232", 3 ) == 0 ){
-      change = cfgBoolFieldProc( &(uspdCfg.termGate), NULL, vol );
+    else if( strcmp( top, "232" ) == 0 ){
+      change |= cfgBoolFieldProc( &(uspdCfg.termGate), NULL, vol );
     }
     else {
     }
 
-    while( isspace((int)*bch) || ispunct((int)*bch) ){
-      bch++;
+    if( (bch = skipch(bch, '\"')) == NULL){
+      break;
     }
   }
 

@@ -50,7 +50,7 @@ typedef enum {
 typedef struct {
   uint16_t pin;                       // PIN-код. -1 - отключено
   FlagStatus pinAuto;                 // Генерация PIN-кода из MCU_ID
-  uint16_t plmn;                      // Код PLMN сотового ператора
+  uint32_t plmn;                      // Код PLMN сотового ператора
   char gprsUser[32];
   char gprsPass[32];
   char gprsApn[32];
@@ -70,8 +70,8 @@ typedef struct __aligned(4) uspdCfg{
  FlagStatus arxSend;                  // Флаг разрешения отправки архива на сервер
  sArxCal arxCalend;                   // Календарь отправки архива
  FlagStatus autonamur;                // Автоматическое определение уровней срабатывания по сопротивлению
- eSimSelect simSel;                   // Режим выбора SIM
- eGprsClass gprsClass;                // Класс GPRS
+ eSimSelect simSel __aligned(4);      // Режим выбора SIM
+ eGprsClass gprsClass __aligned(4);                // Класс GPRS
  uint16_t gprsConnTout;               // Макс. длительность соединения GPRS
  sSimCfg simcfg[2];
  char mqttHost[32];

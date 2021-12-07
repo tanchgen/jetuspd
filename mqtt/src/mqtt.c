@@ -5,9 +5,10 @@
  *      Author: jet
  */
 #include <string.h>
+#include <stddef.h>
 
 #include "gpio_arch.h"
-#include "uart.h"
+#include "usart_arch.h"
 #include "MQTTSim800.h"
 #include "adc.h"
 #include "fw.h"
@@ -19,10 +20,8 @@
 
 extern sFwHandle fwHandle;
 
-extern struct timer_list mqttPubTimer;
 extern struct timer_list mqttSubTimer;
 extern uint16_t logRdBufFill;
-extern const sUartHnd simHnd;
 
 const char * tpcTempl[TOPIC_NUM] = {
   "r/device",     		      //  TOPIC_DEVID,
@@ -62,7 +61,7 @@ const struct {
   uint8_t qos;
 } subList[] = {
   { "%s/cmdi", TOPIC_CMD_I, 2 },
-  { "%s/cfi", TOPIC_CFG_I, 2 },
+  { "%s/cfgi", TOPIC_CFG_I, 1 },
   { "%s/o/1", TOPIC_OUT, 1 },
   { "%s/fw/man", TOPIC_FW_MAN, 2 },
   { "%s/fw/bin", TOPIC_FW_BIN, 2 },
@@ -70,8 +69,10 @@ const struct {
   { "%s/rs/rx", TOPIC_RS_RX, 1 },
 };
 
+// --------------------- Private Functions prototype ----------------------------
 void mqttConnectCb( FlagStatus conn );
-
+HAL_StatusTypeDef   stmEeRead( uint32_t addr, uint32_t * data, uint32_t datalen);
+// ------------------------------------------------------------------------------
 
 void mqttPubTout( uintptr_t arg ){
   (void)arg;
@@ -79,6 +80,7 @@ void mqttPubTout( uintptr_t arg ){
   if( SIM800.mqttServer.mqttconn == 1 ) {
     mqttPubFlag = SET;
   }
+  timerMod( &mqttPubTimer, MQTT_PUB_TOUT );
 }
 
 
@@ -113,7 +115,7 @@ int mqttSubProcess(void){
 // Получение  флагов сообщения
 void msgFlagSet( uint8_t flags, mqttReceive_t * receive ){
   receive->dup = flags & 0x08;
-  receive->qos = (flags >> 1) & 0x06;
+  receive->qos = (flags >> 1) & 0x03;
   receive->retained = flags & 0x01;
 }
 
@@ -138,6 +140,13 @@ void mqttCtlProc( SIM800_t * sim ){
     case MQTT_PUBACK:
       // Отклик на отправку пакета с QOS1
       trace_printf( "PUBACK: %d\n", pktid );
+      if(cfgUpdateFinal){
+        // Получили подтверждение успешной отправки <imei/cfgo>
+        cfgUpdateFinal = RESET;
+        gsmFinal = SET;
+        gsmRun = RESET;
+        uspdCfg.updateFlag = SET;
+      }
       // Отключить таймер для пакета с этим PKT_ID
       break;
     case MQTT_PUBREC:
@@ -470,23 +479,26 @@ void mqttPubProc( sUartRxHandle * handle ){
  * @return error status, 0 - OK
  */
 void mqttInit(void) {
+  HAL_StatusTypeDef rc;
+  uint32_t updflag ;
+
   SIM800.mqttServer.tcpconn = RESET;
     SIM800.mqttServer.mqttconn = RESET;
 //    char str[32] = {0};
 
-    // MQQT settings
-    SIM800.sim.ready = SIM_NOT_READY;
-    SIM800.sim.pin = uspdCfg.simcfg[0].pin = UID_0 % 10000;
-    SIM800.sim.apn = uspdCfg.simcfg[0].gprsApn;
-    SIM800.sim.apn_user = uspdCfg.simcfg[0].gprsUser;
-    SIM800.sim.apn_pass = uspdCfg.simcfg[0].gprsPass;
-    SIM800.mqttServer.host = uspdCfg.mqttHost;
-    SIM800.mqttServer.port = &(uspdCfg.mqttPort);
-    SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
-    SIM800.mqttClient.username = uspdCfg.mqttUser;
-    SIM800.mqttClient.pass = uspdCfg.mqttPass;
-    SIM800.mqttClient.clientID = "";
-    SIM800.mqttClient.keepAliveInterval = 60;
+    rc = stmEeRead( USPD_CFG_ADDR + offsetof(sUspdCfg, updateFlag),
+                    &(updflag), sizeof(uint32_t) );
+    updflag &= 0x1;
+    if( (rc == HAL_OK) && (updflag == SET) ){
+      // Конфигурация от сервера сохранена - считываем конфиг полностью
+      if( stmEeRead( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg) ) != HAL_OK ){
+        // Конфиг не считался правильно - прерываемся
+        return;
+      }
+    }
+
+    // Настройки в соответствии с сохраненной конфигурацией.
+    uspdInit();
 
     timerSetup( &mqttPubTimer, mqttPubTout, (uintptr_t)NULL );
     timerSetup( &mqttSubTimer, mqttSubTout, (uintptr_t)NULL );
@@ -521,6 +533,8 @@ void mqttProcess( void ){
       cfgimsg = cfgiMsgCreate();
       if( MQTT_Pub( str, cfgimsg )){
         cfgUpdateFinal = SET;
+      }
+      else {
         Error_Handler( NON_STOP );
       }
       // Передали на отправку в UART. Удачно-нет - освобождаем;
@@ -571,7 +585,6 @@ void mqttProcess( void ){
 //        MQTT_Pub( "imei/temp", str );
       }
     }
-    timerMod( &mqttPubTimer, MQTT_PUB_TOUT );
   }
 
   // Обработка принятых сообщений

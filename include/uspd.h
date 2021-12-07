@@ -63,7 +63,7 @@ typedef struct {
 } sSimCfg;
 
 typedef struct __aligned(4) uspdCfg{
- FlagStatus updateFlag;
+ volatile FlagStatus updateFlag;
  eSensType isensType[ISENS_NUM];      // Режим работы входов датчиков
  eOutState outState;                  // UP/DOWN вывода Выхода
  uint32_t arxTout;                    // Период записи данных в архив
@@ -79,13 +79,14 @@ typedef struct __aligned(4) uspdCfg{
  char mqttUser[32];
  char mqttPass[32];
  FlagStatus termGate;                 // Прозрачный режим терминала
-} eUspdCfg;
+} sUspdCfg;
 
-extern eUspdCfg uspdCfg;
+extern sUspdCfg uspdCfg;
 extern FlagStatus cfgUpdateFinal;
 
 void uspdCfgProc( sUartRxHandle * rxh, SIM800_t * sim );
 // Формируем сообщение для топика "TOPIC_CFG_I"
 char * cfgiMsgCreate( void );
+void uspdInit( void );
 
 #endif /* USPD_H_ */

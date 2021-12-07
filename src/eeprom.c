@@ -406,7 +406,6 @@ void stmEeLock(void) {
 
 
 HAL_StatusTypeDef   stmEeRead( uint32_t addr, uint32_t * data, uint32_t datalen) {
- HAL_StatusTypeDef status = HAL_ERROR;
  uint32_t addrEnd;
 
  addr += FLASH_EEPROM_BASE;
@@ -423,7 +422,7 @@ HAL_StatusTypeDef   stmEeRead( uint32_t addr, uint32_t * data, uint32_t datalen)
    *data++ = *(__IO uint32_t *)addr;
  }
 
- return status;
+ return HAL_OK;
 }
 
 /**

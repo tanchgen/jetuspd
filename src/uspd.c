@@ -7,11 +7,11 @@
 #include <string.h>
 #include <ctype.h>
 
-#include "uart.h"
+#include "usart_arch.h"
 #include "mqtt.h"
 #include "uspd.h"
 
-eUspdCfg uspdCfg = {
+sUspdCfg uspdCfg = {
   // Режим работы входов датчиков
   .isensType = {
     SENS_TYPE_COUNT,
@@ -619,5 +619,24 @@ void cfgUpdate( FlagStatus change ){
   }
   // Отмечаем
   SIM800.mqttClient.pubFlags.cfgoPub = SET;
-  cfgUpdateFinal = SET;
+  // Сбрасываем флаг до отправки подтверждения
+  uspdCfg.updateFlag = RESET;
+  timerMod( &mqttPubTimer, MQTT_PUB_TOUT );
+}
+
+
+void uspdInit( void ){
+  // MQQT settings
+  SIM800.sim.ready = SIM_NOT_READY;
+  SIM800.sim.pin = (uspdCfg.simcfg[0].pinAuto)? UID_0 % 10000 : uspdCfg.simcfg[0].pin;
+  SIM800.sim.apn = uspdCfg.simcfg[0].gprsApn;
+  SIM800.sim.apn_user = uspdCfg.simcfg[0].gprsUser;
+  SIM800.sim.apn_pass = uspdCfg.simcfg[0].gprsPass;
+  SIM800.mqttServer.host = uspdCfg.mqttHost;
+  SIM800.mqttServer.port = &(uspdCfg.mqttPort);
+  SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
+  SIM800.mqttClient.username = uspdCfg.mqttUser;
+  SIM800.mqttClient.pass = uspdCfg.mqttPass;
+  SIM800.mqttClient.clientID = "";
+  SIM800.mqttClient.keepAliveInterval = 60;
 }

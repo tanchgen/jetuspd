@@ -18,7 +18,6 @@
 
 extern SIM800_t SIM800;
 extern const uint32_t baudrate[BAUD_NUM];
-extern const sUartHnd simHnd;
 extern struct timer_list mqttPubTimer;
 
 static uint32_t tmpTick;
@@ -215,6 +214,7 @@ void gsmOffFunc( void ){
     switch( gsmRunPhase ){
       case PHASE_NON:
         // On SIM800 power if use
+        uspdInit();
         gpioPinResetNow( &gpioPinSimPwr );
         gpioPinSetNow( &gpioPinPwrKey );
         gsmRunPhase = PHASE_ON;

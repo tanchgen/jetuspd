@@ -517,7 +517,7 @@ eLogBufType flashReadProbe( void ){
     else {
       quant = min( quant, logBuf_GetFull( &logRdBuffer) );
       if( quant ){
-        if( (flashDev.rec = my_alloc( sizeof(sLogRec) * quant )) == NULL ){
+        if( (flashDev.rec = ta_alloc( sizeof(sLogRec) * quant )) == NULL ){
           Error_Handler( NON_STOP );
           return LOG_BUF_NULL;
         }
@@ -536,7 +536,7 @@ eLogBufType flashReadProbe( void ){
     else {
       quant = min( quant, logBuf_GetFull( &logRdBuffer) );
       if( quant ){
-        if( (flashDev.rec = my_alloc( sizeof(sLogRec) * quant )) == NULL ){
+        if( (flashDev.rec = ta_alloc( sizeof(sLogRec) * quant )) == NULL ){
           Error_Handler( NON_STOP );
           return LOG_BUF_NULL;
         }

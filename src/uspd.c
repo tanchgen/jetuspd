@@ -141,7 +141,7 @@ char * cfgoMsgCreate( void ){
   char * msg;
   char calStr[21];
 
-  if( (msg = my_alloc(1024)) == NULL ){
+  if( (msg = ta_alloc(1024)) == NULL ){
     Error_Handler( NON_STOP );
     return NULL;
   }

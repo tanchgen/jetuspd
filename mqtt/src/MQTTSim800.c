@@ -98,7 +98,7 @@ void connectSimReply( sUartRxHandle * handle ){
  */
 void MQTT_Disconnect(void) {
 
-  if( (simHnd.txh->data = my_alloc( 4 )) == NULL ){
+  if( (simHnd.txh->data = ta_alloc( 4 )) == NULL ){
     Error_Handler( NON_STOP );
   }
   else {
@@ -138,7 +138,7 @@ int TCP_Connect(void) {
   SIM800.mqttServer.mqttconn = 0;
   char * str;
 
-  if((str = my_alloc( 256 )) == NULL ){
+  if((str = ta_alloc( 256 )) == NULL ){
     Error_Handler( NON_STOP );
   }
   else {
@@ -164,7 +164,7 @@ void MQTT_Connect(void) {
   datas.cleansession = 1;
   datas.will.qos = QOS2;
 
-  if((simHnd.txh->data = my_alloc( 256 )) == NULL ){
+  if((simHnd.txh->data = ta_alloc( 256 )) == NULL ){
     Error_Handler( NON_STOP );
   }
   else {
@@ -185,7 +185,7 @@ uint16_t MQTT_Pub(const char *topic, char *payload, enum QoS qos, uint16_t pktid
   MQTTString topicString = MQTTString_initializer;
   topicString.cstring = topic;
 
-  if( (simHnd.txh->data = my_alloc(len) ) == NULL ){
+  if( (simHnd.txh->data = ta_alloc(len) ) == NULL ){
     Error_Handler( NON_STOP );
   }
   else {
@@ -222,7 +222,7 @@ uint16_t MQTT_Puback(  unsigned short packetid ){
 uint16_t MQTT_Pubrec(  unsigned short packetid ){
   uint16_t rc;
 
-  if( (simHnd.txh->data = my_alloc(4) ) == NULL ){
+  if( (simHnd.txh->data = ta_alloc(4) ) == NULL ){
     Error_Handler( NON_STOP );
     rc = 0;
   }
@@ -244,7 +244,7 @@ uint16_t MQTT_Pubrec(  unsigned short packetid ){
 uint16_t MQTT_Pubrel(  unsigned short packetid ){
   uint16_t rc;
 
-  if( (simHnd.txh->data = my_alloc(4) ) == NULL ){
+  if( (simHnd.txh->data = ta_alloc(4) ) == NULL ){
     Error_Handler( NON_STOP );
     rc = 0;
   }
@@ -267,7 +267,7 @@ uint16_t MQTT_Pubrel(  unsigned short packetid ){
 uint16_t MQTT_Pubcomp(  unsigned short packetid ){
   uint16_t rc;
 
-  if( (simHnd.txh->data = my_alloc(4) ) == NULL ){
+  if( (simHnd.txh->data = ta_alloc(4) ) == NULL ){
     Error_Handler( NON_STOP );
     rc = 0;
   }
@@ -286,7 +286,7 @@ uint16_t MQTT_Pubcomp(  unsigned short packetid ){
  * @return NONE
  */
 void MQTT_PingReq(void){
-  if( (simHnd.txh->data = my_alloc( 16 )) == NULL ){
+  if( (simHnd.txh->data = ta_alloc( 16 )) == NULL ){
     Error_Handler( NON_STOP );
   }
   else {
@@ -306,7 +306,7 @@ void MQTT_Sub( char const *topic, uint8_t qos){
     MQTTString topicString = MQTTString_initializer;
     topicString.cstring = topic;
 
-    if( (simHnd.txh->data = my_alloc( 256 )) == NULL ){
+    if( (simHnd.txh->data = ta_alloc( 256 )) == NULL ){
       Error_Handler( NON_STOP );
     }
     else {

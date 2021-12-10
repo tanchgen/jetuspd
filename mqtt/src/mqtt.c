@@ -21,7 +21,7 @@
 extern sFwHandle fwHandle;
 
 extern struct timer_list mqttSubTimer;
-extern uint16_t logRdBufFill;
+//extern uint16_t logRdBufFill;
 
 const char * tpcTempl[TOPIC_NUM] = {
   "r/device",   		      //  TOPIC_DEV_IMEI,
@@ -113,7 +113,7 @@ FlagStatus cfgoPub( void ){
     Error_Handler( NON_STOP );
   }
   // Передали на отправку в UART. Удачно-нет - освобождаем;
-  my_free( cfgomsg );
+  ta_free( cfgomsg );
 
   return rc;
 }

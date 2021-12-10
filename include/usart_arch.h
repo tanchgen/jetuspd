@@ -106,6 +106,11 @@ extern const uint32_t baudrate[BAUD_NUM];
 
 bool uartAddrTest( sUartRxHandle *handle );
 
+
+extern UART_HandleTypeDef simUart;
+extern UART_HandleTypeDef termUart;
+
+
 /**
   * @brief  Инициализация интерфейса UART.
   *
@@ -173,6 +178,9 @@ void termUartEnable( void );
   * @retval none
   */
 void termUartClock( void );
+
+void termSendTime( void );
+
 #endif // TERM_UART_ENABLE
 
 #endif /* _USART_ARCH_H */

@@ -234,7 +234,7 @@ void simUartEnable( void ){
 
   NVIC_EnableIRQ( SIM_UART_RX_DMA_IRQn );
   NVIC_SetPriority( SIM_UART_RX_DMA_IRQn, 1);
-  NVIC_EnableIRQ( SIM_UART_RX_DMA_IRQn );
+  NVIC_EnableIRQ( SIM_UART_TX_DMA_IRQn );
   NVIC_SetPriority( SIM_UART_TX_DMA_IRQn, 4);
   NVIC_EnableIRQ( SIM_UART_IRQn );
   NVIC_SetPriority( SIM_UART_IRQn, 2);

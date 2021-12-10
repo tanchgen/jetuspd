@@ -261,7 +261,7 @@ int MQTTPacket_equals(MQTTString* a, char* bptr)
 {
 	int alen = 0,
 		blen = 0;
-	char *aptr;
+	const char *aptr;
 	
 	if (a->cstring)
 	{

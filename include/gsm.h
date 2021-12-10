@@ -63,7 +63,7 @@ typedef struct {
 
 extern FlagStatus gsmRun;
 extern eGsmState gsmState;
-extern FlagStatus gsmFinal;
+extern eGsmState gsmStRestart;
 
 extern struct timer_list mqttPubTimer;
 

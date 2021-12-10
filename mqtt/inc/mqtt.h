@@ -41,12 +41,6 @@ typedef struct Mqtt sMqtt;
 
 //typedef void (*msgReceived)(sMqtt *this, uint8_t *topic, uint8_t topicLen, uint8_t *data, uint32_t dataLen);
 
-enum QoS {
-	QOS0,
-	QOS1,
-	QOS2
-};
-
 typedef enum {
   MSG_NULL,
   MSG_TYPE,
@@ -58,9 +52,13 @@ typedef enum {
   MSG_PAYLOAD,
 } eMsgState;
 
-typedef struct {
-  FlagStatus cfgoPub;
-} sPubFlags;
+typedef union {
+  struct {
+    uint16_t uspdAnnounce: 1;
+    uint16_t cfgoPub: 1;
+  };
+  uint16_t u16pubFlags;
+} uPubFlags;
 
 typedef struct {
     char *host;
@@ -75,7 +73,7 @@ typedef struct {
     char *clientID;
     unsigned short keepAliveInterval;
     uint8_t subCount;
-    sPubFlags pubFlags;
+    uPubFlags pubFlags;
     //    uint32_t toutTick;
 } mqttClient_t;
 
@@ -84,6 +82,7 @@ typedef struct {
     int qos;
     unsigned char retained;
     unsigned short pktId;
+    unsigned short pktIdo;
     uint8_t * mqttData;
     uint32_t remLenMp;
     uint32_t remLen;

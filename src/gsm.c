@@ -18,6 +18,7 @@
 
 extern SIM800_t SIM800;
 extern const uint32_t baudrate[BAUD_NUM];
+extern const sUartHnd simHnd;
 extern struct timer_list mqttPubTimer;
 
 static uint32_t tmpTick;
@@ -27,7 +28,7 @@ eGsmState gsmState = GSM_OFF;
 FlagStatus gsmRun = SET;
 eGsmRunPhase gsmRunPhase = PHASE_OFF_OK;
 
-FlagStatus gsmFinal = RESET;
+eGsmState gsmStRestart = GSM_OFF;
 
 FlagStatus ntpFlag;
 
@@ -148,6 +149,10 @@ int simReadyProcess( void ){
         if( mqtt_buffer[9] == '1' ){
           SIM800.sim.ready = SIM_GSM_READY;
         }
+        else if( mqtt_buffer[9] == '3' ){
+          gsmStRestart = GSM_OFF;
+          gsmRun = RESET;
+        }
         else {
           return -1;
         }
@@ -213,8 +218,8 @@ void gsmOffFunc( void ){
   if( gsmRun ){
     switch( gsmRunPhase ){
       case PHASE_NON:
-        // On SIM800 power if use
         uspdInit();
+        // On SIM800 power if use
         gpioPinResetNow( &gpioPinSimPwr );
         gpioPinSetNow( &gpioPinPwrKey );
         gsmRunPhase = PHASE_ON;
@@ -258,6 +263,7 @@ void gsmOffFunc( void ){
       case PHASE_OFF_OK:
         if( tmpTick < mTick ){
           gsmRun = SET;
+          gsmRunPhase = PHASE_NON;
         }
         break;
       default:
@@ -283,6 +289,7 @@ void gsmSimOnFunc( void ){
   else {
     // Выключаем питание GSM
     gsmState--;
+    gsmRunPhase = PHASE_NON;
   }
 }
 
@@ -329,7 +336,13 @@ void gsmInitFunc( void ){
   }
   else {
     // Выключаем питание GSM
-    gsmState--;
+    if( gsmStRestart == GSM_INIT ){
+      gsmRun = SET;
+      gsmRunPhase = PHASE_NON;
+    }
+    else {
+      gsmState--;
+    }
   }
 }
 
@@ -380,12 +393,7 @@ void gsmStartInitFunc( void ){
   }
   else {
     // Выключаем питание GSM
-    if( gsmFinal ){
-      // Продолжаем выключать
-      gprsConnBreak();
-      gsmState--;
-    }
-    else {
+    if( gsmStRestart == GSM_START_INIT ){
       // Пробуем переподключить
       if( gsmRunPhase == PHASE_NON) {
         tmpTick = 0;
@@ -403,6 +411,12 @@ void gsmStartInitFunc( void ){
         gsmState--;
       }
     }
+    else {
+      // Продолжаем выключать
+      gprsConnBreak();
+      gsmState--;
+    }
+
 
   }
 }
@@ -463,7 +477,7 @@ void gsmNtpInitFunc( void ){
 }
 
 
-// Состояние "GSM PWR ON": Установка сохраненной конфигурации
+// Состояние "GSM MQTT_START": Установка сохраненной конфигурации
 void gsmMqttStartFunc( void ){
   if( gsmRun ){
     switch( gsmRunPhase ){
@@ -502,8 +516,13 @@ void gsmMqttStartFunc( void ){
   }
   else {
     // Выключаем питание GSM
-    gsmState--;
-    gsmRunPhase = PHASE_NON;
+    if( gsmStRestart == GSM_MQTT_START ){
+      gsmRun = SET;
+      gsmRunPhase = PHASE_NON;
+    }
+    else {
+      gsmState--;
+    }
   }
 }
 
@@ -511,12 +530,23 @@ void gsmMqttStartFunc( void ){
 // Состояние "MQTT_CONN": Подписка SUBSCIPTION
 void gsmMqttConnFunc( void ){
   if( gsmRun ){
-    if( mqttSubProcess() == 0 ){
-      trace_puts( "mqtt sub" );
-      timerMod( &mqttPubTimer, 0 );
-      mqttSubFlag = RESET;
-      gsmState++;
-      gsmRunPhase = PHASE_NON;
+    switch( gsmRunPhase ){
+      case PHASE_NON:
+        if( mqttSubProcess() ){
+          break;
+        }
+        trace_puts( "mqtt sub" );
+        SIM800.mqttClient.pubFlags.uspdAnnounce = SET;
+        timerMod( &mqttPubTimer, 0 );
+        gsmRunPhase = PHASE_ON;
+        break;
+      case PHASE_ON:
+        mqttSubFlag = RESET;
+        gsmState++;
+        gsmRunPhase = PHASE_NON;
+        break;
+      default:
+        break;
     }
   }
   else {
@@ -566,6 +596,7 @@ void gsmWorkFunc( void ){
   else {
     // Выключаем питание GSM
     gsmState--;
+    gsmRunPhase = PHASE_NON;
   }
 }
 
@@ -690,9 +721,9 @@ int gprsConnTest( void ){
     if( gsmSendCommand("AT+SAPBR=2,1\r\n", "+SAPBR:", CMD_DELAY_5, saveSimReply ) == 0){
       rc = mqtt_buffer[10];
     }
-    else {
-      Error_Handler( NON_STOP );
-    }
+//    else {
+//      Error_Handler( NON_STOP );
+//    }
 
   return rc;
 }

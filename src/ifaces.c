@@ -8,7 +8,7 @@
 #include "gpio.h"
 #include "adc.h"
 #include "rtc.h"
-#include "usart.h"
+#include "usart_arch.h"
 #include "isens.h"
 #include "logger.h"
 #include "ifaces.h"
@@ -26,7 +26,9 @@ void ifaceInit( void ){
 	gpioInit();
 //  MX_DMA_Init();
   simUartInit();
+#if TERM_UART_ENABLE
   termUartInit();
+#endif // TERM_UART_ENABLE
   adcInit();
   MX_RTC_Init();
   logInit();

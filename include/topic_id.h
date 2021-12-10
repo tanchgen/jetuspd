@@ -9,8 +9,8 @@
 #define TOPIC_ID_H_
 
 typedef enum topicId {
-  TOPIC_DEVID,
   TOPIC_DEV_IMEI,
+  TOPIC_DEV_UID,
   TOPIC_INFO,
   TOPIC_TEMP,
   TOPIC_VOLT,

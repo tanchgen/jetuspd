@@ -22,6 +22,13 @@
 extern "C" {
 #endif
 
+enum QoS {
+  QOS0,
+  QOS1,
+  QOS2
+};
+
+
 enum errors
 {
 	MQTTPACKET_BUFFER_TOO_SHORT = -2,

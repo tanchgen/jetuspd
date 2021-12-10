@@ -276,13 +276,13 @@ void * my_alloc( size_t num ){
   void * ptr;
 
   ptr = ta_alloc( num );
-  trace_printf( "%x\n", ptr );
+  trace_printf( "a_%x\n", ptr );
 
   return ptr;
 }
 
 bool my_free( void * ptr ){
-  trace_printf( "%x\n", ptr );
+  trace_printf( "f_%x\n", ptr );
 
   return ta_free( ptr );
 }

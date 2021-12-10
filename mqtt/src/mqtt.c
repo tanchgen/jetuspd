@@ -24,15 +24,15 @@ extern struct timer_list mqttSubTimer;
 extern uint16_t logRdBufFill;
 
 const char * tpcTempl[TOPIC_NUM] = {
-  "r/device",     		      //  TOPIC_DEVID,
-  "d/%d",                 //  TOPIC_DEV_IMEI,
+  "r/device",   		      //  TOPIC_DEV_IMEI,
+  "d/%s",                 //  TOPIC_DEV_UID,
   "%s/info",         		  //  TOPIC_INFO,
   "%s/temp",       		    //  TOPIC_TEMP,
   "%s/volt",       		    //  TOPIC_VOLT,
   "%s/cmdi",           		//  TOPIC_CMD_I,      *
   "%s/cmdo",           		//  TOPIC_CMD_O,
-  "%s/cfi",       	    	//  TOPIC_CFG_I,      *
-  "%s/cfo",       		    //  TOPIC_CFG_O,
+  "%s/cfgi",       	    	//  TOPIC_CFG_I,      *
+  "%s/cfgo",       		    //  TOPIC_CFG_O,
   "%s/alrm",       		    //  TOPIC_ALRM,
   "%s/log",       		    //  TOPIC_LOG,
   "%s/i/%d",       		    //  TOPIC_ISENS,
@@ -94,6 +94,94 @@ void mqttSubTout( uintptr_t arg ){
 }
 
 
+// --------------- Public functions ----------------------------------------
+FlagStatus cfgoPub( void ){
+  FlagStatus rc = SET;
+  char str[64];
+  char * cfgomsg;
+
+  sprintf( str, tpcTempl[TOPIC_CFG_O], SIM800.sim.imei );
+  if( (cfgomsg = cfgoMsgCreate()) == NULL ){
+    Error_Handler( NON_STOP );
+    return rc;
+  }
+  else if( MQTT_Pub( str, cfgomsg, QOS1, SIM800.mqttReceive.pktIdo++ )){
+    cfgUpdateFinal = SET;
+    rc = RESET;
+  }
+  else {
+    Error_Handler( NON_STOP );
+  }
+  // Передали на отправку в UART. Удачно-нет - освобождаем;
+  my_free( cfgomsg );
+
+  return rc;
+}
+
+FlagStatus uspdAnnouncePub( void ){
+  char tpc[32];
+  char pay[64] = "{\"imei\":";
+  uint32_t ut = getRtcTime();
+  int tu, td;
+
+  // Передача IMEI
+  strcat( pay, SIM800.sim.imei );
+  strcat( pay, "}" );
+
+  if( MQTT_Pub( tpcTempl[TOPIC_DEV_IMEI], pay, QOS1, SIM800.mqttReceive.pktIdo++ ) == 0){
+    goto err_exit;
+  }
+
+  // Передача UID MCU
+  sprintf( tpc, tpcTempl[TOPIC_DEV_UID], SIM800.sim.imei );
+  sprintf( pay, "{\"uid\":\"%08x%08x%08x\"}", (uint)UID_0, (uint)UID_1, (uint)UID_2 );
+  if( MQTT_Pub( tpc, pay, QOS1, SIM800.mqttReceive.pktIdo++ ) == 0 ){
+    goto err_exit;
+  }
+
+  // Передача RealTime
+  sprintf( tpc, tpcTempl[TOPIC_INFO], SIM800.sim.imei );
+  sprintf( pay, "{time\":%u,\"state\":\"con\"}", (unsigned int)ut );
+  if( MQTT_Pub( tpc, pay, QOS1, SIM800.mqttReceive.pktIdo ) != 0 ){
+    announcePktId = SIM800.mqttReceive.pktIdo;
+    SIM800.mqttReceive.pktIdo++;
+  }
+  else {
+    goto err_exit;
+  }
+
+  tu = adcHandle.adcVbat / 1000;
+  td = adcHandle.adcVbat - (tu * 1000);
+  if( td < 0 ){
+    td = -td;
+  }
+  sprintf( tpc, tpcTempl[TOPIC_VOLT], SIM800.sim.imei );
+  sprintf( pay, "{time\":%u,\"volt\":%d.%d}", (unsigned int)ut, tu, td );
+  if( MQTT_Pub( tpc, pay, QOS0, 0 ) == 0 ){
+    goto err_exit;
+  }
+
+  tu = adcHandle.adcTemp / 10;
+  td = adcHandle.adcTemp - (tu * 10);
+  if( td < 0 ){
+    td = -td;
+  }
+  sprintf( tpc, tpcTempl[TOPIC_TEMP], SIM800.sim.imei );
+  sprintf( pay, "{time\":%u,\"temp\":%d.%d}", (unsigned int)ut, tu, td );
+  if( MQTT_Pub( tpc, pay, QOS0, 0 ) == 0 ){
+    goto err_exit;
+  }
+
+  return RESET;
+
+err_exit:
+  Error_Handler( NON_STOP );
+  announcePktId = 0;
+  return SET;
+}
+
+// -------------------------------------------------------------------------
+
 int mqttSubProcess(void){
   uint8_t sc = SIM800.mqttClient.subCount;
 
@@ -143,9 +231,13 @@ void mqttCtlProc( SIM800_t * sim ){
       if(cfgUpdateFinal){
         // Получили подтверждение успешной отправки <imei/cfgo>
         cfgUpdateFinal = RESET;
-        gsmFinal = SET;
+        gsmStRestart = GSM_OFF;
         gsmRun = RESET;
         uspdCfg.updateFlag = SET;
+      }
+      if(announcePktId == pktid){
+        announcePktId = -1;
+        SIM800.mqttClient.pubFlags.uspdAnnounce = RESET;
       }
       // Отключить таймер для пакета с этим PKT_ID
       break;
@@ -161,7 +253,7 @@ void mqttCtlProc( SIM800_t * sim ){
       if( fwHandle.fwUp.fwUpOk ){
         // TODO: Запуск выключения и перезагрузки
         mDelay(50);
-        gsmFinal = SET;
+        gsmStRestart = GSM_OFF;
         mcuReset = SET;
         gsmRun = RESET;
       }
@@ -408,47 +500,12 @@ void mqttPubProc( sUartRxHandle * handle ){
 
   // Надо обработать полученное PUBLISH
   switch( SIM800.mqttReceive.topicId ){
-    case TOPIC_DEVID:
-      mqttMsgReset( handle, &SIM800 );
-      break;
-    case TOPIC_DEV_IMEI:
-			break;
-    case TOPIC_INFO:
-			break;
-    case TOPIC_TEMP:
-      mqttMsgReset( handle, &SIM800 );
-      break;
-    case TOPIC_VOLT:
-      mqttMsgReset( handle, &SIM800 );
-			break;
     case TOPIC_CMD_I:
-			break;
-    case TOPIC_CMD_O:
 			break;
     case TOPIC_CFG_I:
       uspdCfgProc( handle, &SIM800 );
 			break;
-    case TOPIC_CFG_O:
-			break;
-    case TOPIC_ALRM:
-			break;
-    case TOPIC_LOG:
-			break;
-    case TOPIC_ISENS:
-			break;
-    case TOPIC_ISENS_ARX:
-			break;
-    case TOPIC_ISENS_STATE:
-			break;
-    case TOPIC_ISENS_ADC:
-			break;
-    case TOPIC_ISENS_TEMP:
-			break;
     case TOPIC_OUT:
-			break;
-    case TOPIC_OUT_STATE:
-			break;
-    case TOPIC_FW:
 			break;
     case TOPIC_FW_MAN:
       fwManProc(  handle, &(SIM800.mqttReceive) );
@@ -457,16 +514,13 @@ void mqttPubProc( sUartRxHandle * handle ){
       // Приняли/принимаем Обновление прошивки
       fwUpProc( handle, &(SIM800.mqttReceive) );
 			break;
-    case TOPIC_RS:
-			break;
     case TOPIC_RS_TX:
 			break;
     case TOPIC_RS_RX:
 			break;
-    case TOPIC_GSM:
-			break;
     default:
       //Сюда не должны попасть
+      mqttMsgReset( handle, &SIM800 );
       break;
   }
 
@@ -517,9 +571,7 @@ int mqttStart(void) {
 
 
 void mqttProcess( void ){
-  sPubFlags * pubfl;
-  char str[64];
-  char * cfgimsg;
+  uPubFlags * pubfl;
 
   if(SIM800.mqttServer.mqttconn == RESET){
     return;
@@ -528,66 +580,68 @@ void mqttProcess( void ){
   pubfl = &(SIM800.mqttClient.pubFlags);
   if( mqttPubFlag ) {
     mqttPubFlag = RESET;
-    if( pubfl->cfgoPub ){
-      sprintf( str, tpcTempl[TOPIC_CFG_I], SIM800.sim.imei );
-      cfgimsg = cfgiMsgCreate();
-      if( MQTT_Pub( str, cfgimsg )){
-        cfgUpdateFinal = SET;
+    if( pubfl->u16pubFlags ){
+      // Требуются некоторые публикации
+      if( pubfl->cfgoPub ){
+        pubfl->cfgoPub = cfgoPub();         // Если успешно - флаг сбрасываем
       }
-      else {
-        Error_Handler( NON_STOP );
+      if( pubfl->uspdAnnounce ){
+        pubfl->uspdAnnounce = uspdAnnouncePub();      // Если успешно - флаг сбрасываем
       }
-      // Передали на отправку в UART. Удачно-нет - освобождаем;
-      ta_free( cfgimsg );
-    }
-    if( iSens[ISENS_1].isensFlag ){
-      uint32_t ut = getRtcTime();
-
-      sprintf( str, "{\"state\":[{time\":%ul,\"pls\":%ul}]}", (unsigned int)ut, (unsigned int)iSens[ISENS_1].isensCount );
-      MQTT_Pub( "imei/i/1", str );
-      iSens[ISENS_1].isensFlag = RESET;
     }
     else {
-      // Считываем из ЛОГа
-      if( logRdBufFill == 0 ){
-        logQueryProcess();
-      }
-      if( logRdBufFill ){
-        for( uint8_t i = 0; i < logRdBufFill; i++ ){
-          char str[64];
-          sLogRec * logrec = &(logRdBuf[i]);
-
-          sprintf( str, "{\"arx\":[{time\":%ul,\"pls\":%ul}]}", (unsigned int)logrec->utime, (unsigned int)logrec->data );
-          MQTT_Pub( "imei/i/1", str );
-          logRdBufFill = 0;
-        }
-      }
-      else {
-        MQTT_PingReq();
-//        char str[64];
-//        int tu, td;
-//        uint32_t ut = getRtcTime();
-//
-//        tu = adcHandle.adcVbat / 1000;
-//        td = adcHandle.adcVbat - (tu * 1000);
-//        if( td < 0 ){
-//          td = -td;
-//        }
-//        sprintf( str, "{time\":%u,\"volt\":%d.%d}", (unsigned int)ut, tu, td );
-//        MQTT_Pub( "imei/volt", str );
-//
-//        tu = adcHandle.adcTemp / 10;
-//        td = adcHandle.adcTemp - (tu * 10);
-//        if( td < 0 ){
-//          td = -td;
-//        }
-//        sprintf( str, "{time\":%u,\"temp\":%d.%d}", (unsigned int)ut, tu, td );
-//        MQTT_Pub( "imei/temp", str );
-      }
+      MQTT_PingReq();
     }
   }
 
   // Обработка принятых сообщений
   mqttPubProc( simHnd.rxh );
+
+
+// ----------------- ISENS PUBLIC -------------------------------------------
+//      if( iSens[ISENS_1].isensFlag ){
+//        uint32_t ut = getRtcTime();
+//
+//        sprintf( str, "{\"state\":[{time\":%ul,\"pls\":%ul}]}", (unsigned int)ut, (unsigned int)iSens[ISENS_1].isensCount );
+//        MQTT_Pub( "imei/i/1", str, 0, 0 );
+//        iSens[ISENS_1].isensFlag = RESET;
+//      }
+//      else {
+//        // Считываем из ЛОГа
+//        if( logRdBufFill == 0 ){
+//          logQueryProcess();
+//        }
+//        if( logRdBufFill ){
+//          for( uint8_t i = 0; i < logRdBufFill; i++ ){
+//            char str[64];
+//            sLogRec * logrec = &(logRdBuf[i]);
+//
+//            sprintf( str, "{\"arx\":[{time\":%ul,\"pls\":%ul}]}", (unsigned int)logrec->utime, (unsigned int)logrec->data );
+//            MQTT_Pub( "imei/i/1", str, 0, 0 );
+//            logRdBufFill = 0;
+//          }
+//        }
+//        else {
+  //        char str[64];
+  //        int tu, td;
+  //        uint32_t ut = getRtcTime();
+  //
+  //        tu = adcHandle.adcVbat / 1000;
+  //        td = adcHandle.adcVbat - (tu * 1000);
+  //        if( td < 0 ){
+  //          td = -td;
+  //        }
+  //        sprintf( str, "{time\":%u,\"volt\":%d.%d}", (unsigned int)ut, tu, td );
+  //        MQTT_Pub( "imei/volt", str );
+  //
+  //        tu = adcHandle.adcTemp / 10;
+  //        td = adcHandle.adcTemp - (tu * 10);
+  //        if( td < 0 ){
+  //          td = -td;
+  //        }
+  //        sprintf( str, "{time\":%u,\"temp\":%d.%d}", (unsigned int)ut, tu, td );
+  //        MQTT_Pub( "imei/temp", str );
+//        }
+//      }
 
 }

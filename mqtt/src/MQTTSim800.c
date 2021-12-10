@@ -91,6 +91,21 @@ void connectSimReply( sUartRxHandle * handle ){
   clearRxBuffer( (char *)(handle->rxFrame), &(handle->frame_offset) );
 }
 
+/**
+ * Connect to MQTT server in Internet over TCP.
+ * @param NONE
+ * @return NONE
+ */
+void MQTT_Disconnect(void) {
+
+  if( (simHnd.txh->data = my_alloc( 4 )) == NULL ){
+    Error_Handler( NON_STOP );
+  }
+  else {
+    int mqtt_len = MQTTSerialize_disconnect(simHnd.txh->data, 4);
+    uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
+  }
+}
 
 /**
  * Deinitialization SIM800.
@@ -100,9 +115,12 @@ void connectSimReply( sUartRxHandle * handle ){
 int MQTT_Deinit(void) {
   int error = 0;
 
+//  MQTT_Disconnect();
+//  mDelay(100);
+
   error += gsmSendCommand("ATE1\r\n", "OK\r\n", CMD_DELAY_2, NULL );
   error += gsmSendCommand("AT+CGATT=0\r\n", "OK\r\n", CMD_DELAY_5, NULL );
-  error += gsmSendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY_5, NULL );
+  error += gsmSendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY_10, NULL );
   SIM800.mqttServer.tcpconn = 0;
   SIM800.mqttServer.mqttconn = 0;
   return error;
@@ -120,7 +138,7 @@ int TCP_Connect(void) {
   SIM800.mqttServer.mqttconn = 0;
   char * str;
 
-  if((str = ta_alloc( 256 )) == NULL ){
+  if((str = my_alloc( 256 )) == NULL ){
     Error_Handler( NON_STOP );
   }
   else {
@@ -136,7 +154,7 @@ int TCP_Connect(void) {
  * @return NONE
  */
 void MQTT_Connect(void) {
-  unsigned char buf[128] = {0};
+  int mqtt_len;
 
   MQTTPacket_connectData datas = MQTTPacket_connectData_initializer;
   datas.username.cstring = SIM800.mqttClient.username;
@@ -144,13 +162,13 @@ void MQTT_Connect(void) {
   datas.clientID.cstring = SIM800.mqttClient.clientID;
   datas.keepAliveInterval = SIM800.mqttClient.keepAliveInterval;
   datas.cleansession = 1;
-  int mqtt_len = MQTTSerialize_connect(buf, sizeof(buf), &datas);
+  datas.will.qos = QOS2;
 
-  if( (simHnd.txh->data = ta_alloc( mqtt_len)) == NULL ){
+  if((simHnd.txh->data = my_alloc( 256 )) == NULL ){
     Error_Handler( NON_STOP );
   }
   else {
-    memcpy( simHnd.txh->data, buf, mqtt_len);
+    mqtt_len = MQTTSerialize_connect( simHnd.txh->data, 256, &datas);
     uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
   }
 }
@@ -161,17 +179,17 @@ void MQTT_Connect(void) {
  * @param payload to be used to the set message for topic
  * @return NONE
  */
-uint16_t MQTT_Pub(char *topic, char *payload){
+uint16_t MQTT_Pub(const char *topic, char *payload, enum QoS qos, uint16_t pktid){
   uint16_t rc = 0;
   uint16_t len = strlen(topic) + strlen(payload) + 9;
   MQTTString topicString = MQTTString_initializer;
   topicString.cstring = topic;
 
-  if( (simHnd.txh->data = ta_alloc(len) ) == NULL ){
+  if( (simHnd.txh->data = my_alloc(len) ) == NULL ){
     Error_Handler( NON_STOP );
   }
   else {
-    int mqtt_len = MQTTSerialize_publish(simHnd.txh->data, len, 0, 0, 0, 0,
+    int mqtt_len = MQTTSerialize_publish(simHnd.txh->data, len, 0, qos, 0, pktid,
                                          topicString, (unsigned char *)payload, (int)strlen(payload));
     rc = uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
   }
@@ -204,7 +222,7 @@ uint16_t MQTT_Puback(  unsigned short packetid ){
 uint16_t MQTT_Pubrec(  unsigned short packetid ){
   uint16_t rc;
 
-  if( (simHnd.txh->data = ta_alloc(4) ) == NULL ){
+  if( (simHnd.txh->data = my_alloc(4) ) == NULL ){
     Error_Handler( NON_STOP );
     rc = 0;
   }
@@ -226,7 +244,7 @@ uint16_t MQTT_Pubrec(  unsigned short packetid ){
 uint16_t MQTT_Pubrel(  unsigned short packetid ){
   uint16_t rc;
 
-  if( (simHnd.txh->data = ta_alloc(4) ) == NULL ){
+  if( (simHnd.txh->data = my_alloc(4) ) == NULL ){
     Error_Handler( NON_STOP );
     rc = 0;
   }
@@ -249,7 +267,7 @@ uint16_t MQTT_Pubrel(  unsigned short packetid ){
 uint16_t MQTT_Pubcomp(  unsigned short packetid ){
   uint16_t rc;
 
-  if( (simHnd.txh->data = ta_alloc(4) ) == NULL ){
+  if( (simHnd.txh->data = my_alloc(4) ) == NULL ){
     Error_Handler( NON_STOP );
     rc = 0;
   }
@@ -267,15 +285,15 @@ uint16_t MQTT_Pubcomp(  unsigned short packetid ){
  * @param NONE
  * @return NONE
  */
-void MQTT_PingReq(void)
-{
-    unsigned char buf[16] = {0};
-
-    int mqtt_len = MQTTSerialize_pingreq(buf, sizeof(buf));
-    simHnd.txh->data = buf;
+void MQTT_PingReq(void){
+  if( (simHnd.txh->data = my_alloc( 16 )) == NULL ){
+    Error_Handler( NON_STOP );
+  }
+  else {
+    int mqtt_len = MQTTSerialize_pingreq(simHnd.txh->data, 16);
     uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
+  }
 }
-
 
 /**
  * Subscribe on the MQTT broker of the message in a topic
@@ -288,7 +306,7 @@ void MQTT_Sub( char const *topic, uint8_t qos){
     MQTTString topicString = MQTTString_initializer;
     topicString.cstring = topic;
 
-    if( (simHnd.txh->data = ta_alloc( 256 )) == NULL ){
+    if( (simHnd.txh->data = my_alloc( 256 )) == NULL ){
       Error_Handler( NON_STOP );
     }
     else {
@@ -301,8 +319,8 @@ void MQTT_Sub( char const *topic, uint8_t qos){
 
 void mqttConnectCb( FlagStatus conn ){
   if( conn ){
+    // Сначала подпишемся, потом там объявим о себе
     timerMod( &mqttSubTimer, 0 );
-    mqttPubFlag = SET;
     ledOff( LED_R, 0 );
   }
   else {
@@ -312,6 +330,10 @@ void mqttConnectCb( FlagStatus conn ){
     // Две вспышки оранжевого цвета с интервалом в 3 сек
     ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, TOUT_3000, 2);
     ledToggleSet( LED_G, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, TOUT_3000, 2);
+    if( gsmState >= GSM_MQTT_START ){
+      gsmRun = RESET;
+      gsmStRestart = GSM_MQTT_START;
+    }
   }
 }
 

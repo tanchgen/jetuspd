@@ -70,6 +70,7 @@ sUspdCfg uspdCfg = {
 
 
 FlagStatus cfgUpdateFinal;
+uint16_t announcePktId;
 
 
 void cfgUpdate( FlagStatus change );
@@ -135,8 +136,8 @@ void calStrCreate( char str[], sArxCal * cal ){
 }
 
 
-// Формируем сообщение для топика "TOPIC_CFG_I"
-char * cfgiMsgCreate( void ){
+// Формируем сообщение для топика "TOPIC_CFG_O"
+char * cfgoMsgCreate( void ){
   char * msg;
   char calStr[21];
 
@@ -621,11 +622,14 @@ void cfgUpdate( FlagStatus change ){
   SIM800.mqttClient.pubFlags.cfgoPub = SET;
   // Сбрасываем флаг до отправки подтверждения
   uspdCfg.updateFlag = RESET;
-  timerMod( &mqttPubTimer, MQTT_PUB_TOUT );
+  timerMod( &mqttPubTimer, 0 );
 }
 
-
 void uspdInit( void ){
+  SIM800.mqttServer.tcpconn = RESET;
+  SIM800.mqttServer.mqttconn = RESET;
+//    char str[32] = {0};
+
   // MQQT settings
   SIM800.sim.ready = SIM_NOT_READY;
   SIM800.sim.pin = (uspdCfg.simcfg[0].pinAuto)? UID_0 % 10000 : uspdCfg.simcfg[0].pin;
@@ -634,9 +638,13 @@ void uspdInit( void ){
   SIM800.sim.apn_pass = uspdCfg.simcfg[0].gprsPass;
   SIM800.mqttServer.host = uspdCfg.mqttHost;
   SIM800.mqttServer.port = &(uspdCfg.mqttPort);
+  SIM800.mqttReceive.pktIdo = 0x0001;
   SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
   SIM800.mqttClient.username = uspdCfg.mqttUser;
   SIM800.mqttClient.pass = uspdCfg.mqttPass;
   SIM800.mqttClient.clientID = "";
   SIM800.mqttClient.keepAliveInterval = 60;
+
+  announcePktId = -1;
 }
+

@@ -5,29 +5,33 @@
  *      Author: Gennadiy Tanchin <g.tanchin@yandex.ru>
  */
 
+#include "times.h"
+#include "logger.h"
+#include "main.h"
+#include "uspd.h"
 #include "isens.h"
 
 
-int debounceTout( sISens * sens );
+void isensDbTout( uintptr_t arg );
 
 sISens iSens[ISENS_NUM] = {
   {
-    .pinIn = {GPIOA, GPIO_PIN_0, GPIO_MODE_IT_RISING_FALLING, GPIO_PULLDOWN, GPIO_SPEED_FREQ_LOW, AF0, Bit_SET, Bit_SET, RESET },
+    .pinIn = {GPIOA, GPIO_PIN_0, 0, 0},
     .isensCount = 0,
     .state = ISENS_DOWN,
   },
   {
-    .pinIn = {GPIOA, GPIO_PIN_1, GPIO_MODE_IT_RISING_FALLING, GPIO_PULLDOWN, GPIO_SPEED_FREQ_LOW, AF0, Bit_SET, Bit_SET, RESET },
+    .pinIn = {GPIOA, GPIO_PIN_1, 0, 0},
     .isensCount = 0,
     .state = ISENS_DOWN,
   },
   {
-    .pinIn = {GPIOA, GPIO_PIN_2, GPIO_MODE_IT_RISING_FALLING, GPIO_PULLDOWN, GPIO_SPEED_FREQ_LOW, AF0, Bit_SET, Bit_SET, RESET },
+    .pinIn = {GPIOA, GPIO_PIN_2, 0, 0},
     .isensCount = 0,
     .state = ISENS_DOWN,
   },
   {
-    .pinIn = {GPIOA, GPIO_PIN_3, GPIO_MODE_IT_RISING_FALLING, GPIO_PULLDOWN, GPIO_SPEED_FREQ_LOW, AF0, Bit_SET, Bit_SET, RESET },
+    .pinIn = {GPIOA, GPIO_PIN_3, 0, 0},
     .isensCount = 0,
     .state = ISENS_DOWN,
   },
@@ -45,15 +49,72 @@ sISens iSens[ISENS_NUM] = {
 
 
 void isensProcess( void ){
-  for( eIsens s = 0; s < ISENS_NUM; s++ ){
-//    if( (iSens[s].debounceTout > 0) && (iSens[s].debounceTout < mTick) ){
-//      if( debounceTout( &(iSens[s])) == 0 ){
-//        iSens[s].isensCount++;
-//        iSens[s].isensFlag = SET;
-//      }
-//    }
+
+  if( uspd.archWrFlag ){
+    // Настало время записи датчиков в Архив
+    uint32_t isdata[ISENS_NUM];
+
+    for( eIsens s = 0; s < ISENS_NUM; s++ ){
+      isdata[s] = iSens[s].isensCount;
+    }
+
+    assert_param( ISENS_NUM < 4 );
+    if( logger( getRtcTime(), DEVID_ISENS_1, isdata, ISENS_NUM ) == 1){
+      // Записано в Архив успешно
+      uspd.archWrFlag = RESET;
+    }
+    else {
+      Error_Handler( NON_STOP );
+    }
   }
 }
+
+
+// Обработка сигналов с датчиков Холла
+void ISENS_IRQHandler( void ){
+  eIsens is;
+  uint32_t tm;
+  uint32_t dtime;;
+
+  tm = getRtcTime();
+
+  if(ISENS_TIM->SR & TIM_SR_CC1IF){
+    // Сработал Датчик 1
+    is = ISENS_1;
+    ISENS_TIM->SR &= ~TIM_SR_CC1IF;
+  }
+  else if(ISENS_TIM->SR & TIM_SR_CC2IF){
+    // Сработал Датчик 2
+    is = ISENS_2;
+    ISENS_TIM->SR &= ~TIM_SR_CC1IF;
+  }
+  else if(ISENS_TIM->SR & TIM_SR_CC3IF){
+    // Сработал Датчик 3
+    is = ISENS_3;
+    ISENS_TIM->SR &= ~TIM_SR_CC3IF;
+  }
+  else if(ISENS_TIM->SR & TIM_SR_CC4IF){
+    // Сработал Датчик 4
+    is = ISENS_4;
+    ISENS_TIM->SR &= ~TIM_SR_CC4IF;
+  }
+  else {
+    while(1)
+    {}
+  }
+
+  dtime = ( - iSens[is].tstime) * 1000 + rtc.ss;
+  dtime -= iSens[is].tsss;
+  if( dtime < 10 ){
+    // Слишком короткий период
+    logger( tm, is + DEVID_PULSE_1, NULL, 0 );
+  }
+  else {
+    timerMod( &(iSens[is].dbTimer), ISENS_DB_TOUT );
+  }
+}
+
+
 
 
 /**
@@ -63,78 +124,96 @@ void isensProcess( void ){
   *
   * @retval none
   */
-int debounceTout( sISens * sens ){
-  int rc;
+void isensDbTout( uintptr_t arg ){
+  sISens * sens = (sISens *)arg;
 
   sens->debounceTout = 0;
   // Нынешнее состояния пина
   if( ((sens->pinIn.gpio)->IDR & (sens->pinIn.pin)) ){
     // Состояние сохранилось в "1" - НЕ ложное срабатывание
-    rc = 0;
+    sens->isensCount++;
+    // Метка времени
+    sens->tstime = getRtcTime();
+    sens->tsss = rtc.ss;
   }
-  else {
-    rc = 1;
-  }
+
   // Включаем прерывание
   EXTI->IMR |= sens->pinIn.pin;
 
-  return rc;
+  return;
 }
 
 
 void isensPinInit( sISens * sens ){
-  uint8_t irqNum;
+  GPIO_TypeDef * gpio;
   uint8_t pinNum;
 
-  if( sens->pinIn.gpio != NULL ){
-    // ------------  Вывод Геркона -----------------------
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
+  assert_param( sens->pinIn.gpio != NULL );
+  // ------------  Вывод Геркона -----------------------
+  gpio = sens->pinIn.gpio;
+  pinNum = sens->pinIn.pinNum;
 
-    /*Configure GPIO pin Output Level */
-  //  HAL_GPIO_WritePin(sens->pinOut.gpio, sens->pinOut.pin, GPIO_PIN_RESET);
-
-    /* Configure GPIO pin */
-  //  GPIO_InitStruct.Pin = sens->pinOut.pin;
-  //  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  //  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  //  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  //  HAL_GPIO_Init(sens->pinOut.gpio, &GPIO_InitStruct);
-
-    /* Configure PB3 pin as input floating */
-    GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Pin = sens->pinIn.pin;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    GPIO_InitStruct.Alternate = 0;
-    HAL_GPIO_Init(sens->pinIn.gpio, &GPIO_InitStruct);
-    EXTI->PR = sens->pinIn.pin;
-    /* Enable and set EXTI Line0 Interrupt to the lowest priority */
-
-    // Установим соответствующее входу прерывание
-    pinNum = gpioPinNum( sens->pinIn.pin );
-    if( pinNum < 5 ){
-      irqNum = EXTI0_IRQn + pinNum;
-    }
-    else if( pinNum < 10 ){
-      irqNum = EXTI9_5_IRQn + pinNum;
-    }
-    else {
-      irqNum = EXTI15_10_IRQn;
-    }
-    NVIC_EnableIRQ( irqNum );
-    NVIC_SetPriority( irqNum, 2 );
-  }
+  gpio->MODER = (gpio->MODER & ~(0x3 << (pinNum * 2) )) | (0x2 << (pinNum * 2) );
+  gpio->PUPDR = (gpio->PUPDR & ~(0x3 << (pinNum * 2) )) | (0x2 << (pinNum * 2) );
+  // Alternate function TIM1_CH1-4 = 6
+  gpio->AFR[pinNum / 8] = (gpio->AFR[pinNum / 8] & ~(0xF << ((pinNum % 8) * 4))) | (AF1 << ((pinNum % 8) * 4));
 }
 
+
+void isensTimInit( void ){
+  // TIM Init
+  uint16_t psc;
+
+  ISENS_TIM_CLK_EN;
+
+  DBGMCU->APB1FZ |= DBGMCU_APB1_FZ_DBG_TIM2_STOP;
+
+  // Расчет предделителя
+  psc = (rccClocks.PCLK1_Frequency/ISENS_TIM_FREQ) - 1;
+
+  ISENS_TIM->PSC = psc;
+
+  ISENS_TIM->CCER = 0;
+
+  ISENS_TIM->ARR = -1;
+  ISENS_TIM->CCMR1 = (ISENS_TIM->CCMR1 & ~(TIM_CCMR1_CC1S | TIM_CCMR1_CC2S))
+                      | (TIM_CCMR1_CC1S_0 | TIM_CCMR1_CC2S_0);
+  ISENS_TIM->CCER |= TIM_CCER_CC1P | TIM_CCER_CC2P | TIM_CCER_CC3P | TIM_CCER_CC4P;  // Растущий фронт
+
+  ISENS_TIM->CR1 |= TIM_CR1_URS;
+  ISENS_TIM->DIER |= TIM_DIER_CC1IE | TIM_DIER_CC2IE | TIM_DIER_CC3IE | TIM_DIER_CC4IE;
+
+  NVIC_EnableIRQ( ISENS_TIM_IRQn );
+  NVIC_SetPriority( ISENS_TIM_IRQn, 0);
+}
 
 void isensInit( void ){
   // Вывод
   gpioPinSetup( &gpioPinSensOn );
 
+  // Инициализация таймера, на который подключены ISENS
+  isensTimInit();
+
   for( uint8_t i = 0; i < ISENS_NUM; i++ ){
     isensPinInit( &(iSens[i]) );
+    timerSetup( &(iSens[i].dbTimer), isensDbTout, (uintptr_t)&(iSens[i]) );
   }
   gpioPinResetNow( &gpioPinSensOn );
+}
+
+
+void isensEnable( void ){
+  // Ввод
+
+  // Выбор канала
+  ISENS_TIM->CCER |= (TIM_CCER_CC1E | TIM_CCER_CC2E | TIM_CCER_CC3E | TIM_CCER_CC4E);
+  ISENS_TIM->CR1 |= TIM_CR1_CEN;
+
+  for( uint8_t i = 0; i < ISENS_NUM; i++ ){
+    // Метка времени
+    iSens[i].tstime = getRtcTime();
+    iSens[i].tsss = rtc.ss;
+  }
 }
 
 

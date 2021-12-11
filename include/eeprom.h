@@ -24,7 +24,7 @@
 /* Maximum number of trials for EEPROM_I2C_WaitEepromStandbyState() function */
 #define EEPROM_MAX_TRIALS               300
 
-extern uint32_t EEPROMPageSize;
+extern volatile uint16_t EEPROMPageSize;
 
 // Расспределение памяти
 // Адрес данных Буфера архива датчиков

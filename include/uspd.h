@@ -81,6 +81,15 @@ typedef struct __aligned(4) uspdCfg{
  FlagStatus termGate;                 // Прозрачный режим терминала
 } sUspdCfg;
 
+typedef struct {
+  FlagStatus archWrFlag;              // Флаг запуска сохранения среза данных в Архив
+  FlagStatus archSendFlag;            // Флаг запуска отправки Архива на сервер
+  FlagStatus readArchSensQuery;       // Запрос на чтение журнала счетчиков
+  FlagStatus readArchEvntQuery;       // Запрос на чтение журнала событий
+} sUspd;
+
+
+extern sUspd uspd;
 extern sUspdCfg uspdCfg;
 extern FlagStatus cfgUpdateFinal;
 extern uint16_t announcePktId;

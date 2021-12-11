@@ -48,8 +48,6 @@ typedef struct {
   uint16_t writeCount;                /** Количество незаписанных байт */
   FlagStatus sectorClear;
   FlagStatus flashEmpty;                 /** Требуется обновление конфигурации */
-  FlagStatus readSensQuery;              // Запрос на чтение журнала счетчиков
-  FlagStatus readEvntQuery;               // Запрос на чтение журнала событий
   eLogBufType lbType;               // Тип буфера (SENS/EVNT) оп. чтения/записи
   sLogRec * rec;                // Указатель на запись(си)  оп. чтения/записи
   uint16_t  quant;              // Количество обрабатываемых записей

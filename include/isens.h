@@ -10,7 +10,15 @@
 
 #include "main.h"
 
-#define DEBOUNCE_TOUT    30
+#define ISENS_DB_TOUT    10
+
+#define ISENS_TIM                 TIM2
+#define ISENS_TIM_CLK_EN          RCC->APB1ENR |= RCC_APB1ENR_TIM2EN
+#define ISENS_TIM_IRQn            TIM2_IRQn
+#define ISENS_TIM_IRQ_PRIORITY    (3)
+#define ISENS_IRQHandler          TIM2_IRQHandler
+#define ISENS_TIM_FREQ            200000
+
 
 typedef enum  {
   ISENS_1,
@@ -38,11 +46,14 @@ typedef struct {
 
 typedef struct {
 //  sGpioPin pinOut;
-  sGpioPin pinIn;
+  sSimplePin pinIn;
   uint32_t isensCount;
   eISensState state;
   uint32_t debounceTout;
   uint8_t isensFlag;
+  uint32_t tstime;            // Метка времени срабатывания датчика - сек
+  uint8_t tsss;               // Метка времени срабатывания датчика - SS
+  struct timer_list dbTimer;   // Таймер антидребезга
 } sISens;
 
 extern sISens iSens[ISENS_NUM];

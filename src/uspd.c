@@ -69,6 +69,8 @@ sUspdCfg uspdCfg = {
 };
 
 
+sUspd uspd = {0};
+
 FlagStatus cfgUpdateFinal;
 uint16_t announcePktId;
 

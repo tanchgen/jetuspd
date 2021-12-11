@@ -452,6 +452,7 @@ void rtcGetTime( volatile tRtc * prtc ){
   prtc->hour = BCD2BIN( tmpTr >> 16 );
   prtc->min = BCD2BIN( tmpTr >> 8 );
   prtc->sec = BCD2BIN( tmpTr  );
+  prtc->ss = RTC->SSR;
 }
 
 void rtcGetDate( volatile tRtc * prtc ){

@@ -295,7 +295,7 @@ void LCD_IRQHandler( void ) { while(1){} };
 void TIM9_IRQHandler( void ) { while(1){} };
 //void TIM10_IRQHandler( void ) { while(1){} };
 //void TIM11_IRQHandler( void ) { while(1){} };
-void TIM2_IRQHandler( void ) { while(1){} };
+//void TIM2_IRQHandler( void ) { while(1){} };
 void TIM3_IRQHandler( void ) { while(1){} };
 void TIM4_IRQHandler( void ) { while(1){} };
 void I2C1_EV_IRQHandler( void ) { while(1){} };

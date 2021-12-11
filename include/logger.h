@@ -72,10 +72,19 @@ typedef enum {
   DEVID_ISENS_3,
   DEVID_ISENS_4,
   DEVID_ISENS_5,
-  DEVID_ISENS_6,
-  DEVID_SB_1,
-  DEVID_SB_2,
-  DEVID_VBAT,
+  DEVID_ISENS_6,    // срабатывание датчика протечки
+  DEVID_SB_1,       // нажатие кнопки sb1
+  DEVID_SB_2,       // открытие крышки прибора / отрыв от стены
+  DEVID_VBAT,       // Аномальный расход
+  DEVID_NAMUR_1,    // разрыв линии NAMUR SENS_1
+  DEVID_NAMUR_2,    // разрыв линии NAMUR SENS_1
+  DEVID_NAMUR_3,    // разрыв линии NAMUR SENS_1
+  DEVID_NAMUR_4,    // разрыв линии NAMUR SENS_1
+  DEVID_PULSE_1,     // превышение частоты счета импульсов SENS_1
+  DEVID_PULSE_2,     // превышение частоты счета импульсов SENS_1
+  DEVID_PULSE_3,     // превышение частоты счета импульсов SENS_1
+  DEVID_PULSE_4,     // превышение частоты счета импульсов SENS_1
+  DEVID_LOG_SIZE,   // Размер журнала
   DEVID_NUM
 } eDevId;
 
@@ -112,7 +121,6 @@ void flashHwTest( void );
 void logInit( void );
 void logEnable( void );
 
-uint8_t logger( uint32_t utime, eDevId devid, uint32_t data );
-void logQueryProcess( void );
+uint8_t logger( uint32_t utime, eDevId devid, uint32_t data[], uint8_t size );
 
 #endif /* LOGGER_H_ */

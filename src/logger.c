@@ -58,7 +58,7 @@ void stmEeInit( void );
 HAL_StatusTypeDef   stmEeRead( uint32_t addr, uint32_t * data, uint32_t datalen);
 
 //uint16_t stmEeBuf_Read( logBuf_t* Buffer, sLogRec * pkt, uint16_t count);
-uint16_t stmEeBuf_Write( logBuf_t* Buffer, sLogRec * pkt, uint16_t count);
+//uint16_t stmEeBuf_Write( logBuf_t* Buffer, sLogRec * pkt, uint16_t count);
 //HAL_StatusTypeDef  stmEeBufSave( logBuf_t* Buffer );
 
 //---------------------------------------------------------------------
@@ -99,11 +99,11 @@ void logReadTout( uintptr_t arg ){
 void logWriteTout( uintptr_t arg ){
   (void)arg;
 
-  if( (SIM800.mqttServer.mqttconn == 0) && iSens[ISENS_1].isensFlag ){
-    //TODO: Сделать для всех логируемых устройств
-    logger( getRtcTime(), DEVID_ISENS_1, iSens[ISENS_1].isensCount );
-    iSens[ISENS_1].isensFlag = RESET;
-  }
+//  if( (SIM800.mqttServer.mqttconn == 0) && iSens[ISENS_1].isensFlag ){
+//    //TODO: Сделать для всех логируемых устройств
+//    logger( getRtcTime(), DEVID_ISENS_1, iSens[ISENS_1].isensCount );
+//    iSens[ISENS_1].isensFlag = RESET;
+//  }
 
   timerMod( &logWriteTimer, LOG_WRITE_TOUT * 1000 );
 }
@@ -127,22 +127,24 @@ uint8_t stmEeBuf_Init(logBuf_t* Buffer, sLogRec * startAddr, uint16_t Size ) {
 
 
 /**
-  * @brief  Логирование сообщения о проблемме.
+  * @brief  Сохранение в буфере записи для Архива.
   *
-  * @param[in]  none
+  * @param[in]  utime - RTC-время
+  * @param[in]  devid - Идентификатор архивируемого "Устройства"/параметра
+  * @param[in]  data  - Массив данных ( макс. 4 4-хбитных слова )
+  * @param[in]  size  - кол-во слова
   *
-  * @retval none
+  * @retval кол-во сделанных записей (1 или 0)
   */
-uint8_t logger( uint32_t utime, eDevId devid, uint32_t data ){
+uint8_t logger( uint32_t utime, eDevId devid, uint32_t data[], uint8_t size ){
   sLogRec logrec;
 
   logrec.utime = utime;            // Время RTC
   logrec.devid = devid;        // Идентификатор логируемого устройства
-  logrec.data[0] = data;          // Значение логируемого параметра
-  logrec.data[0] = data >> 8;
-  logrec.data[0] = data >> 16;
-  logrec.data[0] = data >> 24;
-
+  for( uint8_t i = 0; i < size; i++ ){
+    assert_param( data != NULL );
+    logrec.data[i] = data[i];          // Значение логируемого параметра
+  }
   return logBuf_Write( &logWrBuffer, &logrec, 1 );
 }
 
@@ -150,42 +152,29 @@ uint8_t logger( uint32_t utime, eDevId devid, uint32_t data ){
 // --------------------------------------------------------
 
 
-// Обработчик запроса Системного Лога
-void logQueryProcess( void ){
-
-  if( logRdBufFill == 0 ){
-    // Буфер чтения пуст - можно читать следующие записи
-    flashDev.readSensQuery = SET;
-  }
-
-}
-
-
 void logClock( void ){
-  uint16_t num;
-  sLogRec logrec;
+//  uint16_t num;
+//  sLogRec logrec;
+//
+//  // Проверка на наличие записей для логирования
+//  if( (num = logBuf_GetFull( &logWrBuffer )) == 0 ){
+//    // Буфер пуст
+//    return;
+//  }
+//
+//  num = min( num, FLASH_PAGE_SIZE );
+//
+//  if( logBuf_Read( &logWrBuffer, &logrec, num ) != num ){
+//    // Ошибка чтения из Буфера
+//    trace_puts("LogBuffer ERROR: reading\n") ;
+//    return;
+//  }
+//
+//  if( stmEeBuf_Write( &stmEeBuffer, &logrec, num ) != num ){
+//    // Ошибка записи в FLASH
+//    trace_puts("FLASH write failure!\n") ;
+//  }
 
-  // Проверка на наличие записей для логирования
-  if( (num = logBuf_GetFull( &logWrBuffer )) == 0 ){
-    // Буфер пуст
-    return;
-  }
-
-  num = min( num, FLASH_PAGE_SIZE );
-
-  if( logBuf_Read( &logWrBuffer, &logrec, num ) != num ){
-    // Ошибка чтения из Буфера
-    trace_puts("LogBuffer ERROR: reading\n") ;
-    return;
-  }
-
-  if( stmEeBuf_Write( &stmEeBuffer, &logrec, num ) != num ){
-    // Ошибка записи в FLASH
-    trace_puts("FLASH write failure!\n") ;
-  }
-
-  // Обработка запроса логов
-  logQueryProcess();
 }
 
 

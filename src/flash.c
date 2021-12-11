@@ -13,6 +13,7 @@
 #include "buffer.log.h"
 #include "logger.h"
 #include "times.h"
+#include "uspd.h"
 #include "flash.h"
 
 
@@ -25,9 +26,7 @@ static uint32_t tmpTick;
 sFlashDev flashDev = {
   .state = FLASH_READY,
   .flashEmpty = SET,
-  .writeCount = 0,
-  .readSensQuery = RESET,
-  .readEvntQuery = RESET,
+  .writeCount = 0
 };
 
 /** @defgroup STM32L152D_EVAL_EEPROM_Private_Variables Private Variables
@@ -256,12 +255,12 @@ void flashSectorErase( sSpiHandle * spi, uint32_t addr ){
   flashDev.state = FLASH_BUSY;
 }
 
-void flashWriteStart( sFlashDev * flash, uint32_t addr, uint32_t * data, uint32_t size ){
+FlagStatus flashWriteStart( sFlashDev * flash, uint32_t addr, uint32_t * data, uint32_t size ){
   // Стереть страницу, если надо
   if( ((addr & 0x3FF) == 0) && (flash->sectorClear == RESET) ){
     // Требуется стереть страницу
     flashSectorErase( &(flash->flashSpi), addr );
-    return;
+    return RESET;
   }
   // Сбрасываем флаг чистого сектора
   flash->sectorClear = RESET;
@@ -278,6 +277,7 @@ void flashWriteStart( sFlashDev * flash, uint32_t addr, uint32_t * data, uint32_
   spiXfer( &(flash->flashSpi), size + 4, flashTxXfer, NULL );
   flashDev.state = FLASH_BUSY;
 
+  return SET;
 }
 
 // ==================== Работа с буферами =========================================
@@ -428,10 +428,6 @@ uint16_t flashBuf_Write( sFlashDev * flash, logBuf_t* Buffer, sLogRec * pkt, uin
     Buffer->Flags |= logBuf_OVER;
   }
 
-  /* We have calculated memory for write */
-  if(count){
-    wrFlag = SET;
-  }
 
   /* Go through all elements */
   while (count) {
@@ -445,7 +441,9 @@ uint16_t flashBuf_Write( sFlashDev * flash, logBuf_t* Buffer, sLogRec * pkt, uin
       wrcount = count - ((Buffer->Buffer + Buffer->Size) - Buffer->In);
       count -= wrcount;
     }
-    flashWriteStart( flash, (uint32_t)Buffer->In, (uint32_t *)pkt, wrcount * sizeof( sLogRec ) );
+    if( flashWriteStart( flash, (uint32_t)Buffer->In, (uint32_t *)pkt, wrcount * sizeof( sLogRec ) ) ){
+      wrFlag = SET;
+    }
     Buffer->In += wrcount;
     pkt += wrcount;
 
@@ -460,6 +458,8 @@ uint16_t flashBuf_Write( sFlashDev * flash, logBuf_t* Buffer, sLogRec * pkt, uin
 
   if( wrFlag ){
     flashBufSave( Buffer );
+    // Запись пошла - освобождаем выделенную память
+    ta_free(pkt);
   }
 
   /* Return number of elements written */
@@ -509,10 +509,10 @@ eLogBufType flashReadProbe( void ){
   uint16_t quant;
 
 // ----------- Журнал Датчиков -------------------------
-  if( flashDev.readSensQuery ){
+  if( uspd.readArchSensQuery ){
     quant = logBuf_GetFull( &flashSensBuffer );
     if(quant == 0){
-      flashDev.readSensQuery = RESET;
+      uspd.readArchSensQuery = RESET;
     }
     else {
       quant = min( quant, logBuf_GetFull( &logRdBuffer) );
@@ -528,10 +528,10 @@ eLogBufType flashReadProbe( void ){
   }
 
 // ----------- Журнал Событий -------------------------
-  if( flashDev.readEvntQuery ){
+  if( uspd.readArchEvntQuery ){
     quant = logBuf_GetFull( &flashEvntBuffer );
     if(quant == 0){
-      flashDev.readEvntQuery = RESET;
+      uspd.readArchEvntQuery = RESET;
     }
     else {
       quant = min( quant, logBuf_GetFull( &logRdBuffer) );
@@ -553,27 +553,26 @@ eLogBufType flashReadProbe( void ){
 // Обработка записи сохранений во Флеш
 eLogBufType  flashWriteProbe( void ){
   eLogBufType rc = LOG_BUF_NULL;
-  sLogRec rec;
   uint8_t quant;
-  logBuf_t * buf;
 
   if( (quant = logBuf_GetFull( &logWrBuffer)) == 0 ){
     return rc;
   }
 
-  logBuf_Read( &logWrBuffer, &rec, 1 );
+  if( (flashDev.rec = ta_alloc(sizeof(sLogRec))) == NULL ){
+    Error_Handler( NON_STOP );
+    return rc;
+  }
 
-  if( rec.devid == DEVID_ISENS_1){
-    buf = &flashSensBuffer;
+  logBuf_Read( &logWrBuffer, flashDev.rec, 1 );
+
+  if( flashDev.rec->devid <= DEVID_ISENS_4){
     rc = LOG_BUF_SENS;
   }
   else {
-    assert_param( (rec.devid > DEVID_ISENS_4) && (rec.devid < DEVID_NUM) );
-    buf = &flashEvntBuffer;
+    assert_param( (flashDev.rec->devid > DEVID_ISENS_4) && (flashDev.rec->devid < DEVID_NUM) );
     rc = LOG_BUF_EVNT;
   }
-
-  logBuf_Write( buf, &rec, 1 );
 
   return rc;
 }
@@ -600,7 +599,7 @@ void flashProcess( void ){
       }
       // Есть что читать - включаем Vdd FLASH
       gpioPinReset( &gpioPinFlashOn );
-      // Послеs включения - запуск чтения
+      // После включения - запуск чтения
       timerModArg( &flashOpTimer, 1, fs);
       break;
     }

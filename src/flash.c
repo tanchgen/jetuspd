@@ -605,14 +605,17 @@ void flashProcess( void ){
     }
     case FLASH_READ_START:{
       logBuf_t * buf;
+      void (*rxCb)(void);
 
       if( flashDev.lbType == LOG_BUF_SENS ){
         buf = &flashSensBuffer;
+        rxCb = flashSensRxCb;
       }
       else {
         buf = &flashEvntBuffer;
+        rxCb = flashEvntRxCb;
       }
-      if( flashBuf_Read( &flashDev, buf, flashDev.rec, flashDev.quant, flashSensRxCb ) != 0 ){
+      if( flashBuf_Read( &flashDev, buf, flashDev.rec, flashDev.quant, rxCb ) != 0 ){
         flashDev.state = FLASH_BUSY;
       }
       else {

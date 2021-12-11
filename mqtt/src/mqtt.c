@@ -14,14 +14,15 @@
 #include "fw.h"
 #include "gsm.h"
 #include "isens.h"
-#include "logger.h"
+#include "buffer.log.h"
 #include "uspd.h"
 #include "mqtt.h"
 
 extern sFwHandle fwHandle;
 
 extern struct timer_list mqttSubTimer;
-//extern uint16_t logRdBufFill;
+extern uint16_t logRdBufFill;
+extern logBuf_t logRdBuffer;
 
 const char * tpcTempl[TOPIC_NUM] = {
   "r/device",   		      //  TOPIC_DEV_IMEI,
@@ -95,7 +96,7 @@ void mqttSubTout( uintptr_t arg ){
 
 
 // --------------- Public functions ----------------------------------------
-FlagStatus cfgoPub( void ){
+FlagStatus cfgoPubFunc( void ){
   FlagStatus rc = SET;
   char str[64];
   char * cfgomsg;
@@ -179,6 +180,45 @@ err_exit:
   announcePktId = 0;
   return SET;
 }
+
+
+int archPubFunc( void ){
+  char tpc[32];
+  char pay[64];
+  sLogRec rec;
+
+  if( logBuf_Read( &logRdBuffer, &rec, 1) ){
+    // Есть запись из архива
+    if( rec.devid <= DEVID_ISENS_4 ){
+      // Данные датчика
+      for( eIsens is = ISENS_1; is < ISENS_NUM; is++ ){
+        sprintf( tpc, tpcTempl[TOPIC_ISENS_ARX], SIM800.sim.imei, is );
+        sprintf( pay, "{\"arch\":[\"time\":%lu,\"pls\":%lu]}", rec.utime, rec.data[is] );
+      }
+    }
+    else {
+      assert_param( (rec.devid > DEVID_ISENS_4) && (rec.devid < DEVID_NUM) );
+      if( (rec.devid >= DEVID_ISENS_1_STATE) && (rec.devid <= DEVID_ISENS_6) ){
+        // Состояние датчика (i1 - i6) из Журнала событий
+        uint8_t is = rec.devid - DEVID_ISENS_1_STATE + 1;
+        sprintf( tpc, tpcTempl[TOPIC_ISENS_STATE], SIM800.sim.imei, is );
+        sprintf( pay, "{\"arch\":[\"time\":%lu,\"state\":%lu]}", rec.utime, rec.data[is] );
+      }
+    }
+  }
+  else {
+    // Больше записей не осталось
+    return -1;
+  }
+
+  if( MQTT_Pub( tpc, pay, QOS0, 0 ) == 0 ){
+    Error_Handler( NON_STOP );
+    return 0;
+  }
+
+  return 1;
+}
+
 
 // -------------------------------------------------------------------------
 
@@ -583,10 +623,19 @@ void mqttProcess( void ){
     if( pubfl->u16pubFlags ){
       // Требуются некоторые публикации
       if( pubfl->cfgoPub ){
-        pubfl->cfgoPub = cfgoPub();         // Если успешно - флаг сбрасываем
+        pubfl->cfgoPub = cfgoPubFunc();         // Если успешно - флаг сбрасываем
       }
       if( pubfl->uspdAnnounce ){
         pubfl->uspdAnnounce = uspdAnnouncePub();      // Если успешно - флаг сбрасываем
+      }
+      if( pubfl->archPub ){
+        int8_t num;       // Количество публикаций из Архива
+        if( (num = archPubFunc()) < 0 ){
+          logRdBufFill = 0;
+        }
+        else {
+          logRdBufFill -= num;         // Если успешно - флаг сбрасываем
+        }
       }
     }
     else {

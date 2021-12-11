@@ -156,25 +156,17 @@ void logClock( void ){
 //  uint16_t num;
 //  sLogRec logrec;
 //
-//  // Проверка на наличие записей для логирования
-//  if( (num = logBuf_GetFull( &logWrBuffer )) == 0 ){
-//    // Буфер пуст
-//    return;
-//  }
-//
-//  num = min( num, FLASH_PAGE_SIZE );
-//
-//  if( logBuf_Read( &logWrBuffer, &logrec, num ) != num ){
-//    // Ошибка чтения из Буфера
-//    trace_puts("LogBuffer ERROR: reading\n") ;
-//    return;
-//  }
-//
-//  if( stmEeBuf_Write( &stmEeBuffer, &logrec, num ) != num ){
-//    // Ошибка записи в FLASH
-//    trace_puts("FLASH write failure!\n") ;
-//  }
+  // Проверка на наличие записей из Архива
+  if( logRdBufFill ){
+    // Есть хаписи для публикации из Архива
+    SIM800.mqttClient.pubFlags.archPub = SET;
+  }
+  else {
+    // Есть хаписи для публикации из Архива
+    SIM800.mqttClient.pubFlags.archPub = RESET;
+  }
 
+  return;
 }
 
 

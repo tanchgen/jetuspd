@@ -71,6 +71,10 @@ typedef enum {
   DEVID_ISENS_2,
   DEVID_ISENS_3,
   DEVID_ISENS_4,
+  DEVID_ISENS_1_STATE,
+  DEVID_ISENS_2_STATE,
+  DEVID_ISENS_3_STATE,
+  DEVID_ISENS_4_STATE,
   DEVID_ISENS_5,
   DEVID_ISENS_6,    // срабатывание датчика протечки
   DEVID_SB_1,       // нажатие кнопки sb1
@@ -99,7 +103,12 @@ typedef struct __packed __aligned(4){
   uint32_t dummy[2];           // Расширяем до 32 байт
 } sLogRec;
 
+// ------------------ Объявления переменных ------------------------------------
 extern sLogRec logRdBuf[SMALLEST_BUFFER_SIZE];
+
+// -----------------------------------------------------------------------------
+
+// ---------------------- Объявления функций ------------------------------------
 
 eFlashOperations FLASH_SPI_WriteBuffer(uint8_t* pBuffer, uint16_t WriteAddr, uint16_t NumByteToWrite);
 eFlashOperations FLASH_WritePage(uint8_t* pBuffer, uint16_t WriteAddr, uint16_t NumByteToWrite);
@@ -122,5 +131,6 @@ void logInit( void );
 void logEnable( void );
 
 uint8_t logger( uint32_t utime, eDevId devid, uint32_t data[], uint8_t size );
+// -----------------------------------------------------------------------------
 
 #endif /* LOGGER_H_ */

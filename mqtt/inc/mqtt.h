@@ -56,6 +56,7 @@ typedef union {
   struct {
     uint16_t uspdAnnounce: 1;
     uint16_t cfgoPub: 1;
+    uint16_t archPub: 1;
   };
   uint16_t u16pubFlags;
 } uPubFlags;

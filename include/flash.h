@@ -35,6 +35,7 @@ typedef enum {
   FLASH_READY,
   FLASH_READ_START,
   FLASH_WRITE_START,
+  FLASH_SECTOR_CLEAR,
   FLASH_WRITE_EN,
   FLASH_WRITE_END,
   FLASH_WRITE_OK,
@@ -47,6 +48,7 @@ typedef struct {
   eFlashState state;
   uint16_t writeCount;                /** Количество незаписанных байт */
   FlagStatus sectorClear;
+  FlagStatus seStart;
   FlagStatus flashEmpty;                 /** Требуется обновление конфигурации */
   eLogBufType lbType;               // Тип буфера (SENS/EVNT) оп. чтения/записи
   sLogRec * rec;                // Указатель на запись(си)  оп. чтения/записи

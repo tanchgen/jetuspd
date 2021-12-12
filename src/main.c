@@ -12,7 +12,7 @@
 #include "stm32l1xx_ll_rcc.h"
 #include "mqtt.h"
 #include "uspd.h"
-
+#include "logger.h"
 
 /* Private typedef -----------------------------------------------------------*/
 #define TALLOC_ARRAY_SIZE   8192
@@ -32,7 +32,7 @@ RCC_ClocksTypeDef RCC_Clocks;
 
 
 /* Private function prototypes -----------------------------------------------*/
-void adcProcess( void );
+//void adcProcess( void );
 
 void Configure_IWDG(void);
 void Check_IWDG_Reset(void);
@@ -60,6 +60,8 @@ int main(void) {
   ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_BLINK_OFF_TOUT, 0, 0 );
 
   ifaceEnable();
+
+//  flashHwTest();
 
   trace_puts("Hello USPD!");
 

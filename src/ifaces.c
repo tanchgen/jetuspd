@@ -24,6 +24,7 @@ void simUartEnable( void );
 void mqttProcess( void );
 void gsmProcess( void );
 void flashProcess( void );
+void logClock( void );
 
 void ifaceInit( void ){
   SystemClock_Config();
@@ -62,4 +63,5 @@ void ifaceClock( void ){
   mqttProcess();
   gsmProcess();
   flashProcess();
+  logClock();
 }

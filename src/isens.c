@@ -12,8 +12,8 @@
 #include "isens.h"
 
 // -------------- ДЛЯ ТЕСТА ----------------------------------
-#define ISENS_ARCH_TOUT        10
-#define ARCH_READ_TOUT         30
+#define ISENS_ARCH_TOUT        5
+#define ARCH_READ_TOUT         10
 
 struct timer_list isArchTimer;
 struct timer_list archReadTimer;

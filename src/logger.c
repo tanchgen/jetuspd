@@ -185,7 +185,8 @@ void logEnable( void ){
   NVIC_EnableIRQ( SPI1_IRQn );
   // ---------------- Читаем заголовок FLASH SENS -----------------------
   stmEeRead( SENS_HEADER_ADDR, (uint32_t*)&logBufHandle, sizeof(logBufHandle) );
-  if( (uint32_t)(logBufHandle.Buffer) != SENS_LOG_START_ADDR ){
+  if( ((uint32_t)(logBufHandle.Buffer) != SENS_LOG_START_ADDR)
+      || ((uint32_t)(logBufHandle.Size) != SENS_LOG_SIZE) ){
     // Первая инициализация LOG_FLASH
     flashBuf_Init( &flashSensBuffer, (sLogRec *)SENS_LOG_START_ADDR, SENS_LOG_SIZE );
     flashBufSave( &flashSensBuffer );
@@ -196,14 +197,15 @@ void logEnable( void ){
   }
   // ---------------- Читаем заголовок FLASH EVNT -----------------------
   stmEeRead( EVNT_HEADER_ADDR, (uint32_t*)&logBufHandle, sizeof(logBufHandle) );
-  if( (uint32_t)(logBufHandle.Buffer) != EVNT_LOG_START_ADDR ){
+  if( ((uint32_t)(logBufHandle.Buffer) != EVNT_LOG_START_ADDR)
+      || ((uint32_t)(logBufHandle.Size) != EVNT_LOG_SIZE) ){
     // Первая инициализация LOG_FLASH
     flashBuf_Init( &flashEvntBuffer, (sLogRec *)EVNT_LOG_START_ADDR, EVNT_LOG_SIZE );
     flashBufSave( &flashEvntBuffer );
   }
   else {
     // Заголовок уже записан в FLASH
-    flashSensBuffer = logBufHandle;
+    flashEvntBuffer = logBufHandle;
   }
 
   timerMod( &logWriteTimer, LOG_WRITE_TOUT * 1000 );
@@ -212,6 +214,7 @@ void logEnable( void ){
 
 void logInit( void ){
   logBuf_Init( &logWrBuffer, logWrBuf, ARRAY_SIZE(logWrBuf) );
+  logBuf_Init( &logRdBuffer, logRdBuf, ARRAY_SIZE(logRdBuf) );
   stmEeInit();
   flashInit();
 //  timerSetup( &logReadTimer, logReadTout, (uintptr_t)NULL );

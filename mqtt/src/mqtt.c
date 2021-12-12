@@ -143,7 +143,7 @@ FlagStatus uspdAnnouncePub( void ){
   // Передача RealTime
   sprintf( tpc, tpcTempl[TOPIC_INFO], SIM800.sim.imei );
   sprintf( pay, "{time\":%u,\"state\":\"con\"}", (unsigned int)ut );
-  if( MQTT_Pub( tpc, pay, QOS1, SIM800.mqttReceive.pktIdo ) != 0 ){
+  if( MQTT_Pub( tpc, pay, QOS1, SIM800.mqttReceive.pktIdo++ ) != 0 ){
     announcePktId = SIM800.mqttReceive.pktIdo;
     SIM800.mqttReceive.pktIdo++;
   }
@@ -192,8 +192,13 @@ int archPubFunc( void ){
     if( rec.devid <= DEVID_ISENS_4 ){
       // Данные датчика
       for( eIsens is = ISENS_1; is < ISENS_NUM; is++ ){
-        sprintf( tpc, tpcTempl[TOPIC_ISENS_ARX], SIM800.sim.imei, is );
+        sprintf( tpc, tpcTempl[TOPIC_ISENS_ARX], SIM800.sim.imei, is + 1);
         sprintf( pay, "{\"arch\":[\"time\":%lu,\"pls\":%lu]}", rec.utime, rec.data[is] );
+        // Публикуем
+        if( MQTT_Pub( tpc, pay, QOS2, SIM800.mqttReceive.pktIdo++ ) == 0 ){
+          Error_Handler( NON_STOP );
+          return 0;
+        }
       }
     }
     else {
@@ -201,19 +206,19 @@ int archPubFunc( void ){
       if( (rec.devid >= DEVID_ISENS_1_STATE) && (rec.devid <= DEVID_ISENS_6) ){
         // Состояние датчика (i1 - i6) из Журнала событий
         uint8_t is = rec.devid - DEVID_ISENS_1_STATE + 1;
-        sprintf( tpc, tpcTempl[TOPIC_ISENS_STATE], SIM800.sim.imei, is );
+        sprintf( tpc, tpcTempl[TOPIC_ISENS_STATE], SIM800.sim.imei, is + 1 );
         sprintf( pay, "{\"arch\":[\"time\":%lu,\"state\":%lu]}", rec.utime, rec.data[is] );
+        // Публикуем
+        if( MQTT_Pub( tpc, pay, QOS1, SIM800.mqttReceive.pktIdo++ ) == 0 ){
+          Error_Handler( NON_STOP );
+          return 0;
+        }
       }
     }
   }
   else {
     // Больше записей не осталось
     return -1;
-  }
-
-  if( MQTT_Pub( tpc, pay, QOS0, 0 ) == 0 ){
-    Error_Handler( NON_STOP );
-    return 0;
   }
 
   return 1;

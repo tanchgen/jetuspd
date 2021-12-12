@@ -59,6 +59,7 @@ typedef struct {
 extern sISens iSens[ISENS_NUM];
 
 void isensInit( void );
+void isensEnable( void );
 void isensProcess( void );
 
 #endif /* ISENS_H_ */

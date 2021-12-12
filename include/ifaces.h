@@ -12,5 +12,6 @@
 
 void ifaceInit( void );
 void ifaceEnable( void );
+void ifaceClock( void );
 
 #endif /* IFACES_H_ */

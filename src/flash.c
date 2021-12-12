@@ -191,8 +191,8 @@ void flashReadStart( sFlashDev * flash, uint32_t addr, uint32_t * data, uint32_t
   memcpy( &(flashTxXfer[4]), data, size );
 
   /*!< Send "Write Enable" instruction */
-  spiXfer( &(flash->flashSpi), size + 4, flashTxXfer, flashRxXfer );
   flashDev.state = FLASH_BUSY;
+  spiXfer( &(flash->flashSpi), size + 4, flashTxXfer, flashRxXfer );
 }
 
 // Коллбек по окончании разрешения записи во ФЛЕШ
@@ -239,8 +239,8 @@ void flashWrEn( sSpiHandle * spi ){
   spi->rxCallback = flashWrEnCb;
   flashTxXfer[0] = FLASH_CMD_WREN;
   /*!< Send "Write Enable" instruction */
-  spiXfer( spi, 1, flashTxXfer, NULL );
   flashDev.state = FLASH_BUSY;
+  spiXfer( spi, 1, flashTxXfer, NULL );
 }
 
 
@@ -251,8 +251,8 @@ void flashSectorErase( sSpiHandle * spi, uint32_t addr ){
   flashTxXfer[2] = (addr >> 8) & 0xFF ;
   flashTxXfer[3] = addr & 0xFF ;
   /*!< Send "Write Enable" instruction */
-  spiXfer( spi, 4, flashTxXfer, NULL );
   flashDev.state = FLASH_BUSY;
+  spiXfer( spi, 4, flashTxXfer, NULL );
 }
 
 FlagStatus flashWriteStart( sFlashDev * flash, uint32_t addr, uint32_t * data, uint32_t size ){
@@ -274,8 +274,8 @@ FlagStatus flashWriteStart( sFlashDev * flash, uint32_t addr, uint32_t * data, u
   memcpy( &(flashTxXfer[4]), data, size );
 
   /*!< Send "Write Enable" instruction */
-  spiXfer( &(flash->flashSpi), size + 4, flashTxXfer, NULL );
   flashDev.state = FLASH_BUSY;
+  spiXfer( &(flash->flashSpi), size + 4, flashTxXfer, NULL );
 
   return SET;
 }
@@ -493,6 +493,7 @@ void flashWriteOkProbe( sSpiHandle * spi ){
   if( (flashRxXfer[1] & (FLASH_EFAIL_FLAG | FLASH_PFAIL_FLAG)) == RESET ){
     // Освобождаем Флеш
     flashDev.state = FLASH_READY;
+    flashDev.quant = 0;
   }
   else {
     Error_Handler( NON_STOP );
@@ -566,7 +567,7 @@ eLogBufType  flashWriteProbe( void ){
 
   logBuf_Read( &logWrBuffer, flashDev.rec, 1 );
 
-  if( flashDev.rec->devid <= DEVID_ISENS_4){
+  if( (flashDev.quant = flashDev.rec->devid <= DEVID_ISENS_4) ){
     rc = LOG_BUF_SENS;
   }
   else {
@@ -599,6 +600,7 @@ void flashProcess( void ){
       }
       // Есть что читать - включаем Vdd FLASH
       gpioPinReset( &gpioPinFlashOn );
+      flashDev.state = FLASH_BUSY;
       // После включения - запуск чтения
       timerModArg( &flashOpTimer, 1, fs);
       break;
@@ -636,10 +638,7 @@ void flashProcess( void ){
       else {
         buf = &flashEvntBuffer;
       }
-      if( flashBuf_Write( &flashDev, buf, flashDev.rec, flashDev.quant ) != 0 ){
-        flashDev.state = FLASH_BUSY;
-      }
-      else {
+      if( flashBuf_Write( &flashDev, buf, flashDev.rec, flashDev.quant ) == 0 ){
         flashDev.state = FLASH_READY;
       }
       break;

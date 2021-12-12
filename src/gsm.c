@@ -755,7 +755,6 @@ int gprsConn( void ){
 
 int ntpInit(void) {
   if( ntpFlag == RESET ){
-    timeInit();
 
     if( gsmSendCommand("AT+CNTPCID=1\r\n", "OK\r\n", CMD_DELAY_5, NULL) ){
       return ntpFlag;

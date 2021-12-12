@@ -119,7 +119,7 @@ int MQTT_Deinit(void) {
 //  mDelay(100);
 
   error += gsmSendCommand("ATE1\r\n", "OK\r\n", CMD_DELAY_2, NULL );
-  error += gsmSendCommand("AT+CGATT=0\r\n", "OK\r\n", CMD_DELAY_5, NULL );
+  error += gsmSendCommand("AT+CGATT=0\r\n", "OK\r\n", CMD_DELAY_10, NULL );
   error += gsmSendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY_10, NULL );
   SIM800.mqttServer.tcpconn = 0;
   SIM800.mqttServer.mqttconn = 0;

@@ -21,6 +21,10 @@ void fwInit( void );
 
 void simUartEnable( void );
 
+void mqttProcess( void );
+void gsmProcess( void );
+void flashProcess( void );
+
 void ifaceInit( void ){
   SystemClock_Config();
 	gpioInit();
@@ -31,6 +35,7 @@ void ifaceInit( void ){
 #endif // TERM_UART_ENABLE
   adcInit();
   MX_RTC_Init();
+  timeInit();
   logInit();
   mqttInit();
   isensInit();
@@ -42,6 +47,7 @@ void ifaceEnable( void ){
   logEnable();
   adcStart();
   simUartEnable();
+  isensEnable();
 //  loggerHwTest();
 //  while(1)
 //  {}
@@ -49,3 +55,11 @@ void ifaceEnable( void ){
 
 }
 
+void ifaceClock( void ){
+  timersClock();
+  adcProcess();
+  isensProcess();
+  mqttProcess();
+  gsmProcess();
+  flashProcess();
+}

@@ -11,6 +11,12 @@
 #include "uspd.h"
 #include "isens.h"
 
+// -------------- ДЛЯ ТЕСТА ----------------------------------
+#define ISENS_ARCH_TOUT        10
+#define ARCH_READ_TOUT         30
+
+struct timer_list isArchTimer;
+struct timer_list archReadTimer;
 
 void isensDbTout( uintptr_t arg );
 
@@ -21,17 +27,17 @@ sISens iSens[ISENS_NUM] = {
     .state = ISENS_DOWN,
   },
   {
-    .pinIn = {GPIOA, GPIO_PIN_1, 0, 0},
+    .pinIn = {GPIOA, GPIO_PIN_1, 0, 1},
     .isensCount = 0,
     .state = ISENS_DOWN,
   },
   {
-    .pinIn = {GPIOA, GPIO_PIN_2, 0, 0},
+    .pinIn = {GPIOA, GPIO_PIN_2, 0, 2},
     .isensCount = 0,
     .state = ISENS_DOWN,
   },
   {
-    .pinIn = {GPIOA, GPIO_PIN_3, 0, 0},
+    .pinIn = {GPIOA, GPIO_PIN_3, 0, 3},
     .isensCount = 0,
     .state = ISENS_DOWN,
   },
@@ -48,6 +54,19 @@ sISens iSens[ISENS_NUM] = {
 };
 
 
+void isArchTout( uintptr_t arg ){
+  uint32_t tout = *((uint32_t *)arg) * TOUT_1000;
+  uspd.archWrFlag = SET;
+  timerMod( &isArchTimer, tout );
+}
+
+void archReadTout( uintptr_t arg ){
+  uint32_t tout = *((uint32_t *)arg) * TOUT_1000;
+  uspd.readArchSensQuery = SET;
+  uspd.readArchEvntQuery = SET;
+  timerMod( &archReadTimer, tout );
+}
+
 void isensProcess( void ){
 
   if( uspd.archWrFlag ){
@@ -58,7 +77,7 @@ void isensProcess( void ){
       isdata[s] = iSens[s].isensCount;
     }
 
-    assert_param( ISENS_NUM < 4 );
+    assert_param( ISENS_NUM <= 4 );
     if( logger( getRtcTime(), DEVID_ISENS_1, isdata, ISENS_NUM ) == 1){
       // Записано в Архив успешно
       uspd.archWrFlag = RESET;
@@ -86,7 +105,7 @@ void ISENS_IRQHandler( void ){
   else if(ISENS_TIM->SR & TIM_SR_CC2IF){
     // Сработал Датчик 2
     is = ISENS_2;
-    ISENS_TIM->SR &= ~TIM_SR_CC1IF;
+    ISENS_TIM->SR &= ~TIM_SR_CC2IF;
   }
   else if(ISENS_TIM->SR & TIM_SR_CC3IF){
     // Сработал Датчик 3
@@ -99,15 +118,17 @@ void ISENS_IRQHandler( void ){
     ISENS_TIM->SR &= ~TIM_SR_CC4IF;
   }
   else {
-    while(1)
-    {}
+//    while(1)
+//    {}
+    ISENS_TIM->SR = 0;
+    return;
   }
 
-  dtime = ( - iSens[is].tstime) * 1000 + rtc.ss;
+  dtime = (tm - iSens[is].tstime) * 1000 + rtc.ss;
   dtime -= iSens[is].tsss;
-  if( dtime < 10 ){
+  if( dtime < 12 ){
     // Слишком короткий период
-    logger( tm, is + DEVID_PULSE_1, NULL, 0 );
+//    logger( tm, is + DEVID_PULSE_1, NULL, 0 );
   }
   else {
     timerMod( &(iSens[is].dbTimer), ISENS_DB_TOUT );
@@ -137,9 +158,6 @@ void isensDbTout( uintptr_t arg ){
     sens->tsss = rtc.ss;
   }
 
-  // Включаем прерывание
-  EXTI->IMR |= sens->pinIn.pin;
-
   return;
 }
 
@@ -154,7 +172,7 @@ void isensPinInit( sISens * sens ){
   pinNum = sens->pinIn.pinNum;
 
   gpio->MODER = (gpio->MODER & ~(0x3 << (pinNum * 2) )) | (0x2 << (pinNum * 2) );
-  gpio->PUPDR = (gpio->PUPDR & ~(0x3 << (pinNum * 2) )) | (0x2 << (pinNum * 2) );
+  gpio->PUPDR = (gpio->PUPDR & ~(0x3 << (pinNum * 2) )); // | (0x2 << (pinNum * 2) );
   // Alternate function TIM1_CH1-4 = 6
   gpio->AFR[pinNum / 8] = (gpio->AFR[pinNum / 8] & ~(0xF << ((pinNum % 8) * 4))) | (AF1 << ((pinNum % 8) * 4));
 }
@@ -178,6 +196,8 @@ void isensTimInit( void ){
   ISENS_TIM->ARR = -1;
   ISENS_TIM->CCMR1 = (ISENS_TIM->CCMR1 & ~(TIM_CCMR1_CC1S | TIM_CCMR1_CC2S))
                       | (TIM_CCMR1_CC1S_0 | TIM_CCMR1_CC2S_0);
+  ISENS_TIM->CCMR2 = (ISENS_TIM->CCMR2 & ~(TIM_CCMR2_CC3S | TIM_CCMR2_CC4S))
+                      | (TIM_CCMR2_CC3S_0 | TIM_CCMR2_CC4S_0);
   ISENS_TIM->CCER |= TIM_CCER_CC1P | TIM_CCER_CC2P | TIM_CCER_CC3P | TIM_CCER_CC4P;  // Растущий фронт
 
   ISENS_TIM->CR1 |= TIM_CR1_URS;
@@ -191,29 +211,40 @@ void isensInit( void ){
   // Вывод
   gpioPinSetup( &gpioPinSensOn );
 
-  // Инициализация таймера, на который подключены ISENS
-  isensTimInit();
-
   for( uint8_t i = 0; i < ISENS_NUM; i++ ){
     isensPinInit( &(iSens[i]) );
     timerSetup( &(iSens[i].dbTimer), isensDbTout, (uintptr_t)&(iSens[i]) );
   }
+  // Инициализация таймера, на который подключены ISENS
+  isensTimInit();
+
   gpioPinResetNow( &gpioPinSensOn );
+
+  // ДЛЯ ТЕСТА
+  uspdCfg.arxTout = ISENS_ARCH_TOUT;
+  timerSetup( &isArchTimer, isArchTout, (uintptr_t)&(uspdCfg.arxTout) );
+  timerSetup( &archReadTimer, archReadTout, (uintptr_t)&(uspdCfg.arxTout) );
 }
 
 
 void isensEnable( void ){
+  tUxTime tm;
   // Ввод
 
   // Выбор канала
   ISENS_TIM->CCER |= (TIM_CCER_CC1E | TIM_CCER_CC2E | TIM_CCER_CC3E | TIM_CCER_CC4E);
   ISENS_TIM->CR1 |= TIM_CR1_CEN;
 
+  tm = getRtcTime();
   for( uint8_t i = 0; i < ISENS_NUM; i++ ){
     // Метка времени
-    iSens[i].tstime = getRtcTime();
+    iSens[i].tstime = tm;
     iSens[i].tsss = rtc.ss;
   }
+
+  // --------------------- ДЛЯ ТЕСТА ----------------------------
+  timerMod( &isArchTimer, ISENS_ARCH_TOUT * TOUT_1000 );
+  timerMod( &archReadTimer, ARCH_READ_TOUT * TOUT_1000 );
 }
 
 

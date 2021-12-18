@@ -30,10 +30,13 @@ uint32_t errCount;     // Общий счетчик ошибок
 sLogRec logWrBuf[SMALLEST_BUFFER_SIZE];
 logBuf_t logWrBuffer;
 
-// БУФЕР считанных записей из FLASH
-sLogRec logRdBuf[SMALLEST_BUFFER_SIZE];
+// БУФЕР считанных записей ISENS из FLASH
+sLogRec logRdSensBuf[8];
+logBuf_t logRdSensBuffer;
 
-logBuf_t logRdBuffer;
+// БУФЕР считанных записей ISENS из FLASH
+sLogRec logRdEvntBuf[8];
+logBuf_t logRdEvntBuffer;
 
 logBuf_t stmEeBuffer;
 
@@ -214,7 +217,8 @@ void logEnable( void ){
 
 void logInit( void ){
   logBuf_Init( &logWrBuffer, logWrBuf, ARRAY_SIZE(logWrBuf) );
-  logBuf_Init( &logRdBuffer, logRdBuf, ARRAY_SIZE(logRdBuf) );
+  logBuf_Init( &logRdSensBuffer, logRdSensBuf, ARRAY_SIZE(logRdSensBuf) );
+  logBuf_Init( &logRdEvntBuffer, logRdEvntBuf, ARRAY_SIZE(logRdEvntBuf) );
   stmEeInit();
   flashInit();
 //  timerSetup( &logReadTimer, logReadTout, (uintptr_t)NULL );

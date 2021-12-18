@@ -30,7 +30,7 @@ void SystemClock_Config(void) {
   RCC_OscInitStruct.PLL.PLLDIV = RCC_PLL_DIV2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
-    Error_Handler( STOP );
+    ErrHandler( STOP );
   }
   /** Initializes the CPU, AHB and APB buses clocks
   */
@@ -43,13 +43,13 @@ void SystemClock_Config(void) {
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
   {
-    Error_Handler( STOP );
+    ErrHandler( STOP );
   }
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC;
   PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
-    Error_Handler( STOP );
+    ErrHandler( STOP );
   }
 
   rccClocks.SYSCLK_Frequency = HAL_RCC_GetSysClockFreq();

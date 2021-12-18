@@ -133,3 +133,19 @@ void Check_IWDG_Reset(void)
   }
 }
 
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler( int stop, char * file, int line ){
+  /* USER CODE BEGIN Error_Handler_Debug */
+    /* User can add his own implementation to report the HAL error return state */
+    trace_printf( "ErrorHandler: file \"%s\",line %d\n", (uint8_t *)file, line );
+    GPIOB->BSRR = GPIO_PIN_9;
+    while (stop) {
+    }
+  /* USER CODE END Error_Handler_Debug */
+}
+
+

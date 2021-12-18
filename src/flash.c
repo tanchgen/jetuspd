@@ -17,7 +17,11 @@
 #include "flash.h"
 
 
-extern logBuf_t logRdBuffer;
+uint32_t wrAddr;
+uint32_t wrData;
+
+extern logBuf_t logRdSensBuffer;
+extern logBuf_t logRdEvntBuffer;
 extern logBuf_t logWrBuffer;
 extern uint16_t logRdBufFill;
 
@@ -174,13 +178,6 @@ void SPI1_IRQHandler( void ) {
 
 // =================== Работа с FLASH =============================================
 
-// Коллбек по окончании чтения во ФЛЕШ
-void flashRdCb( void ){
-  logBuf_Read( &logRdBuffer, flashDev.rec, flashDev.quant );
-  flashDev.state = FLASH_READY;
-}
-
-
 void flashReadStart( sFlashDev * flash, uint32_t addr, uint32_t size ){
   // Пишем данные во флеш
   flashTxXfer[0] = FLASH_CMD_READ;
@@ -274,7 +271,7 @@ void flashSeEndTest( sSpiHandle * spi ){
 
 FlagStatus flashWriteStart( sFlashDev * flash, uint32_t addr, uint32_t * data, uint32_t size ){
   // Стереть страницу, если надо
-  if( ((addr & 0x3FF) == 0) && (flash->sectorClear == RESET) ){
+  if( ((addr & 0xFFF) == 0) && (flash->sectorClear == RESET) ){
     // Требуется стереть страницу
     flashSectorErase( &(flash->flashSpi), addr );
     return RESET;
@@ -295,6 +292,9 @@ FlagStatus flashWriteStart( sFlashDev * flash, uint32_t addr, uint32_t * data, u
 
   memcpy( &(flashTxXfer[4]), data, size );
 
+  wrAddr = addr;
+  wrData = *data;
+
   /*!< Send "Write Enable" instruction */
   flashDev.state = FLASH_BUSY;
   spiXfer( &(flash->flashSpi), size + 4, flashTxXfer, NULL );
@@ -314,6 +314,9 @@ HAL_StatusTypeDef  flashBufSave( logBuf_t* Buffer ){
     assert_param( Buffer == &flashEvntBuffer );
     addr = EVNT_HEADER_ADDR;
   }
+
+  assert_param( (Buffer->Size == SENS_LOG_SIZE)
+                || (Buffer->Size == EVNT_LOG_SIZE) );
   return stmEeWrite( addr, (uint32_t*)Buffer, sizeof(logBuf_t) );
 }
 
@@ -322,7 +325,7 @@ HAL_StatusTypeDef  flashBufSave( logBuf_t* Buffer ){
 void flashSensRxCb( void ){
   // Сохранить новые данные о буфере
   flashBufSave( &flashSensBuffer );
-  logRdBufFill = logBuf_Write( &logRdBuffer, (sLogRec*)(flashRxXfer+4), flashDev.quant );
+  logRdBufFill += logBuf_Write( &logRdSensBuffer, (sLogRec*)(flashRxXfer+4), flashDev.quant );
   // Освобождаем Флеш
   flashDev.state = FLASH_READY;
 }
@@ -331,7 +334,7 @@ void flashSensRxCb( void ){
 void flashEvntRxCb( void ){
   // Сохранить новые данные о буфере
   flashBufSave( &flashEvntBuffer );
-  logRdBufFill = logBuf_Write( &logRdBuffer, (sLogRec*)(flashRxXfer+4), flashDev.quant );
+  logRdBufFill += logBuf_Write( &logRdEvntBuffer, (sLogRec*)(flashRxXfer+4), flashDev.quant );
   // Освобождаем Флеш
   flashDev.state = FLASH_READY;
 }
@@ -498,7 +501,7 @@ void flashWriteOkProbe( sSpiHandle * spi ){
   spi->rxCallback = NULL;
   flashTxXfer[0] = FLASH_CMD_RDSR;
 
-  spiXfer( spi, 1, flashTxXfer, flashRxXfer );
+  spiXfer( spi, 2, flashTxXfer, flashRxXfer );
   // Ждем окончания приема
   while( spi->spi->SR & SPI_SR_BSY )
   {}
@@ -508,10 +511,10 @@ void flashWriteOkProbe( sSpiHandle * spi ){
   }
 
   if( (flashRxXfer[1] & FLASH_WEL_FLAG) != RESET ){
-    Error_Handler( NON_STOP );
+    ErrHandler( NON_STOP );
   }
   flashTxXfer[0] = FLASH_CMD_RDSCUR;
-  spiXfer( spi, 1, flashTxXfer, flashRxXfer );
+  spiXfer( spi, 2, flashTxXfer, flashRxXfer );
   // Ждем окончания приема
   while( spi->spi->SR & SPI_SR_BSY )
   {}
@@ -522,7 +525,7 @@ void flashWriteOkProbe( sSpiHandle * spi ){
     flashDev.quant = 0;
   }
   else {
-    Error_Handler( NON_STOP );
+    ErrHandler( NON_STOP );
   }
 }
 
@@ -544,7 +547,7 @@ eLogBufType flashReadProbe( void ){
     else {
       // Чтобы поместилось в буфер чтения SPI и буфер logRdBuffer
       quant = min( quant, (ARRAY_SIZE(flashRxXfer) - 4) / sizeof(sLogRec) );
-      quant = min( quant, logBuf_GetFree( &logRdBuffer) );
+      quant = min( quant, logBuf_GetFree( &logRdSensBuffer) );
       if( quant ){
         flashDev.quant = quant;
         return LOG_BUF_SENS;
@@ -561,7 +564,7 @@ eLogBufType flashReadProbe( void ){
     else {
       // Чтобы поместилось в буфер чтения SPI и буфер logRdBuffer
       quant = min( quant, (ARRAY_SIZE(flashRxXfer) - 4) / sizeof(sLogRec) );
-      quant = min( quant, logBuf_GetFull( &logRdBuffer) );
+      quant = min( quant, logBuf_GetFull( &logRdEvntBuffer) );
       if( quant ){
         flashDev.quant = quant;
         return LOG_BUF_EVNT;
@@ -582,7 +585,7 @@ eLogBufType  flashWriteProbe( void ){
   }
 
   if( (flashDev.rec = ta_alloc(sizeof(sLogRec))) == NULL ){
-    Error_Handler( NON_STOP );
+    ErrHandler( NON_STOP );
     return rc;
   }
 
@@ -662,7 +665,9 @@ void flashProcess( void ){
         buf = &flashEvntBuffer;
       }
 
-      flashBuf_Write( &flashDev, buf, flashDev.rec, flashDev.quant );
+      if( flashBuf_Write( &flashDev, buf, flashDev.rec, flashDev.quant ) == flashDev.quant ){
+        ta_free( flashDev.rec );
+      }
       break;
     }
     case FLASH_WRITE_OK:

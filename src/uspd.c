@@ -12,6 +12,7 @@
 #include "uspd.h"
 
 sUspdCfg uspdCfg = {
+   .updateFlag = RESET,
   // Режим работы входов датчиков
   .isensType = {
     SENS_TYPE_COUNT,
@@ -71,8 +72,6 @@ sUspdCfg uspdCfg = {
 
 sUspd uspd = {0};
 
-FlagStatus cfgUpdateFinal;
-uint16_t announcePktId;
 
 
 void cfgUpdate( FlagStatus change );
@@ -144,7 +143,7 @@ char * cfgoMsgCreate( void ){
   char calStr[21];
 
   if( (msg = ta_alloc(1024)) == NULL ){
-    Error_Handler( NON_STOP );
+    ErrHandler( NON_STOP );
     return NULL;
   }
 
@@ -327,7 +326,7 @@ FlagStatus cfgCalProc( sArxCal * cal, char * str ){
   }
   if( isspace((int)*str) == 0 ){
     // Ошибка формата - выходим
-    Error_Handler( NON_STOP );
+    ErrHandler( NON_STOP );
     return RESET;
   }
 
@@ -624,7 +623,6 @@ void cfgUpdate( FlagStatus change ){
   SIM800.mqttClient.pubFlags.cfgoPub = SET;
   // Сбрасываем флаг до отправки подтверждения
   uspdCfg.updateFlag = RESET;
-  timerMod( &mqttPubTimer, 0 );
 }
 
 void uspdInit( void ){
@@ -647,6 +645,7 @@ void uspdInit( void ){
   SIM800.mqttClient.clientID = "";
   SIM800.mqttClient.keepAliveInterval = 60;
 
-  announcePktId = -1;
+  uspd.announcePktId = -1;
+  uspd.cfgoPktId = -1;
 }
 

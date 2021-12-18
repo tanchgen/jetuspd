@@ -22,7 +22,8 @@ extern sFwHandle fwHandle;
 
 extern struct timer_list mqttSubTimer;
 extern uint16_t logRdBufFill;
-extern logBuf_t logRdBuffer;
+extern logBuf_t logRdSensBuffer;
+extern logBuf_t logRdEvntBuffer;
 
 const char * tpcTempl[TOPIC_NUM] = {
   "r/device",   		      //  TOPIC_DEV_IMEI,
@@ -75,13 +76,12 @@ void mqttConnectCb( FlagStatus conn );
 HAL_StatusTypeDef   stmEeRead( uint32_t addr, uint32_t * data, uint32_t datalen);
 // ------------------------------------------------------------------------------
 
-void mqttPubTout( uintptr_t arg ){
+void mqttPingTout( uintptr_t arg ){
   (void)arg;
 
   if( SIM800.mqttServer.mqttconn == 1 ) {
-    mqttPubFlag = SET;
+    mqttPingFlag = SET;
   }
-  timerMod( &mqttPubTimer, MQTT_PUB_TOUT );
 }
 
 
@@ -103,15 +103,16 @@ FlagStatus cfgoPubFunc( void ){
 
   sprintf( str, tpcTempl[TOPIC_CFG_O], SIM800.sim.imei );
   if( (cfgomsg = cfgoMsgCreate()) == NULL ){
-    Error_Handler( NON_STOP );
+    ErrHandler( NON_STOP );
     return rc;
   }
-  else if( MQTT_Pub( str, cfgomsg, QOS1, SIM800.mqttReceive.pktIdo++ )){
-    cfgUpdateFinal = SET;
+  else if( MQTT_Pub( str, cfgomsg, QOS1, SIM800.mqttReceive.pktIdo )){
+    uspd.cfgoPktId = SIM800.mqttReceive.pktIdo;
+    SIM800.mqttReceive.pktIdo++;
     rc = RESET;
   }
   else {
-    Error_Handler( NON_STOP );
+    ErrHandler( NON_STOP );
   }
   // Передали на отправку в UART. Удачно-нет - освобождаем;
   ta_free( cfgomsg );
@@ -134,6 +135,8 @@ FlagStatus uspdAnnouncePub( void ){
   }
 
   // Передача UID MCU
+  memset( tpc, 0, 32);
+  memset( pay, 0, 64);
   sprintf( tpc, tpcTempl[TOPIC_DEV_UID], SIM800.sim.imei );
   sprintf( pay, "{\"uid\":\"%08x%08x%08x\"}", (uint)UID_0, (uint)UID_1, (uint)UID_2 );
   if( MQTT_Pub( tpc, pay, QOS1, SIM800.mqttReceive.pktIdo++ ) == 0 ){
@@ -141,10 +144,12 @@ FlagStatus uspdAnnouncePub( void ){
   }
 
   // Передача RealTime
+  memset( tpc, 0, 32);
+  memset( pay, 0, 64);
   sprintf( tpc, tpcTempl[TOPIC_INFO], SIM800.sim.imei );
   sprintf( pay, "{time\":%u,\"state\":\"con\"}", (unsigned int)ut );
-  if( MQTT_Pub( tpc, pay, QOS1, SIM800.mqttReceive.pktIdo++ ) != 0 ){
-    announcePktId = SIM800.mqttReceive.pktIdo;
+  if( MQTT_Pub( tpc, pay, QOS1, SIM800.mqttReceive.pktIdo ) != 0 ){
+    uspd.announcePktId = SIM800.mqttReceive.pktIdo;
     SIM800.mqttReceive.pktIdo++;
   }
   else {
@@ -156,6 +161,8 @@ FlagStatus uspdAnnouncePub( void ){
   if( td < 0 ){
     td = -td;
   }
+  memset( tpc, 0, 32);
+  memset( pay, 0, 64);
   sprintf( tpc, tpcTempl[TOPIC_VOLT], SIM800.sim.imei );
   sprintf( pay, "{time\":%u,\"volt\":%d.%d}", (unsigned int)ut, tu, td );
   if( MQTT_Pub( tpc, pay, QOS0, 0 ) == 0 ){
@@ -167,6 +174,8 @@ FlagStatus uspdAnnouncePub( void ){
   if( td < 0 ){
     td = -td;
   }
+  memset( tpc, 0, 32);
+  memset( pay, 0, 64);
   sprintf( tpc, tpcTempl[TOPIC_TEMP], SIM800.sim.imei );
   sprintf( pay, "{time\":%u,\"temp\":%d.%d}", (unsigned int)ut, tu, td );
   if( MQTT_Pub( tpc, pay, QOS0, 0 ) == 0 ){
@@ -176,44 +185,73 @@ FlagStatus uspdAnnouncePub( void ){
   return RESET;
 
 err_exit:
-  Error_Handler( NON_STOP );
-  announcePktId = 0;
+  ErrHandler( NON_STOP );
+  uspd.announcePktId = -1;
   return SET;
 }
 
 
 int archPubFunc( void ){
   char tpc[32];
-  char pay[64];
-  sLogRec rec;
+  char pay[11 + 36*8];
+  sLogRec rec[8];
+  uint8_t quant = 8;
 
-  if( logBuf_Read( &logRdBuffer, &rec, 1) ){
+  if( (quant = logBuf_Read( &logRdSensBuffer, rec, quant)) ){
     // Есть запись из архива
-    if( rec.devid <= DEVID_ISENS_4 ){
-      // Данные датчика
-      for( eIsens is = ISENS_1; is < ISENS_NUM; is++ ){
-        sprintf( tpc, tpcTempl[TOPIC_ISENS_ARX], SIM800.sim.imei, is + 1);
-        sprintf( pay, "{\"arch\":[\"time\":%lu,\"pls\":%lu]}", rec.utime, rec.data[is] );
+    for( eIsens is = ISENS_1; is < ISENS_NUM; is++ ){
+      uint8_t l;
+
+      sprintf( tpc, tpcTempl[TOPIC_ISENS_ARX], SIM800.sim.imei, is + 1);
+      // Начало сообщения
+      strcpy( pay, "{\"arch\":" );
+      for( uint8_t qu = 0; qu < quant; qu++ ){
+        char d[11];
+
+        // Данные датчика
+        assert_param( rec[qu].devid <= DEVID_ISENS_4 );
+
+        strcat( pay, "[\"time\":" );
+        memset(d, 0, 11);
+        itoa( rec[qu].utime, d, 10 );
+        strcat( pay, d);
+        strcat( pay, ",\"pls\":" );
+        memset(d, 0, 11);
+        itoa( rec[qu].data[is], d, 10 );
+        strcat( pay, d);
+        strcat(pay, "],");
+      }
+      // Убираем последнюю ','
+      l = strlen( pay ) - 1;
+      pay[l++] = '}';
+      pay[l] = '\0';
+      // Публикуем
+      if( MQTT_Pub( tpc, pay, QOS2, SIM800.mqttReceive.pktIdo++ ) == 0 ){
+        ErrHandler( NON_STOP );
+        return 0;
+      }
+    }
+  }
+  else if( (quant = logBuf_Read( &logRdEvntBuffer, rec, 1)) ){
+    if( (rec[0].devid > DEVID_ISENS_4) && (rec[0].devid < DEVID_NUM) ) {
+      if( (rec[0].devid >= DEVID_ISENS_1_STATE) && (rec[0].devid <= DEVID_ISENS_6) ){
+        // Состояние датчика (i1 - i6) из Журнала событий
+        uint8_t is = rec[0].devid - DEVID_ISENS_1_STATE + 1;
+        sprintf( tpc, tpcTempl[TOPIC_ISENS_STATE], SIM800.sim.imei, is + 1 );
+        sprintf( pay, "{\"arch\":[\"time\":%lu,\"state\":%lu]}", rec[0].utime, rec[0].data[is] );
         // Публикуем
-        if( MQTT_Pub( tpc, pay, QOS2, SIM800.mqttReceive.pktIdo++ ) == 0 ){
-          Error_Handler( NON_STOP );
+        if( MQTT_Pub( tpc, pay, QOS1, SIM800.mqttReceive.pktIdo++ ) == 0 ){
+          ErrHandler( NON_STOP );
           return 0;
         }
+      }
+      else {
+        // TODO: Реализовать остальные события
       }
     }
     else {
-      assert_param( (rec.devid > DEVID_ISENS_4) && (rec.devid < DEVID_NUM) );
-      if( (rec.devid >= DEVID_ISENS_1_STATE) && (rec.devid <= DEVID_ISENS_6) ){
-        // Состояние датчика (i1 - i6) из Журнала событий
-        uint8_t is = rec.devid - DEVID_ISENS_1_STATE + 1;
-        sprintf( tpc, tpcTempl[TOPIC_ISENS_STATE], SIM800.sim.imei, is + 1 );
-        sprintf( pay, "{\"arch\":[\"time\":%lu,\"state\":%lu]}", rec.utime, rec.data[is] );
-        // Публикуем
-        if( MQTT_Pub( tpc, pay, QOS1, SIM800.mqttReceive.pktIdo++ ) == 0 ){
-          Error_Handler( NON_STOP );
-          return 0;
-        }
-      }
+      // Неправильный формат записи журнала
+      return 0;
     }
   }
   else {
@@ -221,7 +259,7 @@ int archPubFunc( void ){
     return -1;
   }
 
-  return 1;
+  return quant;
 }
 
 
@@ -273,22 +311,25 @@ void mqttCtlProc( SIM800_t * sim ){
     case MQTT_PUBACK:
       // Отклик на отправку пакета с QOS1
       trace_printf( "PUBACK: %d\n", pktid );
-      if(cfgUpdateFinal){
+      if(uspd.cfgoPktId == pktid ){
         // Получили подтверждение успешной отправки <imei/cfgo>
-        cfgUpdateFinal = RESET;
+        uspd.cfgoPktId = -1;
         gsmStRestart = GSM_OFF;
         gsmRun = RESET;
         uspdCfg.updateFlag = SET;
       }
-      if(announcePktId == pktid){
-        announcePktId = -1;
+      if(uspd.announcePktId == pktid){
+        uspd.announcePktId = -1;
         SIM800.mqttClient.pubFlags.uspdAnnounce = RESET;
       }
+      // Можно публиковать следующее
+      SIM800.mqttClient.pubReady--;
       // Отключить таймер для пакета с этим PKT_ID
       break;
     case MQTT_PUBREC:
       // Отклик на получение пакета с QOS2 (фаза1 QOS2)
       trace_printf( "PUBREC: %d\n", pktid );
+      SIM800.mqttClient.pubReady--;
       MQTT_Pubrel( pktid );
       break;
     case MQTT_PUBREL:
@@ -364,10 +405,18 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
           sim->mqttReceive.remLen += (*msgptr % 128) * sim->mqttReceive.remLenMp;
           if( (*msgptr++ & 0x80) == 0 ){
             // Принята вся Remaining Lenght
-            if( (sim->mqttReceive.remLen > 268435455)
-                || (sim->mqttReceive.remLen == 0) ){
+            if( sim->mqttReceive.remLen > 268435455 ){
+              trace_printf( "REMLEN BIG, PKT_ID: %X\n", sim->mqttReceive.msgType );
+              goto msg_reset;
+            }
+            else  if (sim->mqttReceive.remLen == 0) {
               // Ошибка длины или Нулевая длина
-              trace_printf( "REMLEN = 0, PKT_ID: %X\n", sim->mqttReceive.msgType );
+              if( sim->mqttReceive.msgType == 0xD ){
+                mqttCtlProc( sim );
+              }
+              else {
+                trace_printf( "REMLEN = 0, PKT_ID: %X\n", sim->mqttReceive.msgType );
+              }
               goto msg_reset;
             }
             else {
@@ -388,6 +437,9 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
         if( sim->mqttReceive.remLen <= 3 ) {
           if( len0 == sim->mqttReceive.remLen ){
             // Принят контрольный пакет
+            sim->mqttReceive.pktId = *msgptr << 8;
+            msgptr++;
+            sim->mqttReceive.pktId  |= *msgptr;
             mqttCtlProc( sim );
             goto msg_reset;
           }
@@ -538,7 +590,7 @@ msg_reset:
 }
 
 
-void mqttPubProc( sUartRxHandle * handle ){
+void mqttPubRecvProc( sUartRxHandle * handle ){
   if( handle->rxProcFlag == RESET ){
     return;
   }
@@ -572,6 +624,27 @@ void mqttPubProc( sUartRxHandle * handle ){
 }
 
 
+void mqttPubProc( uPubFlags * pubfl ){
+  // Требуются некоторые публикации
+  if( pubfl->cfgoPub ){
+    pubfl->cfgoPub = cfgoPubFunc();         // Если успешно - флаг сбрасываем
+  }
+  else if( pubfl->uspdAnnounce ){
+    pubfl->uspdAnnounce = uspdAnnouncePub();      // Если успешно - флаг сбрасываем
+  }
+  else if( pubfl->archPub ){
+    int8_t num;       // Количество публикаций из Архива
+    if( (num = archPubFunc()) < 0 ){
+      logRdBufFill = 0;
+    }
+    else {
+      logRdBufFill -= num;         // Если успешно - флаг сбрасываем
+    }
+  }
+
+}
+
+
 /**
  * initialization SIM800.
  * @param NONE
@@ -585,21 +658,26 @@ void mqttInit(void) {
     SIM800.mqttServer.mqttconn = RESET;
 //    char str[32] = {0};
 
-    rc = stmEeRead( USPD_CFG_ADDR + offsetof(sUspdCfg, updateFlag),
-                    &(updflag), sizeof(uint32_t) );
-    updflag &= 0x1;
-    if( (rc == HAL_OK) && (updflag == SET) ){
-      // Конфигурация от сервера сохранена - считываем конфиг полностью
-      if( stmEeRead( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg) ) != HAL_OK ){
-        // Конфиг не считался правильно - прерываемся
-        return;
-      }
-    }
+    // XXX: !!! Отключил для теста !!!
+//    rc = stmEeRead( USPD_CFG_ADDR + offsetof(sUspdCfg, updateFlag),
+//                    &(updflag), sizeof(uint32_t) );
+//    updflag &= 0x1;
+//    if( (rc == HAL_OK) && (updflag == SET) ){
+//      // Конфигурация от сервера сохранена - считываем конфиг полностью
+//      if( stmEeRead( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg) ) != HAL_OK ){
+//        // Конфиг не считался правильно - прерываемся
+//        uspdCfg.updateFlag = RESET;
+//        stmEeWrite( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg.updateFlag) );
+//        // Ждем watchdog
+//        while(1)
+//        {}
+//      }
+//    }
 
     // Настройки в соответствии с сохраненной конфигурацией.
     uspdInit();
 
-    timerSetup( &mqttPubTimer, mqttPubTout, (uintptr_t)NULL );
+    timerSetup( &mqttPingTimer, mqttPingTout, (uintptr_t)NULL );
     timerSetup( &mqttSubTimer, mqttSubTout, (uintptr_t)NULL );
 }
 
@@ -623,33 +701,18 @@ void mqttProcess( void ){
   }
 
   pubfl = &(SIM800.mqttClient.pubFlags);
-  if( mqttPubFlag ) {
-    mqttPubFlag = RESET;
-    if( pubfl->u16pubFlags ){
-      // Требуются некоторые публикации
-      if( pubfl->cfgoPub ){
-        pubfl->cfgoPub = cfgoPubFunc();         // Если успешно - флаг сбрасываем
-      }
-      if( pubfl->uspdAnnounce ){
-        pubfl->uspdAnnounce = uspdAnnouncePub();      // Если успешно - флаг сбрасываем
-      }
-      if( pubfl->archPub ){
-        int8_t num;       // Количество публикаций из Архива
-        if( (num = archPubFunc()) < 0 ){
-          logRdBufFill = 0;
-        }
-        else {
-          logRdBufFill -= num;         // Если успешно - флаг сбрасываем
-        }
-      }
-    }
-    else {
-      MQTT_PingReq();
-    }
+  if( (SIM800.mqttClient.pubReady < 4) && pubfl->u16pubFlags ){
+    mqttPubProc( pubfl );
+    timerMod( &mqttPingTimer, MQTT_PUB_TOUT );
+  }
+  else if( mqttPingFlag ) {
+    mqttPingFlag = RESET;
+    MQTT_PingReq();
+    timerMod( &mqttPingTimer, MQTT_PUB_TOUT );
   }
 
   // Обработка принятых сообщений
-  mqttPubProc( simHnd.rxh );
+  mqttPubRecvProc( simHnd.rxh );
 
 
 // ----------------- ISENS PUBLIC -------------------------------------------

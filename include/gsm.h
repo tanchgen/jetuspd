@@ -65,7 +65,7 @@ extern FlagStatus gsmRun;
 extern eGsmState gsmState;
 extern eGsmState gsmStRestart;
 
-extern struct timer_list mqttPubTimer;
+extern struct timer_list mqttPingTimer;
 
 int gsmSendCommand(char *command, char *reply, uint16_t delay, void (*simreplycb)( sUartRxHandle *) );
 

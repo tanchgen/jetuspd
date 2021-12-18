@@ -12,8 +12,8 @@
 #include "isens.h"
 
 // -------------- ДЛЯ ТЕСТА ----------------------------------
-#define ISENS_ARCH_TOUT        5
-#define ARCH_READ_TOUT         10
+#define ISENS_ARCH_TOUT        3
+#define ARCH_READ_TOUT         30
 
 struct timer_list isArchTimer;
 struct timer_list archReadTimer;
@@ -23,22 +23,22 @@ void isensDbTout( uintptr_t arg );
 sISens iSens[ISENS_NUM] = {
   {
     .pinIn = {GPIOA, GPIO_PIN_0, 0, 0},
-    .isensCount = 0,
+    .isensCount = 11,
     .state = ISENS_DOWN,
   },
   {
     .pinIn = {GPIOA, GPIO_PIN_1, 0, 1},
-    .isensCount = 0,
+    .isensCount = 22,
     .state = ISENS_DOWN,
   },
   {
     .pinIn = {GPIOA, GPIO_PIN_2, 0, 2},
-    .isensCount = 0,
+    .isensCount = 33,
     .state = ISENS_DOWN,
   },
   {
     .pinIn = {GPIOA, GPIO_PIN_3, 0, 3},
-    .isensCount = 0,
+    .isensCount = 44,
     .state = ISENS_DOWN,
   },
 //  {
@@ -61,9 +61,11 @@ void isArchTout( uintptr_t arg ){
 }
 
 void archReadTout( uintptr_t arg ){
-  uint32_t tout = *((uint32_t *)arg) * TOUT_1000;
-  uspd.readArchSensQuery = SET;
-  uspd.readArchEvntQuery = SET;
+  uint32_t tout = (uint32_t)arg * TOUT_1000;
+  if( gsmState >= GSM_CFG_ON ){
+    uspd.readArchSensQuery = SET;
+    uspd.readArchEvntQuery = SET;
+  }
   timerMod( &archReadTimer, tout );
 }
 
@@ -83,7 +85,7 @@ void isensProcess( void ){
       uspd.archWrFlag = RESET;
     }
     else {
-      Error_Handler( NON_STOP );
+      ErrHandler( NON_STOP );
     }
   }
 }
@@ -93,7 +95,7 @@ void isensProcess( void ){
 void ISENS_IRQHandler( void ){
   eIsens is;
   uint32_t tm;
-  uint32_t dtime;;
+  uint32_t dtime;
 
   tm = getRtcTime();
 
@@ -223,7 +225,7 @@ void isensInit( void ){
   // ДЛЯ ТЕСТА
   uspdCfg.arxTout = ISENS_ARCH_TOUT;
   timerSetup( &isArchTimer, isArchTout, (uintptr_t)&(uspdCfg.arxTout) );
-  timerSetup( &archReadTimer, archReadTout, (uintptr_t)&(uspdCfg.arxTout) );
+  timerSetup( &archReadTimer, archReadTout, (uintptr_t)ARCH_READ_TOUT );
 }
 
 

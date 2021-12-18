@@ -82,6 +82,8 @@ typedef struct __aligned(4) uspdCfg{
 } sUspdCfg;
 
 typedef struct {
+  uint16_t announcePktId;
+  uint16_t cfgoPktId;
   FlagStatus archWrFlag;              // Флаг запуска сохранения среза данных в Архив
   FlagStatus archSendFlag;            // Флаг запуска отправки Архива на сервер
   FlagStatus readArchSensQuery;       // Запрос на чтение журнала счетчиков
@@ -92,7 +94,6 @@ typedef struct {
 extern sUspd uspd;
 extern sUspdCfg uspdCfg;
 extern FlagStatus cfgUpdateFinal;
-extern uint16_t announcePktId;
 
 void uspdCfgProc( sUartRxHandle * rxh, SIM800_t * sim );
 // Формируем сообщение для топика "TOPIC_CFG_I"

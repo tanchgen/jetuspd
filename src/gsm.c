@@ -19,7 +19,6 @@
 extern SIM800_t SIM800;
 extern const uint32_t baudrate[BAUD_NUM];
 extern const sUartHnd simHnd;
-extern struct timer_list mqttPubTimer;
 
 static uint32_t tmpTick;
 
@@ -181,7 +180,7 @@ int simImeiProcess( void ){
     }
   }
   else {
-    Error_Handler( STOP );
+    ErrHandler( STOP );
   }
 
   return 0;
@@ -363,7 +362,7 @@ void gsmStartInitFunc( void ){
             gsmRunPhase = PHASE_ON;
             break;
           default:
-//            Error_Handler( NON_STOP );
+//            ErrHandler( NON_STOP );
             mDelay(10);
             break;
         }
@@ -537,7 +536,7 @@ void gsmMqttConnFunc( void ){
         }
         trace_puts( "mqtt sub" );
         SIM800.mqttClient.pubFlags.uspdAnnounce = SET;
-        timerMod( &mqttPubTimer, 0 );
+        SIM800.mqttClient.pubReady = 0;
         gsmRunPhase = PHASE_ON;
         break;
       case PHASE_ON:
@@ -671,7 +670,7 @@ int simStartInit(void) {
     }
 
     if( baud == BAUD_NUM ){
-      Error_Handler( STOP );
+      ErrHandler( STOP );
     }
 
     if( gsmSendCommand("AT+IFC=2,2\r\n", "OK\r\n", CMD_DELAY_2, NULL ) == 0){
@@ -684,7 +683,7 @@ int simStartInit(void) {
 //    }
 
     if( gsmSendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2, NULL ) != 0 ){
-      Error_Handler( STOP );
+      ErrHandler( STOP );
     }
 
     gsmSendCommand("ATE1\r\n", "OK\r\n", CMD_DELAY_2, NULL );
@@ -722,7 +721,7 @@ int gprsConnTest( void ){
       rc = mqtt_buffer[10];
     }
 //    else {
-//      Error_Handler( NON_STOP );
+//      ErrHandler( NON_STOP );
 //    }
 
   return rc;
@@ -766,7 +765,7 @@ int ntpInit(void) {
           ntpFlag = SET;
         }
         else {
-          Error_Handler( NON_STOP );
+          ErrHandler( NON_STOP );
         }
       }
     }

@@ -280,7 +280,7 @@ void uartDisable( sUartRxHandle *rxuart, sUartTxHandle *txuart );
 void uartDmaInit( sUartRxHandle * rxuart, sUartTxHandle * txuart );
 void uartRxClock(sUartRxHandle *handle);
 void uartTxClock(sUartTxHandle *handle, sUartRxHandle *rxHandle);
-uint16_t uartTransmit( sUartTxHandle * handle, uint32_t size, uint32_t tout );
+uint16_t uartTransmit( sUartTxHandle * handle, uint8_t * buf, uint32_t size, uint32_t tout );
 
 #endif /* _USART_H */
 

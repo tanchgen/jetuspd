@@ -97,14 +97,10 @@ void connectSimReply( sUartRxHandle * handle ){
  * @return NONE
  */
 void MQTT_Disconnect(void) {
+  uint8_t buf[4];
 
-  if( (simHnd.txh->data = ta_alloc( 4 )) == NULL ){
-    ErrHandler( NON_STOP );
-  }
-  else {
-    int mqtt_len = MQTTSerialize_disconnect(simHnd.txh->data, 4);
-    uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
-  }
+  int mqtt_len = MQTTSerialize_disconnect(buf, 4);
+  uartTransmit( simHnd.txh, buf, mqtt_len, TOUT_100 );
 }
 
 /**
@@ -138,7 +134,7 @@ int TCP_Connect(void) {
   SIM800.mqttServer.mqttconn = 0;
   char * str;
 
-  if((str = ta_alloc( 256 )) == NULL ){
+  if((str = my_alloc( 256 )) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -155,6 +151,7 @@ int TCP_Connect(void) {
  */
 void MQTT_Connect(void) {
   int mqtt_len;
+  uint8_t buf[256];
 
   MQTTPacket_connectData datas = MQTTPacket_connectData_initializer;
   datas.username.cstring = SIM800.mqttClient.username;
@@ -164,13 +161,8 @@ void MQTT_Connect(void) {
   datas.cleansession = 1;
   datas.will.qos = QOS2;
 
-  if((simHnd.txh->data = ta_alloc( 256 )) == NULL ){
-    ErrHandler( NON_STOP );
-  }
-  else {
-    mqtt_len = MQTTSerialize_connect( simHnd.txh->data, 256, &datas);
-    uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
-  }
+  mqtt_len = MQTTSerialize_connect( buf, 256, &datas);
+  uartTransmit( simHnd.txh, buf, mqtt_len, TOUT_100 );
 }
 
 /**
@@ -183,28 +175,17 @@ uint16_t MQTT_Pub(const char *topic, char *payload, enum QoS qos, uint16_t pktid
   uint16_t rc = 0;
   uint16_t len = strlen(topic) + strlen(payload) + 9;
   MQTTString topicString = MQTTString_initializer;
-  uint16_t sr;
-  uint32_t tmptick = mTick + TOUT_500;
+  uint8_t * buf;
 
   topicString.cstring = topic;
 
-  sr = simHnd.txh->uart->SR;
-
-  while( (sr & USART_SR_TC) == RESET ){
-    if( tmptick < mTick ){
-      ErrHandler( NON_STOP );
-      return 0;
-    }
-    sr = simHnd.txh->uart->SR;
-  }
-
-  if( (simHnd.txh->data = ta_alloc(len) ) == NULL ){
+  if( (buf = my_alloc(len) ) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
-    int mqtt_len = MQTTSerialize_publish(simHnd.txh->data, len, 0, qos, 0, pktid,
+    int mqtt_len = MQTTSerialize_publish(buf, len, 0, qos, 0, pktid,
                                          topicString, (unsigned char *)payload, (int)strlen(payload));
-    if( (rc = uartTransmit( simHnd.txh, mqtt_len, TOUT_100)) ){
+    if( (rc = uartTransmit( simHnd.txh, buf, mqtt_len, TOUT_500)) ){
       // Публикация отправлена - если QOS0 - продолжаем, иначе увеличиваем счетчик отправленных.
       if( qos ){
         SIM800.mqttClient.pubReady++;
@@ -213,6 +194,7 @@ uint16_t MQTT_Pub(const char *topic, char *payload, enum QoS qos, uint16_t pktid
     else {
       ErrHandler( NON_STOP );
     }
+    my_free( buf );
   }
 
   return rc;
@@ -226,11 +208,13 @@ uint16_t MQTT_Pub(const char *topic, char *payload, enum QoS qos, uint16_t pktid
  * @return NONE
  */
 uint16_t MQTT_Puback(  unsigned short packetid ){
-  unsigned char buf[4] = {0};
+  uint16_t rc;
+  uint8_t buf[4];
 
-  int mqtt_len = MQTTSerialize_puback(buf, sizeof(buf), packetid );
-  simHnd.txh->data = buf;
-  return uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
+  int mqtt_len = MQTTSerialize_puback(buf, 4, packetid );
+  rc = uartTransmit( simHnd.txh, buf, mqtt_len, TOUT_100 );
+
+  return rc;
 }
 
 
@@ -242,15 +226,10 @@ uint16_t MQTT_Puback(  unsigned short packetid ){
  */
 uint16_t MQTT_Pubrec(  unsigned short packetid ){
   uint16_t rc;
+  uint8_t buf[4];
 
-  if( (simHnd.txh->data = ta_alloc(4) ) == NULL ){
-    ErrHandler( NON_STOP );
-    rc = 0;
-  }
-  else {
-    int mqtt_len = MQTTSerialize_pubrec(simHnd.txh->data, 4, packetid);
-    rc = uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
-  }
+  int mqtt_len = MQTTSerialize_pubrec(buf, 4, packetid );
+  rc = uartTransmit( simHnd.txh, buf, mqtt_len, TOUT_100 );
 
   return rc;
 }
@@ -264,15 +243,10 @@ uint16_t MQTT_Pubrec(  unsigned short packetid ){
  */
 uint16_t MQTT_Pubrel(  unsigned short packetid ){
   uint16_t rc;
+  uint8_t buf[4];
 
-  if( (simHnd.txh->data = ta_alloc(4) ) == NULL ){
-    ErrHandler( NON_STOP );
-    rc = 0;
-  }
-  else {
-    int mqtt_len = MQTTSerialize_pubrel(simHnd.txh->data, 4, 0, packetid);
-    rc = uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
-  }
+  int mqtt_len = MQTTSerialize_pubrel(buf, 4, 0, packetid );
+  rc = uartTransmit( simHnd.txh, buf, mqtt_len, TOUT_100 );
 
   return rc;
 }
@@ -287,15 +261,10 @@ uint16_t MQTT_Pubrel(  unsigned short packetid ){
  */
 uint16_t MQTT_Pubcomp(  unsigned short packetid ){
   uint16_t rc;
+  uint8_t buf[4];
 
-  if( (simHnd.txh->data = ta_alloc(4) ) == NULL ){
-    ErrHandler( NON_STOP );
-    rc = 0;
-  }
-  else {
-    int mqtt_len = MQTTSerialize_pubcomp(simHnd.txh->data, 4, packetid);
-    rc = uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
-  }
+  int mqtt_len = MQTTSerialize_pubcomp(buf, 4, packetid );
+  rc = uartTransmit( simHnd.txh, buf, mqtt_len, TOUT_100 );
 
   return rc;
 }
@@ -307,13 +276,11 @@ uint16_t MQTT_Pubcomp(  unsigned short packetid ){
  * @return NONE
  */
 void MQTT_PingReq(void){
-  if( (simHnd.txh->data = ta_alloc( 16 )) == NULL ){
-    ErrHandler( NON_STOP );
-  }
-  else {
-    int mqtt_len = MQTTSerialize_pingreq(simHnd.txh->data, 16);
-    uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
-  }
+  uint8_t buf[16];
+
+  int mqtt_len = MQTTSerialize_pingreq(buf, 16 );
+  uartTransmit( simHnd.txh, buf, mqtt_len, TOUT_100 );
+
 }
 
 /**
@@ -322,19 +289,13 @@ void MQTT_PingReq(void){
  * @return NONE
  */
 void MQTT_Sub( char const *topic, uint8_t qos){
+  uint8_t buf[256];
+  MQTTString topicString = MQTTString_initializer;
+  topicString.cstring = topic;
 
-
-    MQTTString topicString = MQTTString_initializer;
-    topicString.cstring = topic;
-
-    if( (simHnd.txh->data = ta_alloc( 256 )) == NULL ){
-      ErrHandler( NON_STOP );
-    }
-    else {
-      int mqtt_len = MQTTSerialize_subscribe( simHnd.txh->data, 256, 0, 1, 1,
-                                             &topicString, (int *)&qos);
-      uartTransmit( simHnd.txh, mqtt_len, TOUT_100 );
-    }
+  int mqtt_len = MQTTSerialize_subscribe( buf, 256, 0, 1, 1,
+                                         &topicString, (int *)&qos);
+  uartTransmit( simHnd.txh, buf, mqtt_len, TOUT_100 );
 }
 
 

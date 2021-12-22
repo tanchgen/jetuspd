@@ -164,7 +164,7 @@ void uartRxClock(sUartRxHandle *handle){
   *
   * @retval количество отправленных на передачу байт данных
   */
-uint16_t uartTransmit( sUartTxHandle * handle, uint32_t size, uint32_t tout ){
+uint16_t uartTransmit( sUartTxHandle * handle, uint8_t * buf, uint32_t size, uint32_t tout ){
   /*
    * In order to reload a new number of data items to be transferred
    * into the DMA_CNDTRx register, the DMA channel must be disabled.
@@ -174,6 +174,18 @@ uint16_t uartTransmit( sUartTxHandle * handle, uint32_t size, uint32_t tout ){
     if( tmptick < mTick ){
       return 0;
     }
+  }
+
+  if( (uint32_t)(buf) & 0x20000000 ){
+    if( (simHnd.txh->data = my_alloc( size )) == NULL ){
+      ErrHandler( NON_STOP );
+      return 0;
+    }
+
+    memcpy( simHnd.txh->data, buf, size );
+  }
+  else {
+    simHnd.txh->data = buf;
   }
 
   // Выключаем UART_TX

@@ -106,16 +106,18 @@ FlagStatus cfgoPubFunc( void ){
     ErrHandler( NON_STOP );
     return rc;
   }
-  else if( MQTT_Pub( str, cfgomsg, QOS1, SIM800.mqttReceive.pktIdo )){
-    uspd.cfgoPktId = SIM800.mqttReceive.pktIdo;
-    SIM800.mqttReceive.pktIdo++;
-    rc = RESET;
-  }
   else {
-    ErrHandler( NON_STOP );
+    if( MQTT_Pub( str, cfgomsg, QOS1, SIM800.mqttReceive.pktIdo )){
+      uspd.cfgoPktId = SIM800.mqttReceive.pktIdo;
+      SIM800.mqttReceive.pktIdo++;
+      rc = RESET;
+    }
+    else {
+      ErrHandler( NON_STOP );
+    }
+    // Передали на отправку в UART. Удачно-нет - освобождаем;
+    my_free( cfgomsg );
   }
-  // Передали на отправку в UART. Удачно-нет - освобождаем;
-  ta_free( cfgomsg );
 
   return rc;
 }

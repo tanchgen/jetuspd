@@ -12,7 +12,7 @@
 #include "isens.h"
 
 // -------------- ДЛЯ ТЕСТА ----------------------------------
-#define ISENS_ARCH_TOUT        3
+#define ISENS_ARCH_TOUT        3000  // 3000 мс
 #define ARCH_READ_TOUT         30
 
 struct timer_list isArchTimer;
@@ -55,7 +55,7 @@ sISens iSens[ISENS_NUM] = {
 
 
 void isArchTout( uintptr_t arg ){
-  uint32_t tout = *((uint32_t *)arg) * TOUT_1000;
+  uint32_t tout = *((uint32_t *)arg);
   uspd.archWrFlag = SET;
   timerMod( &isArchTimer, tout );
 }
@@ -223,7 +223,6 @@ void isensInit( void ){
   gpioPinResetNow( &gpioPinSensOn );
 
   // ДЛЯ ТЕСТА
-  uspdCfg.arxTout = ISENS_ARCH_TOUT;
   timerSetup( &isArchTimer, isArchTout, (uintptr_t)&(uspdCfg.arxTout) );
   timerSetup( &archReadTimer, archReadTout, (uintptr_t)ARCH_READ_TOUT );
 }
@@ -245,7 +244,7 @@ void isensEnable( void ){
   }
 
   // --------------------- ДЛЯ ТЕСТА ----------------------------
-  timerMod( &isArchTimer, ISENS_ARCH_TOUT * TOUT_1000 );
+  timerMod( &isArchTimer, uspdCfg.arxTout );
   timerMod( &archReadTimer, ARCH_READ_TOUT * TOUT_1000 );
 }
 

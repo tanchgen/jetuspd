@@ -70,11 +70,10 @@ int gsmSendCommand(char *command, char *reply, uint16_t delay, void (*simreplycb
 
   simHnd.rxh->replyCb = simreplycb;
 
-  simHnd.txh->data = (uint8_t*)command;
   simHnd.rxh->reply = reply;
   simHnd.rxh->replyFlag = RESET;
   trace_write( command, strlen(command) );
-  if( uartTransmit(simHnd.txh, (uint16_t)strlen(command), 100) == 0 ){
+  if( uartTransmit(simHnd.txh, (uint8_t*)command, (uint16_t)strlen(command), 100) == 0 ){
     trace_puts( "uart err" );
   }
 
@@ -761,7 +760,7 @@ int ntpInit(void) {
     while( ntpFlag == RESET ){
 
       if( gsmSendCommand("AT+CNTP=\""NTP_SERVER"\",12\r\n", "OK\r\n", CMD_DELAY_5, NULL) == 0){;
-        if( gsmSendCommand("AT+CNTP\r\n", "+CNTP: 1\r\n", CMD_DELAY_50 * 10, NULL) == 0 ){
+        if( gsmSendCommand("AT+CNTP\r\n", "+CNTP: 1\r\n", CMD_DELAY_50 * 2, NULL) == 0 ){
           ntpFlag = SET;
         }
         else {

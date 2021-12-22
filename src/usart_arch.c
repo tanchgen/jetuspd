@@ -156,7 +156,8 @@ void DMA1_Channel2_IRQHandler( void ){
     DMA1->IFCR = DMA_IFCR_CTCIF2;
     if( (uint32_t)(simHnd.txh->data) & 0x20000000 ){
       // Память выделена из кучи
-      ta_free( simHnd.txh->data);
+      my_free( simHnd.txh->data);
+      simHnd.txh->data = NULL;
     }
   }
 }

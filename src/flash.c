@@ -487,8 +487,6 @@ uint16_t flashBuf_Write( sFlashDev * flash, logBuf_t* Buffer, sLogRec * pkt, uin
 
   if( wrFlag ){
     flashBufSave( Buffer );
-    // Запись пошла - освобождаем выделенную память
-    ta_free(pkt);
   }
 
   /* Return number of elements written */
@@ -583,8 +581,7 @@ eLogBufType  flashWriteProbe( void ){
   if( logBuf_GetFull( &logWrBuffer) == 0 ){
     return rc;
   }
-
-  if( (flashDev.rec = ta_alloc(sizeof(sLogRec))) == NULL ){
+  if( (flashDev.rec = my_alloc(sizeof(sLogRec))) == NULL ){
     ErrHandler( NON_STOP );
     return rc;
   }
@@ -666,7 +663,7 @@ void flashProcess( void ){
       }
 
       if( flashBuf_Write( &flashDev, buf, flashDev.rec, flashDev.quant ) == flashDev.quant ){
-        ta_free( flashDev.rec );
+        my_free( flashDev.rec );
       }
       break;
     }

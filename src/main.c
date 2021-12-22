@@ -70,10 +70,10 @@ int main(void) {
     // Запускаем watchdog на случай зависания прошивки
 //    Check_IWDG_Reset();
 //    Configure_IWDG();
-    SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
-    gsmState = GSM_WORK;
-    SIM800.mqttServer.mqttconn = SET;
-    SIM800.mqttServer.tcpconn = SET;
+//    SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
+//    gsmState = GSM_WORK;
+//    SIM800.mqttServer.mqttconn = SET;
+//    SIM800.mqttServer.tcpconn = SET;
   /* USER CODE END 2 */
 
   /* Infinite loop */

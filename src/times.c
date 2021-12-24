@@ -707,6 +707,8 @@ void SysTick_Handler(void){
 
 	// Нужно проверять регулярно и достаточно часто
 	uartRxClock( simHnd.rxh );
+  uartTxClock( simHnd.txh );
+
 }
 
 /**

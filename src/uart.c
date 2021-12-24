@@ -157,43 +157,61 @@ void uartRxClock(sUartRxHandle *handle){
 
 
 /**
-  * @brief  Передача данных по интерфейсу UART.
+  * @brief  Постановка в очередь на передачу данных по интерфейсу UART.
   *
   * @param[in]  sUartTxHandle  дескриптор интерфейса UART TX
-  * @param[in]  frame_ctx Указатель на дескриптор frame_ctx
+  * @param[in]  buf Указатель на буфер данных
+  * @param[in]  size Размер буфера данных
   *
   * @retval количество отправленных на передачу байт данных
   */
-uint16_t uartTransmit( sUartTxHandle * handle, uint8_t * buf, uint32_t size, uint32_t tout ){
+uint16_t uartSend( sUartTxHandle * handle, uint8_t * buf, size_t size ){
+  sTxnode * txnode;
+
+  if(size == 0){
+    return size;
+  }
+
+  if( (txnode = ta_alloc( sizeof(sTxnode)) ) == NULL ){
+    ErrHandler( NON_STOP );
+    return 0;
+  }
+
+  trace_printf( "a_node_%x\n", txnode );
+
+  txnode->txbuf = buf;
+  txnode->size = size;
+
+  __disable_irq();
+  list_add_tail(&txnode->node, &handle->queue);
+  __enable_irq();
+
+  return size;
+}
+
+
+/**
+  * @brief  Передача данных по интерфейсу UART.
+  *
+  * @param[in]  sUartTxHandle  дескриптор интерфейса UART TX
+  * @param[in]  txnode Указатель на нод буфера данных
+  *
+  * @retval количество отправленных на передачу байт данных
+  */
+uint16_t uartTransmit( sUartTxHandle * handle, sTxnode * txnode ){
   /*
    * In order to reload a new number of data items to be transferred
    * into the DMA_CNDTRx register, the DMA channel must be disabled.
    */
-  uint32_t tmptick = mTick + tout;
-  while( (handle->uart->SR & USART_SR_TC) == RESET ){
-    if( tmptick < mTick ){
-      return 0;
-    }
-  }
 
-  if( (uint32_t)(buf) & 0x20000000 ){
-    if( (simHnd.txh->data = my_alloc( size )) == NULL ){
-      ErrHandler( NON_STOP );
-      return 0;
-    }
-
-    memcpy( simHnd.txh->data, buf, size );
-  }
-  else {
-    simHnd.txh->data = buf;
-  }
+  handle->data = txnode->txbuf;
 
   // Выключаем UART_TX
   handle->uart->CR3 &= ~USART_CR3_DMAT;
   handle->dma_tx_channel->CCR &= ~DMA_CCR_EN;
   handle->dma_tx_channel->CMAR = (uint32_t)handle->data;
   /* Укажем число передаваемых байт. */
-  handle->dma_tx_channel->CNDTR = size;
+  handle->dma_tx_channel->CNDTR = txnode->size;
   handle->dma_tx->IFCR = handle->dma_tx_it_tcif;
   /* Clear the TC bit in the SR register by writing 0 to it. */
   handle->uart->SR &= ~USART_SR_TC;
@@ -201,7 +219,27 @@ uint16_t uartTransmit( sUartTxHandle * handle, uint8_t * buf, uint32_t size, uin
   handle->dma_tx_channel->CCR |= DMA_CCR_EN;
   handle->uart->CR3 |= USART_CR3_DMAT;
 
-  return size;
+  return txnode->size;
+}
+
+
+void uartTxClock(sUartTxHandle *handle ){
+
+  sTxnode * tx_node;
+
+  if( (handle->uart->SR & USART_SR_TC) == RESET ){
+    // Интерфейс НЕ свободен на передачу
+    return;
+  }
+
+  tx_node = list_empty(&handle->queue) ? NULL : list_first_entry(&handle->queue, sTxnode, node);
+
+  if( tx_node != NULL ){
+    uartTransmit( handle, tx_node );
+    list_del( &(tx_node->node) );
+    trace_printf( "f_node_%x\n", tx_node );
+    ta_free( tx_node );
+  }
 }
 
 
@@ -358,7 +396,6 @@ void uartDmaInit( sUartRxHandle * rxuart, sUartTxHandle * txuart ){
 
 void init_uart_tx_handle(sUartTxHandle *handle){
   INIT_LIST_HEAD(&handle->queue);
-  handle->id = 0;
 }
 
 /**
@@ -414,6 +451,4 @@ void uartIfaceInit( sUartTxHandle * txhandle, sUartRxHandle * rxhandle, eUartId 
   rxhandle->frame_offset = 0;
 
   uartDmaInit( rxhandle, txhandle );
-
-  txhandle->enBitMask = uartInitDesc[uartid].enBitMask;
 }

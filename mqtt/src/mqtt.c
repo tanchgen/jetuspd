@@ -116,7 +116,8 @@ FlagStatus cfgoPubFunc( void ){
       ErrHandler( NON_STOP );
     }
     // Передали на отправку в UART. Удачно-нет - освобождаем;
-    my_free( cfgomsg );
+    trace_printf( "f_cfgo_%x\n", cfgomsg );
+    ta_free( cfgomsg );
   }
 
   return rc;

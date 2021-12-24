@@ -581,10 +581,12 @@ eLogBufType  flashWriteProbe( void ){
   if( logBuf_GetFull( &logWrBuffer) == 0 ){
     return rc;
   }
-  if( (flashDev.rec = my_alloc(sizeof(sLogRec))) == NULL ){
+  if( (flashDev.rec = ta_alloc(sizeof(sLogRec))) == NULL ){
     ErrHandler( NON_STOP );
     return rc;
   }
+
+  trace_printf( "a_flash_%x\n", flashDev.rec );
 
   logBuf_Read( &logWrBuffer, flashDev.rec, 1 );
   flashDev.quant = 1;
@@ -663,7 +665,8 @@ void flashProcess( void ){
       }
 
       if( flashBuf_Write( &flashDev, buf, flashDev.rec, flashDev.quant ) == flashDev.quant ){
-        my_free( flashDev.rec );
+        trace_printf( "f_flash_%x\n", flashDev.rec );
+        ta_free( flashDev.rec );
       }
       break;
     }

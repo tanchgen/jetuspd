@@ -99,9 +99,11 @@ int simPinEnter( char * pin, char * newpin ){
     return -1;
   }
 
-  if( (str = my_alloc( 20 )) == NULL ){
+  if( (str = ta_alloc( 20 )) == NULL ){
     return -1;
   }
+
+  trace_printf( "a_buf_%x\n", str );
 
   memcpy( str, "AT+CPIN=", 8 );
   memcpy(str+8, pin, 4);

@@ -159,7 +159,8 @@ void DMA1_Channel2_IRQHandler( void ){
     if( (simHnd.txh->data >= tallocArray)
         && (simHnd.txh->data <= (tallocArray + ARRAY_SIZE(tallocArray))) ){
       // Память выделена из кучи
-      my_free( simHnd.txh->data);
+      trace_printf( "f_buf_%x\n", simHnd.txh->data );
+      ta_free( simHnd.txh->data);
     }
   }
 }

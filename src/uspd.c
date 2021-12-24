@@ -142,10 +142,12 @@ char * cfgoMsgCreate( void ){
   char * msg;
   char calStr[21];
 
-  if( (msg = my_alloc(1024)) == NULL ){
+  if( (msg = ta_alloc(1024)) == NULL ){
     ErrHandler( NON_STOP );
     return NULL;
   }
+
+  trace_printf( "a_cfgo_%x\n", msg );
 
   calStrCreate( calStr, &(uspdCfg.arxCalend) );
 

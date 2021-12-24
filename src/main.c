@@ -1,6 +1,6 @@
 /* Includes ------------------------------------------------------------------*/
-#include <gsm.h>
-#include <ifaces.h>
+#include "gsm.h"
+#include "ifaces.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,8 +15,6 @@
 #include "logger.h"
 
 /* Private typedef -----------------------------------------------------------*/
-#define TALLOC_ARRAY_SIZE   8192
-
 uint8_t tallocArray[TALLOC_ARRAY_SIZE] __aligned(4);
 
 /* Private define ------------------------------------------------------------*/

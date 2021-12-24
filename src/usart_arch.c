@@ -10,6 +10,8 @@
 #include "usart_arch.h"
 //#include "arch_mco.h"
 
+extern uint8_t tallocArray[TALLOC_ARRAY_SIZE] __aligned(4);
+
 const uint32_t baudrate[BAUD_NUM] = {
   9600,
   19200,
@@ -154,10 +156,10 @@ void DMA1_Channel3_IRQHandler( void ){
 void DMA1_Channel2_IRQHandler( void ){
   if( (DMA1->ISR & DMA_ISR_TCIF2) != RESET ) {
     DMA1->IFCR = DMA_IFCR_CTCIF2;
-    if( (uint32_t)(simHnd.txh->data) & 0x20000000 ){
+    if( (simHnd.txh->data >= tallocArray)
+        && (simHnd.txh->data <= (tallocArray + ARRAY_SIZE(tallocArray))) ){
       // Память выделена из кучи
       my_free( simHnd.txh->data);
-      simHnd.txh->data = NULL;
     }
   }
 }
@@ -216,7 +218,6 @@ void simUartInit( void ) {
   RCC->AHBENR |= RCC_AHBENR_DMA1EN;
 
   uartIfaceInit( &simUartTxHandle, &simUartRxHandle, UART_ID_SIM );
-  NVIC_SetPriority( DMA1_Channel3_IRQn, 1 );
   timerSetup( &simEnTimer, uartEnTimeout, (uintptr_t)&simHnd );
 
 }

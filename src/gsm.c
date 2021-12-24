@@ -73,7 +73,7 @@ int gsmSendCommand(char *command, char *reply, uint16_t delay, void (*simreplycb
   simHnd.rxh->reply = reply;
   simHnd.rxh->replyFlag = RESET;
   trace_write( command, strlen(command) );
-  if( uartTransmit(simHnd.txh, (uint8_t*)command, (uint16_t)strlen(command), 100) == 0 ){
+  if( uartSend(simHnd.txh, (uint8_t*)command, (uint16_t)strlen(command) ) == 0 ){
     trace_puts( "uart err" );
   }
 
@@ -93,12 +93,17 @@ int gsmSendCommand(char *command, char *reply, uint16_t delay, void (*simreplycb
 
 // Ввод/смена PIN-кода
 int simPinEnter( char * pin, char * newpin ){
-  char str[20] = "AT+CPIN=";
+  char * str;
 
   if( pin == NULL ){
     return -1;
   }
 
+  if( (str = my_alloc( 20 )) == NULL ){
+    return -1;
+  }
+
+  memcpy( str, "AT+CPIN=", 8 );
   memcpy(str+8, pin, 4);
 
   if( newpin != NULL ){
@@ -308,7 +313,7 @@ void gsmInitFunc( void ){
         }
 
         if( SIM800.sim.ready != SIM_GSM_READY ){
-          tmpTick = ( simReadyProcess() != 0 )? mTick + 100 : mTick + 300;
+          tmpTick = ( simReadyProcess() != 0 )? mTick + 500 : mTick + 1000;
         }
         else {
           if( simImeiProcess() != 0 ){

@@ -105,25 +105,20 @@ typedef struct {
 
   /** Очередь пакетов на передачу. */
   struct list_head  queue;
-  /** Нод списка интерфейсов */
-  struct list_head ifNode;
-  /** Флаг обновления данных */
-  FlagStatus txNew;
 
-  /** ИД исходящего пакета */
-  uint16_t id;
-  // Флаг прямой передачи данных
-  FlagStatus rawTx;
+//  /** ИД исходящего пакета */
+//  uint16_t id;
+//  // Флаг прямой передачи данных
+//  FlagStatus rawTx;
+//
+//  /** Текущее смещение данных относительно начала пакета. */
+//  size_t  frame_offset;
+//  /** Текущее значение CRC. */
+//  uint16_t  crc;
+//  /** Текущее значение CRC. */
+//  uint16_t  crc2;
 
-  /** Текущее смещение данных относительно начала пакета. */
-  size_t  frame_offset;
-  /** Текущее значение CRC. */
-  uint16_t  crc;
-  /** Текущее значение CRC. */
-  uint16_t  crc2;
-  /** Флаг активного интерфейса */
-  uint16_t enBitMask;
-  uint8_t uartTest;    // Флаг тестирования UART (отправка пустого пакета - прием эха)
+//  FlagStatus txEnd;
 
   /** Данные на передачу. */
   uint8_t * data;
@@ -186,6 +181,12 @@ typedef struct {
   sUartRxHandle  * rxh;
   sUartTxHandle  * txh;
 } sUartHnd;
+
+typedef struct {
+  struct list_head  node;    /**< Точка включения в очередь пакетов USART. */
+  uint8_t * txbuf;
+  size_t size;
+} sTxnode;
 
 
 /**
@@ -279,8 +280,9 @@ void uartDisable( sUartRxHandle *rxuart, sUartTxHandle *txuart );
  */
 void uartDmaInit( sUartRxHandle * rxuart, sUartTxHandle * txuart );
 void uartRxClock(sUartRxHandle *handle);
-void uartTxClock(sUartTxHandle *handle, sUartRxHandle *rxHandle);
-uint16_t uartTransmit( sUartTxHandle * handle, uint8_t * buf, uint32_t size, uint32_t tout );
+void uartTxClock(sUartTxHandle *handle );
+uint16_t uartTransmit( sUartTxHandle * handle, sTxnode * txnode );
+uint16_t uartSend( sUartTxHandle * handle, uint8_t * buf, size_t size );
 
 #endif /* _USART_H */
 

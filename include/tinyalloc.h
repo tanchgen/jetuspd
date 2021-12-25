@@ -14,4 +14,4 @@ size_t ta_num_fresh();
 bool ta_check();
 
 void * my_alloc( size_t num );
-bool my_free( void * ptr );
+void my_free( void * ptr );

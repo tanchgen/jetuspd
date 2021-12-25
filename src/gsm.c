@@ -99,7 +99,7 @@ int simPinEnter( char * pin, char * newpin ){
     return -1;
   }
 
-  if( (str = ta_alloc( 20 )) == NULL ){
+  if( (str = my_alloc( 20 )) == NULL ){
     return -1;
   }
 
@@ -150,14 +150,15 @@ int simReadyProcess( void ){
     case SIM_PIN_READY:
       simHnd.rxh->replyBuf = mqtt_buffer;
       *mqtt_buffer = '\0';
+      mDelay(1000);
       if( gsmSendCommand("AT+CREG?\r\n", "+CREG:", CMD_DELAY_10, saveSimReply ) == 0 ){
         if( mqtt_buffer[9] == '1' ){
           SIM800.sim.ready = SIM_GSM_READY;
         }
-        else if( mqtt_buffer[9] == '3' ){
-          gsmStRestart = GSM_OFF;
-          gsmRun = RESET;
-        }
+//        else if( mqtt_buffer[9] == '3' ){
+//          gsmStRestart = GSM_OFF;
+//          gsmRun = RESET;
+//        }
         else {
           return -1;
         }

@@ -14,8 +14,12 @@
 #include "uspd.h"
 #include "logger.h"
 
+
+extern char _Heap_Begin; // Defined by the linker.
+extern char _Heap_Limit; // Defined by the linker.
+
 /* Private typedef -----------------------------------------------------------*/
-uint8_t tallocArray[TALLOC_ARRAY_SIZE] __aligned(4);
+//uint8_t tallocArray[TALLOC_ARRAY_SIZE] __aligned(4);
 
 /* Private define ------------------------------------------------------------*/
 
@@ -44,7 +48,7 @@ void Check_IWDG_Reset(void);
 int main(void) {
 
   // Tiny memory allocated init
-  ta_init( tallocArray, tallocArray+TALLOC_ARRAY_SIZE, 256, 16, sizeof(int) );
+//  ta_init( tallocArray, tallocArray+TALLOC_ARRAY_SIZE, 256, 16, sizeof(int) );
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
@@ -62,7 +66,6 @@ int main(void) {
 //  flashHwTest();
 
   trace_puts("Hello USPD!");
-
   gsmRunPhase = PHASE_NON;
 
     // Запускаем watchdog на случай зависания прошивки

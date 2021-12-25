@@ -98,7 +98,7 @@ void connectSimReply( sUartRxHandle * handle ){
  */
 void MQTT_Disconnect(void) {
   uint8_t * buf;
-  if( (buf = ta_alloc( 4 )) == NULL ){
+  if( (buf = my_alloc( 4 )) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -139,7 +139,7 @@ int TCP_Connect(void) {
   SIM800.mqttServer.mqttconn = 0;
   char * str;
 
-  if((str = ta_alloc( 256 )) == NULL ){
+  if((str = my_alloc( 256 )) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -168,7 +168,7 @@ void MQTT_Connect(void) {
   datas.cleansession = 1;
   mqtt_len = MQTTSerialize_connect(buf, sizeof(buf), &datas);
 
-  if( (bf = ta_alloc( mqtt_len)) == NULL ){
+  if( (bf = my_alloc( mqtt_len)) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -191,7 +191,7 @@ uint16_t MQTT_Pub(const char *topic, char *payload, enum QoS qos, uint16_t pktid
   topicString.cstring = topic;
   uint8_t * buf;
 
-  if( (buf = ta_alloc(len) ) == NULL ){
+  if( (buf = my_alloc(len) ) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -219,7 +219,7 @@ uint16_t MQTT_Puback(  unsigned short packetid ){
   uint16_t rc = 0;
   uint8_t * buf;
 
-  if( (buf = ta_alloc( 4 ) ) == NULL ){
+  if( (buf = my_alloc( 4 ) ) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -242,7 +242,7 @@ uint16_t MQTT_Pubrec(  unsigned short packetid ){
   uint16_t rc = 0;
   uint8_t * buf;
 
-  if( (buf = ta_alloc( 4 ) ) == NULL ){
+  if( (buf = my_alloc( 4 ) ) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -265,7 +265,7 @@ uint16_t MQTT_Pubrel(  unsigned short packetid ){
   uint16_t rc = 0;
   uint8_t * buf;
 
-  if( (buf = ta_alloc( 4 ) ) == NULL ){
+  if( (buf = my_alloc( 4 ) ) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -289,7 +289,7 @@ uint16_t MQTT_Pubcomp(  unsigned short packetid ){
   uint16_t rc = 0;
   uint8_t * buf;
 
-  if( (buf = ta_alloc( 4 ) ) == NULL ){
+  if( (buf = my_alloc( 4 ) ) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -310,7 +310,7 @@ uint16_t MQTT_Pubcomp(  unsigned short packetid ){
 void MQTT_PingReq(void){
   uint8_t * buf;
 
-  if( (buf = ta_alloc( 16 ) ) == NULL ){
+  if( (buf = my_alloc( 16 ) ) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -330,7 +330,7 @@ void MQTT_Sub( char const *topic, uint8_t qos){
   MQTTString topicString = MQTTString_initializer;
   topicString.cstring = topic;
 
-  if( (buf = ta_alloc( 256 )) == NULL ){
+  if( (buf = my_alloc( 256 )) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {

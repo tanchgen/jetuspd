@@ -10,7 +10,10 @@
 #include "usart_arch.h"
 //#include "arch_mco.h"
 
-extern uint8_t tallocArray[TALLOC_ARRAY_SIZE] __aligned(4);
+//extern uint8_t tallocArray[TALLOC_ARRAY_SIZE] __aligned(4);
+extern char _Heap_Begin; // Defined by the linker.
+extern char _Heap_Limit; // Defined by the linker.
+
 
 const uint32_t baudrate[BAUD_NUM] = {
   9600,
@@ -156,11 +159,11 @@ void DMA1_Channel3_IRQHandler( void ){
 void DMA1_Channel2_IRQHandler( void ){
   if( (DMA1->ISR & DMA_ISR_TCIF2) != RESET ) {
     DMA1->IFCR = DMA_IFCR_CTCIF2;
-    if( (simHnd.txh->data >= tallocArray)
-        && (simHnd.txh->data <= (tallocArray + ARRAY_SIZE(tallocArray))) ){
+    if( (simHnd.txh->data >= &_Heap_Begin)
+        && (simHnd.txh->data <= &_Heap_Limit) ){
       // Память выделена из кучи
       trace_printf( "f_buf_%x\n", simHnd.txh->data );
-      ta_free( simHnd.txh->data);
+      my_free( simHnd.txh->data);
     }
   }
 }

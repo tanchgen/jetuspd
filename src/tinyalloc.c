@@ -1,6 +1,7 @@
 #include "diag/trace.h"
 #include "tinyalloc.h"
 #include <stdint.h>
+#include <stdlib.h>
 
 #ifdef TA_DEBUG
 extern void print_s(char *);
@@ -275,15 +276,15 @@ bool ta_check() {
 void * my_alloc( size_t num ){
   void * ptr;
 
-  ptr = ta_alloc( num );
-  trace_printf( "a_%x\n", ptr );
+  ptr = malloc( num );
+//  trace_printf( "a_%x\n", ptr );
 
   return ptr;
 }
 
-bool my_free( void * ptr ){
-  trace_printf( "f_%x\n", ptr );
+void my_free( void * ptr ){
+//  trace_printf( "f_%x\n", ptr );
 
-  return ta_free( ptr );
+  free( ptr );
 }
 

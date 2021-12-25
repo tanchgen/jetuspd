@@ -9,6 +9,6 @@
 #define MY_NTP_H_
 
 
-#define NTP_SERVER    "3.pool.ntp.org"
+#define NTP_SERVER    "2.pool.ntp.org"
 
 #endif /* MY_NTP_H_ */

@@ -117,7 +117,7 @@ FlagStatus cfgoPubFunc( void ){
     }
     // Передали на отправку в UART. Удачно-нет - освобождаем;
     trace_printf( "f_cfgo_%x\n", cfgomsg );
-    ta_free( cfgomsg );
+    my_free( cfgomsg );
   }
 
   return rc;
@@ -234,6 +234,7 @@ int archPubFunc( void ){
         return 0;
       }
     }
+    mDelay(1000);
   }
   else if( (quant = logBuf_Read( &logRdEvntBuffer, rec, 1)) ){
     if( (rec[0].devid > DEVID_ISENS_4) && (rec[0].devid < DEVID_NUM) ) {
@@ -634,6 +635,9 @@ void mqttPubProc( uPubFlags * pubfl ){
   }
   else if( pubfl->uspdAnnounce ){
     pubfl->uspdAnnounce = uspdAnnouncePub();      // Если успешно - флаг сбрасываем
+//    if( (pubfl->uspdAnnounce = uspdAnnouncePub()) == RESET ){      // Если успешно - флаг сбрасываем
+//      uspdCfg.updateFlag = SET;
+//    }
   }
   else if( pubfl->archPub ){
     int8_t num;       // Количество публикаций из Архива

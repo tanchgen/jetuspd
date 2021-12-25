@@ -772,6 +772,7 @@ int ntpInit(void) {
           ntpFlag = SET;
         }
         else {
+          ntpFlag = SET;
           ErrHandler( NON_STOP );
         }
       }

@@ -62,7 +62,7 @@ sUspdCfg uspdCfg = {
    }
   },
 
-  .mqttHost = "test.mosquitto.org",
+  .mqttHost = "broker.hivemq.com",
   .mqttPort = 1883,
   .mqttUser = "",
   .mqttPass = "",

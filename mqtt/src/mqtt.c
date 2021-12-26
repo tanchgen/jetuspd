@@ -420,10 +420,10 @@ void mqttInit(void) {
 //    char str[32] = {0};
 
     // MQQT settings
-    SIM800.sim.apn = "internet";
+    SIM800.sim.apn = "internet.tele2.ru";
     SIM800.sim.apn_user = "";
     SIM800.sim.apn_pass = "";
-    SIM800.mqttServer.host = "test.mosquitto.org";
+    SIM800.mqttServer.host = "broker.hivemq.com";
     SIM800.mqttServer.port = 1883;
     SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
     SIM800.mqttClient.username = NULL;

@@ -104,6 +104,7 @@ void uartRxClock(sUartRxHandle *handle){
   uint8_t crc = 0;
   uint8_t byte;
   FlagStatus oldhalf = handle->half;
+  FlagStatus zero;
 
   MAYBE_BUILD_BUG_ON(sizeof(handle->crc) < sizeof(crc));
 
@@ -113,7 +114,7 @@ void uartRxClock(sUartRxHandle *handle){
 
   handle->head = (USART_RX_RINGBUFFER_SIZE - handle->dma_rx_channel->CNDTR);
   /* Определим заполненность буфера. */
-  n_bytes = handle->head - handle->tail;
+  zero = n_bytes = handle->head - handle->tail;
 
   if ((ptrdiff_t)n_bytes < 0){
     n_bytes += USART_RX_RINGBUFFER_SIZE;
@@ -145,11 +146,11 @@ void uartRxClock(sUartRxHandle *handle){
   /* Обработали все. Освобождаем буфер пакета. */
 //  assert_param( handle->tail == handle->head );
   handle->half = handle->tail / (USART_RX_RINGBUFFER_SIZE / 2);
-  if( ((handle->dma_rx_channel->CCR & DMA_CCR_EN) == RESET)
-      && (oldhalf != handle->half) )
-  {
-    // Half сменился - можно запускать опять
-    handle->dma_rx_channel->CCR |= DMA_CCR_EN;
+  if( (handle->dma_rx_channel->CCR & DMA_CCR_EN) == RESET ){
+    if( (oldhalf != handle->half) || !zero ) {
+      // Half сменился - можно запускать опять
+      handle->dma_rx_channel->CCR |= DMA_CCR_EN;
+    }
   }
 
   return;

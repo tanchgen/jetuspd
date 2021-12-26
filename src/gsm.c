@@ -518,9 +518,9 @@ int simStartInit(void) {
     if( SIM800_SendCommand("AT+IFC=2,2\r\n", "OK\r\n", CMD_DELAY_2, NULL ) == 0){
       simUartHwFlow();
     }
-//    if( baud != BAUD_460800 ){
-//      if( SIM800_SendCommand("AT+IPR=460800\r\n", "OK\r\n", CMD_DELAY_2) == 0){
-//        simUartBaud(460800);
+//    if( baud != BAUD_115200 ){
+//      if( SIM800_SendCommand("AT+IPR=115200\r\n", "OK\r\n", CMD_DELAY_2, NULL ) == 0){
+//        simUartBaud(115200);
 //      }
 //    }
 

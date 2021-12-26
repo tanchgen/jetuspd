@@ -488,7 +488,12 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
             }
           }
 
-          sim->mqttReceive.topicId = subList[tp].tpid;
+          if( tp >= ARRAY_SIZE(subList)){
+            sim->mqttReceive.topicId = TOPIC_NUM;
+          }
+          else {
+            sim->mqttReceive.topicId = subList[tp].tpid;
+          }
           len0 -= size;
           msgptr += size;
           if( sim->mqttReceive.qos ){
@@ -527,7 +532,7 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
           // Учтем размер поля topicLen
           sim->mqttReceive.payloadLen = sim->mqttReceive.remLen - 2 - sim->mqttReceive.topicLen;
         }
-
+        trace_printf("paylen: %lu\n", sim->mqttReceive.payloadLen );
         if( sim->mqttReceive.payloadLen == 0 ){
           goto msg_reset;
         }

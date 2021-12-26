@@ -204,6 +204,7 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
             // Очистим буфер
             mqttBufClean( rxh, &SIM800 );
             mqttrx->payloadLen = fwup->fwLen - fwup->fwOffset;
+            trace_printf( "fwOff: %lu\n", fwup->fwOffset );
           }
         }
       }

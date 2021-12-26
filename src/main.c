@@ -15,9 +15,6 @@
 #include "logger.h"
 
 
-extern char _Heap_Begin; // Defined by the linker.
-extern char _Heap_Limit; // Defined by the linker.
-
 /* Private typedef -----------------------------------------------------------*/
 //uint8_t tallocArray[TALLOC_ARRAY_SIZE] __aligned(4);
 

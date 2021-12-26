@@ -746,9 +746,18 @@ int gprsConnBreak( void ){
 
 
 int gprsConn( void ){
+  char * str;
+
   gsmSendCommand("AT+SAPBR=3,1,\"Contype\",\"GPRS\"\r\n", "OK\r\n", CMD_DELAY_5, NULL );
 //  mDelay( 2000 );
-  gsmSendCommand("AT+SAPBR=3,1,\"APN\",\"internet\"\r\n", "OK\r\n", CMD_DELAY_5, NULL);
+  if((str = my_alloc( 256 )) == NULL ){
+    ErrHandler( NON_STOP );
+  }
+  else {
+    sprintf(str, "AT+SAPBR=3,1,\"APN\",\"%s\"\r\n", SIM800.sim.apn);
+    trace_printf( "a_buf_%x\n", str );
+    gsmSendCommand(str, "OK\r\n", CMD_DELAY_5, NULL);
+  }
 //  mDelay( 2000 );
 
   if( gsmSendCommand("AT+SAPBR=1,1\r\n", "OK\r\n", CMD_DELAY_50, NULL) == 0){

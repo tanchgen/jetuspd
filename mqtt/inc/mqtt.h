@@ -184,6 +184,7 @@ static inline void mqttMsgReset( sUartRxHandle *handle, SIM800_t * sim ){
   handle->frame_offset = 0;
   handle->rxProcFlag = RESET;
   sim->mqttReceive.msgState = MSG_NULL;
+  sim->mqttReceive.payloadLen = 0;
 }
 
 #endif /* MQTT_H_ */

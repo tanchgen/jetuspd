@@ -712,6 +712,14 @@ void mqttProcess( void ){
     return;
   }
 
+  // Обработка принятых сообщений
+  mqttPubRecvProc( simHnd.rxh );
+
+  if( SIM800.mqttReceive.payloadLen ){
+    // Принимаем сообщение.
+    return;
+  }
+
   pubfl = &(SIM800.mqttClient.pubFlags);
   if( (SIM800.mqttClient.pubReady < 4) && pubfl->u16pubFlags ){
     mqttPubProc( pubfl );
@@ -722,9 +730,6 @@ void mqttProcess( void ){
     MQTT_PingReq();
     timerMod( &mqttPingTimer, MQTT_PUB_TOUT );
   }
-
-  // Обработка принятых сообщений
-  mqttPubRecvProc( simHnd.rxh );
 
 
 // ----------------- ISENS PUBLIC -------------------------------------------

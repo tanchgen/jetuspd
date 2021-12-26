@@ -14,12 +14,6 @@
 #include "mqtt.h"
 
 
-//uint8_t rx_data = 0;
-//uint8_t rx_buffer[1460] = {0};
-uint16_t rx_index = 0;
-
-//uint8_t mqtt_receive = 0;
-
 #define MQTT_BUF_SIZE   1460
 char mqtt_buffer[MQTT_BUF_SIZE] = {0};
 uint16_t mqtt_index = 0;

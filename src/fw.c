@@ -230,6 +230,14 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
         stmEeWrite( (uint32_t)&(eeFwh->fw[fwact]), (uint32_t*)&tmpfw, sizeof(sFw) );
         fwup->fwUpOk = SET;
         // Перезагрузка после отправки пакета PUBCOMP
+        if( fwHandle.fwUp.fwUpOk ){
+          // TODO: Запуск выключения и перезагрузки
+          mDelay(50);
+          gsmStRestart = GSM_OFF;
+          mcuReset = SET;
+          gsmRun = RESET;
+        }
+
       }
       else {
         fwup->crc = 0;

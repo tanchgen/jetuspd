@@ -159,8 +159,8 @@ void DMA1_Channel3_IRQHandler( void ){
 void DMA1_Channel2_IRQHandler( void ){
   if( (DMA1->ISR & DMA_ISR_TCIF2) != RESET ) {
     DMA1->IFCR = DMA_IFCR_CTCIF2;
-    if( (simHnd.txh->data >= &_Heap_Begin)
-        && (simHnd.txh->data <= &_Heap_Limit) ){
+    if( (simHnd.txh->data >= (uint8_t *)&_Heap_Begin)
+        && (simHnd.txh->data <= (uint8_t *)&_Heap_Limit) ){
       // Память выделена из кучи
       trace_printf( "f_buf_%x\n", simHnd.txh->data );
       my_free( simHnd.txh->data);

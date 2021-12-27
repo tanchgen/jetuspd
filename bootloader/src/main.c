@@ -153,12 +153,22 @@ uint32_t fwAddrGet( void ){
       fw1Ver = tmpfw.fwVer;
       if( (fw1Ver < 0xFFFFFFFF) && (fw1Ver > 0) ){
         RTC->BKP1R = fw1Ver;
-        fwRunState.fwstate.fw1Bug = fwRunState.fwstate.fw1Count >= 3;
+//        fwRunState.fwstate.fw1Bug = fwRunState.fwstate.fw1Count >= 3;
       }
       else {
         // Некорректный номер версии
         return fwaddr;
       }
+    }
+    else if( (*(uint32_t *)FW_1_START_ADDR & 0xFFFF0000) == 0x20000000 ){
+      // Адрес вершины стека похож на правду
+      /* Номер версии хранится по последнему адресу области памяти,
+       * выделенной под прошивку
+       */
+      fw1Ver = 0x00000001;
+
+      RTC->BKP1R = fw1Ver;
+  //    fwRunState.fwstate.fw1Bug = fwRunState.fwstate.fw1Count >= 3;
     }
     else {
       // Прошивка FW_1 должна быть обязательно!
@@ -166,8 +176,9 @@ uint32_t fwAddrGet( void ){
     }
   }
   else {
-    fwRunState.fwstate.fw1Bug = fwRunState.fwstate.fw1Count >= 3;
+//    fwRunState.fwstate.fw1Bug = fwRunState.fwstate.fw1Count >= 3;
   }
+  fwRunState.fwstate.fw1Bug = fwRunState.fwstate.fw1Count >= 3;
 
   if( fwRunState.fwstate.fw1Bug ){
     // Прошивка #1 "плохая" !
@@ -214,7 +225,7 @@ uint32_t fwAddrGet( void ){
   }
 
 
-  if( fw1Ver && ((fw1Ver > fw2Ver) || (fw2Ver == 0)) ){
+  if( fw1Ver && ((fw1Ver >= fw2Ver) || (fw2Ver == 0)) ){
     fwRunState.fwstate.fw1Count++;
     fwaddr = FW_1_START_ADDR;
   }

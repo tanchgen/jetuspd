@@ -1,5 +1,6 @@
 /Debug
-/Bootloader/
-/FW_1/
-/FW_2/
+/FW_2
+/Bootloader
 /NoTrace/
+/FW_1/
+/LwIP/

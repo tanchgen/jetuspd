@@ -646,6 +646,37 @@ bool timerDel(struct timer_list *timer)
 	return true;
 }
 
+
+// Обработка стека таймеров для добавки
+void timerStack( struct timer_list *timer, uint32_t tout, eTimStack ts ){
+  static struct {
+    struct timer_list *timer;
+    uint32_t tout;
+    eTimStack ts;
+  } timPr[5];
+  static uint8_t timCount;
+
+  if( timer != NULL ){
+    // Добавляем таймер
+    timPr[timCount].timer = timer;
+    timPr[timCount].tout = tout;
+    timPr[timCount].ts = ts;
+    timCount++;
+  }
+  else {
+    for(; timCount; ){
+      timCount--;
+      if( timPr[timCount].ts == TIMER_MOD ){
+        timerMod( timPr[timCount].timer, timPr[timCount].tout );
+      }
+      else {
+        timerDel( timPr[timCount].timer );
+      }
+    }
+  }
+}
+
+
 /**
   * @brief Установка делителя "Prescaler" аппаратного таймера для нужной частоты счета
   *         Если делитель больше 0xFFFF, выставляется 0xFFFF и возвращается -1
@@ -727,6 +758,8 @@ void timersClock( void ){
 
 	if (time_after(mTick, _prev_jiffies)) {
 		_prev_jiffies = mTick;
+
+		timerStack( NULL, 0, 0 );
 
 		INIT_LIST_HEAD(&work_list);
 

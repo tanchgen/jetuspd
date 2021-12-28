@@ -14,6 +14,11 @@
 #include "uspd.h"
 #include "logger.h"
 
+#define VER_MAJOR     0x05
+#define VER_MINOR     0x01
+#define VER_RELEASE   0x0001
+
+#define FW_VERSION    ((VER_MAJOR<<24)|(VER_MINOR<<16)|(VER_RELEASE))
 
 /* Private typedef -----------------------------------------------------------*/
 //uint8_t tallocArray[TALLOC_ARRAY_SIZE] __aligned(4);
@@ -46,6 +51,7 @@ int main(void) {
 
   // Tiny memory allocated init
 //  ta_init( tallocArray, tallocArray+TALLOC_ARRAY_SIZE, 256, 16, sizeof(int) );
+//  (void)_fw_ver;
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();

@@ -11,6 +11,7 @@
 #include "mqtt.h"
 #include "eeprom.h"
 #include "gpio_arch.h"
+#include "usart_arch.h"
 #include "gsm.h"
 #include "fw.h"
 
@@ -32,6 +33,7 @@
 sFwHandle fwHandle;
 //uint32_t * pfa;
 //uint32_t fa;
+struct timer_list fwUpdTimer;
 
 //------------------- Function prototype -------------------------
 uint32_t ipaddr_addr(const char *cp);
@@ -42,12 +44,24 @@ uint32_t htonl(uint32_t n) ;
 // ---------------------------------------------------------------
 
 
+static void fwUpdTout( uintptr_t arg ){
+  (void)arg;
+
+  // Очистим буфер
+  mqttMsgReset( simHnd.rxh, &SIM800 );
+
+  gsmStRestart = GSM_OFF;
+  gsmRun = RESET;
+}
+
 void fwInit( void ){
   // Настройка CRC
   RCC->AHBENR |= RCC_AHBENR_CRCEN;
 
   // TODO: Настройка Флеш
   fwHandle.fwActive = SCB->VTOR > FW_2_START_ADDR;
+
+  timerSetup( &fwUpdTimer, fwUpdTout, (uintptr_t)NULL );
 }
 
 
@@ -228,6 +242,8 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
         tmpfw.good = SET;
         // Запишем данные новой прошивки на место неактивной
         stmEeWrite( (uint32_t)&(eeFwh->fw[fwact]), (uint32_t*)&tmpfw, sizeof(sFw) );
+        // Останавливаем таймер таймаута получения прошивки
+        timerDel( &fwUpdTimer );
         fwup->fwUpOk = SET;
         // Перезагрузка после отправки пакета PUBCOMP
       }

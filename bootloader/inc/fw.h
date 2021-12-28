@@ -10,8 +10,6 @@
 
 #include "sys/cdefs.h"
 #include "stm32l1xx.h"
-#include "eeprom.h"
-#include "mqtt.h"
 
 //#define FLASH_SIZE              (FLASH_END - FLASH_BASE + 1)
 #define BOOTLOADER_SIZE         ((uint32_t)0x2000)
@@ -24,7 +22,9 @@
 #define FW_2_END                (FW_2_START_ADDR + FW_2_SIZE - 1)
 #define FW_2_VER_ADDR           (FW_2_START_ADDR + FW_2_SIZE - 4)
 
-#define FW_HANDLE_ADDR_0       (EE_FW_HANDLE_ADDR_0 - FLASH_EEPROM_BASE)
+#define EE_FW_HANDLE_ADDR_0          (FLASH_EEPROM_BASE + 0x80)
+
+#define FW_HANDLE_ADDR_0       (0x80UL)
 
 #ifndef FLASH_PAGE_SIZE
 #define FLASH_PAGE_SIZE         (256U)
@@ -77,10 +77,5 @@ typedef struct {
   eFwNum fwActive;
   eFwFlashState fwFlashState;
 } sFwHandle;
-
-extern struct timer_list fwUpdTimer;
-
-void fwManProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx );
-void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx );
 
 #endif /* FW_H_ */

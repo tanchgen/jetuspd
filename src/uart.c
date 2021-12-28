@@ -173,7 +173,7 @@ uint16_t uartSend( sUartTxHandle * handle, uint8_t * buf, size_t size ){
     return size;
   }
 
-  if( (txnode = my_alloc( sizeof(sTxnode)) ) == NULL ){
+  if( (txnode = malloc( sizeof(sTxnode)) ) == NULL ){
     ErrHandler( NON_STOP );
     return 0;
   }

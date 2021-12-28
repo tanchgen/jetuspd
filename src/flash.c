@@ -581,7 +581,7 @@ eLogBufType  flashWriteProbe( void ){
   if( logBuf_GetFull( &logWrBuffer) == 0 ){
     return rc;
   }
-  if( (flashDev.rec = my_alloc(sizeof(sLogRec))) == NULL ){
+  if( (flashDev.rec = malloc(sizeof(sLogRec))) == NULL ){
     ErrHandler( NON_STOP );
     return rc;
   }

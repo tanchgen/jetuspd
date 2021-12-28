@@ -66,6 +66,8 @@ typedef struct {
     uint16_t * port;
     FlagStatus tcpconn;
     uint8_t mqttconn;
+    uint32_t disconnFlag;
+    uint32_t disconnTout;
 } mqttServer_t;
 
 typedef struct {

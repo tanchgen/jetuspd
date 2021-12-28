@@ -110,6 +110,8 @@ bool uartAddrTest( sUartRxHandle *handle );
 extern UART_HandleTypeDef simUart;
 extern UART_HandleTypeDef termUart;
 
+extern const sUartHnd simHnd;
+
 
 /**
   * @brief  Инициализация интерфейса UART.

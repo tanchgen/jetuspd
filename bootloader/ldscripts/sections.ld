@@ -60,7 +60,7 @@ PROVIDE ( _Main_Stack_Limit = __Main_Stack_Limit ) ;
  * There will be a link error if there is not this amount of 
  * RAM free at the end. 
  */
-_Minimum_Stack_Size = 512 ;
+_Minimum_Stack_Size = 256 ;
 
 /*
  * Default heap definitions.
@@ -71,11 +71,16 @@ PROVIDE ( _Heap_Begin = _end_noinit ) ;
 PROVIDE ( _Heap_Limit = __stack - __Main_Stack_Size ) ;
 
 /* 
+ * Номер версии прошивки расположен в самом конце флеш (места расположения прошивки)
+ */
+_fw_ver_addr = (ORIGIN(FLASH) + LENGTH(FLASH) - 4);
+
+
+/* 
  * The entry point is informative, for debuggers and simulators,
  * since the Cortex-M vector points to it anyway.
  */
 ENTRY(_start)
-
 
 /* Sections Definitions */
 
@@ -258,14 +263,6 @@ SECTIONS
    	} > FLASH
    	__exidx_end = .;
    	
-/************************** FW_VER_SECTION ****************************/
-   	.fw_ver_section (ORIGIN(FLASH) + LENGTH(FLASH) - 4):  ALIGN(4)
-   	{
-   		KEEP (*(.fw_ver_section))	
-   	}
-/************************** FW_VER_SECTION ****************************/
-  	
-
     . = ALIGN(4);
     _etext = .;
     __etext = .;

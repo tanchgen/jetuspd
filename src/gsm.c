@@ -18,7 +18,6 @@
 
 extern SIM800_t SIM800;
 extern const uint32_t baudrate[BAUD_NUM];
-extern const sUartHnd simHnd;
 
 static uint32_t tmpTick;
 
@@ -99,7 +98,7 @@ int simPinEnter( char * pin, char * newpin ){
     return -1;
   }
 
-  if( (str = my_alloc( 20 )) == NULL ){
+  if( (str = malloc( 20 )) == NULL ){
     return -1;
   }
 
@@ -750,7 +749,7 @@ int gprsConn( void ){
 
   gsmSendCommand("AT+SAPBR=3,1,\"Contype\",\"GPRS\"\r\n", "OK\r\n", CMD_DELAY_5, NULL );
 //  mDelay( 2000 );
-  if((str = my_alloc( 256 )) == NULL ){
+  if((str = malloc( 256 )) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {

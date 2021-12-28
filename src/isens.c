@@ -133,7 +133,7 @@ void ISENS_IRQHandler( void ){
 //    logger( tm, is + DEVID_PULSE_1, NULL, 0 );
   }
   else {
-    timerMod( &(iSens[is].dbTimer), ISENS_DB_TOUT );
+    timerStack( &(iSens[is].dbTimer), ISENS_DB_TOUT, TIMER_MOD );
   }
 }
 

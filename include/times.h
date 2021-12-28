@@ -73,6 +73,12 @@
 
 #define RTCCLOCK     32768
 
+
+typedef enum {
+  TIMER_DEL,
+  TIMER_MOD
+} eTimStack;
+
 typedef struct
 {
   uint32_t SYSCLK_Frequency;
@@ -272,6 +278,7 @@ static inline bool timerPending(const struct timer_list *timer){
   return (timer->entry.next != NULL);
 }
 
+void timerStack( struct timer_list *timer, uint32_t tout, eTimStack ts );
 
 uint8_t timPscSet( TIM_TypeDef * tim, uint32_t tim_frequency, uint16_t * psc);
 void timersClock( void );

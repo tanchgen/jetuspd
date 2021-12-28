@@ -242,28 +242,7 @@ void EXTI4_IRQHandler( void ){           // EXTI Line 4
 /**
   * @brief This function handles DMA1 channel1 global interrupt.
   */
-void USART3_IRQHandler(void)
-{
-  /* Overrun error interrupt. */
-  if( (USART3->SR & USART_SR_ORE) != RESET){
-    while( USART3->SR & USART_SR_RXNE ){
-      (void)USART3->DR;
-    }
-  }
-
-  /*
-   * Noise error interrupt and Framing error interrupt.
-   *
-   * The NE bit is reset by a USART_SR register read operation followed by a USART_DR
-   * register read operation.
-   *
-   * The FE bit is reset by a USART_SR register read operation followed by a USART_DR
-   * register read operation.
-   */
-  if( ((USART3->SR & USART_SR_NE) != RESET) || ((USART3->SR & USART_SR_FE) != RESET) ){
-    (void)USART3->DR;
-  }
-}
+//void USART3_IRQHandler(void) { while(1){} }
 
 
 /* USER CODE BEGIN 1 */

@@ -309,7 +309,7 @@ void mqttCtlProc( SIM800_t * sim ){
     case MQTT_SUBACK:
       // TODO: Сбросить таймер сообветствующей подписки
       sim->mqttClient.subCount++;
-      timerMod( &mqttSubTimer, 0 );
+      timerStack( &mqttSubTimer, 0, TIMER_MOD );
       trace_printf( "SUBACK: %d\n", pktid );
       break;
     case MQTT_PUBACK:
@@ -537,6 +537,10 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
           goto msg_reset;
         }
         else {
+          if( sim->mqttReceive.payloadLen > 1024 ){
+            // Это обновление прошивки - запускаем таймер таймаута получения прошивки
+            timerStack( &fwUpdTimer, TOUT_1000 * 120, TIMER_MOD );  // 2 минуты
+          }
           sim->mqttReceive.msgState = MSG_PAY_LEN;
         }
         break;
@@ -707,6 +711,16 @@ int mqttStart(void) {
 
 void mqttProcess( void ){
   uPubFlags * pubfl;
+
+  if( SIM800.mqttServer.disconnFlag && (SIM800.mqttServer.disconnTout < mTick)){
+    // Закрыто соединение TCP
+    SIM800.mqttServer.disconnFlag = RESET;
+    SIM800.mqttServer.tcpconn = 0;
+    SIM800.mqttServer.mqttconn = 0;
+    mqttConnectCb( SIM800.mqttServer.tcpconn );
+    // Получили и обработали строку - если и принимали что-то, но не до конца - все потеряли
+    mqttMsgReset( simHnd.rxh, &SIM800 );
+  }
 
   if(SIM800.mqttServer.mqttconn == RESET){
     return;

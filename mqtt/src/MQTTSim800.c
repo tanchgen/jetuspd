@@ -98,7 +98,7 @@ void connectSimReply( sUartRxHandle * handle ){
  */
 void MQTT_Disconnect(void) {
   uint8_t * buf;
-  if( (buf = my_alloc( 4 )) == NULL ){
+  if( (buf = malloc( 4 )) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -139,7 +139,7 @@ int TCP_Connect(void) {
   SIM800.mqttServer.mqttconn = 0;
   char * str;
 
-  if((str = my_alloc( 256 )) == NULL ){
+  if((str = malloc( 256 )) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -168,7 +168,7 @@ void MQTT_Connect(void) {
   datas.cleansession = 1;
   mqtt_len = MQTTSerialize_connect(buf, sizeof(buf), &datas);
 
-  if( (bf = my_alloc( mqtt_len)) == NULL ){
+  if( (bf = malloc( mqtt_len)) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -191,7 +191,7 @@ uint16_t MQTT_Pub(const char *topic, char *payload, enum QoS qos, uint16_t pktid
   topicString.cstring = topic;
   uint8_t * buf;
 
-  if( (buf = my_alloc(len) ) == NULL ){
+  if( (buf = malloc(len) ) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -219,7 +219,7 @@ uint16_t MQTT_Puback(  unsigned short packetid ){
   uint16_t rc = 0;
   uint8_t * buf;
 
-  if( (buf = my_alloc( 4 ) ) == NULL ){
+  if( (buf = malloc( 4 ) ) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -242,7 +242,7 @@ uint16_t MQTT_Pubrec(  unsigned short packetid ){
   uint16_t rc = 0;
   uint8_t * buf;
 
-  if( (buf = my_alloc( 4 ) ) == NULL ){
+  if( (buf = malloc( 4 ) ) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -265,7 +265,7 @@ uint16_t MQTT_Pubrel(  unsigned short packetid ){
   uint16_t rc = 0;
   uint8_t * buf;
 
-  if( (buf = my_alloc( 4 ) ) == NULL ){
+  if( (buf = malloc( 4 ) ) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -289,7 +289,7 @@ uint16_t MQTT_Pubcomp(  unsigned short packetid ){
   uint16_t rc = 0;
   uint8_t * buf;
 
-  if( (buf = my_alloc( 4 ) ) == NULL ){
+  if( (buf = malloc( 4 ) ) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -310,7 +310,7 @@ uint16_t MQTT_Pubcomp(  unsigned short packetid ){
 void MQTT_PingReq(void){
   uint8_t * buf;
 
-  if( (buf = my_alloc( 16 ) ) == NULL ){
+  if( (buf = malloc( 16 ) ) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -330,7 +330,7 @@ void MQTT_Sub( char const *topic, uint8_t qos){
   MQTTString topicString = MQTTString_initializer;
   topicString.cstring = topic;
 
-  if( (buf = my_alloc( 256 )) == NULL ){
+  if( (buf = malloc( 256 )) == NULL ){
     ErrHandler( NON_STOP );
   }
   else {
@@ -345,13 +345,13 @@ void MQTT_Sub( char const *topic, uint8_t qos){
 void mqttConnectCb( FlagStatus conn ){
   if( conn ){
     // Сначала подпишемся, потом там объявим о себе
-    timerMod( &mqttSubTimer, 0 );
+    timerStack( &mqttSubTimer, 0, TIMER_MOD );
     ledOff( LED_R, 0 );
   }
   else {
     mqttPingFlag = RESET;
     mqttSubFlag = RESET;
-    timerDel( &mqttSubTimer );
+    timerStack( &mqttSubTimer, 0, TIMER_DEL );
     // Две вспышки оранжевого цвета с интервалом в 3 сек
     ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, TOUT_3000, 2);
     ledToggleSet( LED_G, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, TOUT_3000, 2);
@@ -410,13 +410,13 @@ void simUartRxProc( sUartRxHandle * handle, uint8_t byte ){
           || strstr((char *)handle->rxFrame, "DEACT\r\n"))
       {
         // Нет соединения с MQTT-сервером
-        SIM800.mqttServer.tcpconn = 0;
-        SIM800.mqttServer.mqttconn = 0;
-        mqttConnectCb( SIM800.mqttServer.tcpconn );
-        // Получили и обработали строку - если и принимали что-то, но не до конца - все потеряли
-        mqttMsgReset( handle, &SIM800 );
+        SIM800.mqttServer.disconnFlag = SET;
+        SIM800.mqttServer.disconnTout = mTick + 30;
       }
       return;
+    }
+    else {
+      SIM800.mqttServer.disconnFlag = RESET;
     }
 
     // Пытаемся принять MQTT-сообщение

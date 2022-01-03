@@ -59,7 +59,7 @@ void fwInit( void ){
   RCC->AHBENR |= RCC_AHBENR_CRCEN;
 
   // TODO: Настройка Флеш
-  fwHandle.fwActive = SCB->VTOR > FW_2_START_ADDR;
+  fwHandle.fwActive = SCB->VTOR > FW_1_START_ADDR;
 
   timerSetup( &fwUpdTimer, fwUpdTout, (uintptr_t)NULL );
 }
@@ -155,7 +155,7 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
         // Сброс CRC
         CRC->CR = CRC_CR_RESET;
 
-        // Сотрем данные неактивной прошивке
+        // Сотрем данные неактивной прошивк
         stmEeWrite( (uint32_t)&(eeFwh->fw[!fwHandle.fwActive]), (uint32_t*)&tmpfw, sizeof(sFw) );
         // TODO: Запустим стирание флеш для новой прошивки
         /* Unlock the Flash to enable the flash control register access *************/
@@ -248,6 +248,7 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
         // Перезагрузка после отправки пакета PUBCOMP
       }
       else {
+        trace_printf("0x%08x", CRC->DR );
         fwup->crc = 0;
         fwup->fwLen = 0;
         fwup->fwVer = 0;

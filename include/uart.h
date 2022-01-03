@@ -76,7 +76,7 @@ __packed struct usart_rx_frame_v2 {
 };
 
 /** Размер приемного кольцевого буфера данных USART. */
-#define USART_RX_RINGBUFFER_SIZE      4096
+#define USART_RX_RINGBUFFER_SIZE      512
 /** Маска приемного кольцевого буфера данных USART. */
 #define USART_RX_RINGBUFFER_MASK  (USART_RX_RINGBUFFER_SIZE - 1)
 

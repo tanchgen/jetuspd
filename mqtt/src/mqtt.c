@@ -674,21 +674,20 @@ void mqttInit(void) {
     SIM800.mqttServer.mqttconn = RESET;
 //    char str[32] = {0};
 
-    // XXX: !!! Отключил для теста !!!
-//    rc = stmEeRead( USPD_CFG_ADDR + offsetof(sUspdCfg, updateFlag),
-//                    &(updflag), sizeof(uint32_t) );
-//    updflag &= 0x1;
-//    if( (rc == HAL_OK) && (updflag == SET) ){
-//      // Конфигурация от сервера сохранена - считываем конфиг полностью
-//      if( stmEeRead( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg) ) != HAL_OK ){
-//        // Конфиг не считался правильно - прерываемся
-//        uspdCfg.updateFlag = RESET;
-//        stmEeWrite( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg.updateFlag) );
-//        // Ждем watchdog
-//        while(1)
-//        {}
-//      }
-//    }
+    rc = stmEeRead( USPD_CFG_ADDR + offsetof(sUspdCfg, updateFlag),
+                    &(updflag), sizeof(uint32_t) );
+    updflag &= 0x1;
+    if( (rc == HAL_OK) && (updflag == SET) ){
+      // Конфигурация от сервера сохранена - считываем конфиг полностью
+      if( stmEeRead( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg) ) != HAL_OK ){
+        // Конфиг не считался правильно - прерываемся
+        uspdCfg.updateFlag = RESET;
+        stmEeWrite( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg.updateFlag) );
+        // Ждем watchdog
+        while(1)
+        {}
+      }
+    }
 
     // Настройки в соответствии с сохраненной конфигурацией.
     uspdInit();

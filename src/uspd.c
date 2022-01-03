@@ -134,6 +134,7 @@ void calStrCreate( char str[], sArxCal * cal ){
   *str = '\0';
 
   assert_param( strlen(beg) < 21);
+  (void)beg;
 }
 
 

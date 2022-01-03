@@ -232,6 +232,7 @@ void keyTimInit( TIM_TypeDef * keytim ){
 
   rc = timPscSet( keytim, 100000, &psc );
   assert_param( rc == RESET );
+  (void)rc;
   keytim->PSC = psc;
   // Время работы таймера 30мс = 0.030с / (1/10000Гц) .
   keytim->ARR = ( 100000/1000 * 30  ) -1;

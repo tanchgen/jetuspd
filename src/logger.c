@@ -7,8 +7,10 @@
 
 #include "main.h"
 #include "stm32l1xx_ll_spi.h"
+#include "eeprom.h"
 #include "gpio_arch.h"
 #include "isens.h"
+#include "events.h"
 #include "buffer.log.h"
 #include "logger.h"
 #include "flash.h"
@@ -140,13 +142,16 @@ uint8_t stmEeBuf_Init(logBuf_t* Buffer, sLogRec * startAddr, uint16_t Size ) {
   * @retval кол-во сделанных записей (1 или 0)
   */
 uint8_t logger( uint32_t utime, eDevId devid, uint32_t data[], uint8_t size ){
-  sLogRec logrec;
+  sLogRec logrec = {0};
+
+  assert_param( size <= ARRAY_SIZE(logrec.data));
 
   logrec.utime = utime;            // Время RTC
   logrec.devid = devid;        // Идентификатор логируемого устройства
-  for( uint8_t i = 0; i < size; i++ ){
-    assert_param( data != NULL );
-    logrec.data[i] = data[i];          // Значение логируемого параметра
+  if( data != NULL ){
+    for( uint8_t i = 0; i < size; i++ ){
+      logrec.data[i] = data[i];          // Значение логируемого параметра
+    }
   }
   return logBuf_Write( &logWrBuffer, &logrec, 1 );
 }
@@ -161,11 +166,11 @@ void logClock( void ){
 //
   // Проверка на наличие записей из Архива
   if( logRdBufFill ){
-    // Есть хаписи для публикации из Архива
+    // Есть записи для публикации из Архива
     SIM800.mqttClient.pubFlags.archPub = SET;
   }
   else {
-    // Есть хаписи для публикации из Архива
+    // Нет записей для публикации из Архива
     SIM800.mqttClient.pubFlags.archPub = RESET;
   }
 
@@ -210,6 +215,7 @@ void logEnable( void ){
     // Заголовок уже записан в FLASH
     flashEvntBuffer = logBufHandle;
   }
+
 
   timerMod( &logWriteTimer, LOG_WRITE_TOUT * 1000 );
 }

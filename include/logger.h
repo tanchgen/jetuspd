@@ -75,19 +75,33 @@ typedef enum {
   DEVID_ISENS_2_STATE,
   DEVID_ISENS_3_STATE,
   DEVID_ISENS_4_STATE,
+  // --------------------- Польховательские события ----------------------------
   DEVID_ISENS_5,
-  DEVID_ISENS_6,    // срабатывание датчика протечки
-  DEVID_SB_1,       // нажатие кнопки sb1
-  DEVID_SB_2,       // открытие крышки прибора / отрыв от стены
-  DEVID_VBAT,       // Аномальный расход
-  DEVID_NAMUR_1,    // разрыв линии NAMUR SENS_1
-  DEVID_NAMUR_2,    // разрыв линии NAMUR SENS_1
-  DEVID_NAMUR_3,    // разрыв линии NAMUR SENS_1
-  DEVID_NAMUR_4,    // разрыв линии NAMUR SENS_1
-  DEVID_PULSE_1,     // превышение частоты счета импульсов SENS_1
-  DEVID_PULSE_2,     // превышение частоты счета импульсов SENS_1
-  DEVID_PULSE_3,     // превышение частоты счета импульсов SENS_1
-  DEVID_PULSE_4,     // превышение частоты счета импульсов SENS_1
+  DEVID_ISENS_6,      // срабатывание датчика протечки
+  DEVID_SB_1,         // нажатие кнопки sb1
+  DEVID_SB_2,         // открытие крышки прибора / отрыв от стены
+  DEVID_CONSUMP,      // Аномальный расход
+  DEVID_NAMUR_1,      // разрыв линии NAMUR SENS_1
+  DEVID_NAMUR_2,      // разрыв линии NAMUR SENS_1
+  DEVID_NAMUR_3,      // разрыв линии NAMUR SENS_1
+  DEVID_NAMUR_4,      // разрыв линии NAMUR SENS_1
+  DEVID_PULSE_1,      // превышение частоты счета импульсов SENS_1
+  DEVID_PULSE_2,      // превышение частоты счета импульсов SENS_1
+  DEVID_PULSE_3,      // превышение частоты счета импульсов SENS_1
+  DEVID_PULSE_4,      // превышение частоты счета импульсов SENS_1
+  // --------------------- Технологические события ----------------------------
+  DEVID_IWDG,         // срабатывание watchdog
+  DEVID_USPD_ON,      // включение устройства
+  DEVID_USPD_RST,     // программная перезагрузка устройства
+  DEVID_CFG_UPD,      // обновление прошивки
+  DEVID_CFG_LOAD,     // загрузка конфигурации
+  DEVID_GSM_FAULT,    // ошибка установки соединения GSM
+  DEVID_GPRS_FAUL,    // ошибка установки соединения GPRS
+  DEVID_TCP_FAULT,    // ошибка установки соединения TCP
+  DEVID_NTP_FAULT,    // ошибка синхронизации времени
+  DEVID_MQTT_FAULT,   // ошибка подключения к серверу
+  DEVID_MQTT_CLOSE,   // MQTT обрыв соединения
+
   DEVID_LOG_SIZE,   // Размер журнала
   DEVID_NUM
 } eDevId;
@@ -104,7 +118,7 @@ typedef struct __packed __aligned(4){
 } sLogRec;
 
 // ------------------ Объявления переменных ------------------------------------
-
+extern  uint16_t logRdBufFill;
 // -----------------------------------------------------------------------------
 
 // ---------------------- Объявления функций ------------------------------------

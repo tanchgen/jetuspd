@@ -193,6 +193,7 @@ extern struct timer_list  fpgaRstTestTimer;
 
 /** Структура дескриптора таймера таймаута восстановления после ошибки */
 extern struct timer_list  pwrOnCanTimer;
+extern struct timer_list  sb2Timer;
 
 /** Структура дескриптора таймера таймаута Старта/Стопа INTEL. */
 extern struct timer_list  iStartStopTimer;

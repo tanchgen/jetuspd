@@ -8,6 +8,8 @@
 #ifndef FLASH_H_
 #define FLASH_H_
 
+#include "buffer.log.h"
+
 /* LINK FLASH SPI */
 #define FLASH_CMD_WREN         0x06  /*!< Write enable instruction */
 #define FLASH_CMD_WRDI         0x04  /*!< Write disable instruction */

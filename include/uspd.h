@@ -64,6 +64,7 @@ typedef struct {
 
 typedef struct __aligned(4) uspdCfg{
  FlagStatus updateFlag;
+ FlagStatus defCfgFlag;
  eSensType isensType[ISENS_NUM];      // Режим работы входов датчиков
  eOutState outState;                  // UP/DOWN вывода Выхода
  uint32_t arxTout;                    // Период записи данных в архив
@@ -88,6 +89,7 @@ typedef struct {
   FlagStatus archSendFlag;            // Флаг запуска отправки Архива на сервер
   FlagStatus readArchSensQuery;       // Запрос на чтение журнала счетчиков
   FlagStatus readArchEvntQuery;       // Запрос на чтение журнала событий
+  FlagStatus defCfgFlag;              // Флаг Установки конфига USPD по умолчанию
 } sUspd;
 
 

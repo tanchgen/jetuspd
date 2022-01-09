@@ -10,6 +10,8 @@
 #include "uart.h"
 #include "mqtt.h"
 #include "eeprom.h"
+#include "events.h"
+#include "logger.h"
 #include "gpio_arch.h"
 #include "usart_arch.h"
 #include "gsm.h"
@@ -244,6 +246,7 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
         stmEeWrite( (uint32_t)&(eeFwh->fw[fwact]), (uint32_t*)&tmpfw, sizeof(sFw) );
         // Останавливаем таймер таймаута получения прошивки
         timerDel( &fwUpdTimer );
+        evntFlags.fwUpd = SET;
         fwup->fwUpOk = SET;
         // Перезагрузка после отправки пакета PUBCOMP
       }

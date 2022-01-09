@@ -16,6 +16,7 @@
 #include "isens.h"
 #include "buffer.log.h"
 #include "uspd.h"
+#include "events.h"
 #include "mqtt.h"
 
 extern sFwHandle fwHandle;
@@ -74,6 +75,7 @@ const struct {
 // --------------------- Private Functions prototype ----------------------------
 void mqttConnectCb( FlagStatus conn );
 HAL_StatusTypeDef   stmEeRead( uint32_t addr, uint32_t * data, uint32_t datalen);
+int8_t evntPubProc( sLogRec * rec );
 // ------------------------------------------------------------------------------
 
 void mqttPingTout( uintptr_t arg ){
@@ -237,26 +239,7 @@ int archPubFunc( void ){
     mDelay(1000);
   }
   else if( (quant = logBuf_Read( &logRdEvntBuffer, rec, 1)) ){
-    if( (rec[0].devid > DEVID_ISENS_4) && (rec[0].devid < DEVID_NUM) ) {
-      if( (rec[0].devid >= DEVID_ISENS_1_STATE) && (rec[0].devid <= DEVID_ISENS_6) ){
-        // Состояние датчика (i1 - i6) из Журнала событий
-        uint8_t is = rec[0].devid - DEVID_ISENS_1_STATE + 1;
-        sprintf( tpc, tpcTempl[TOPIC_ISENS_STATE], SIM800.sim.imei, is + 1 );
-        sprintf( pay, "{\"arch\":[\"time\":%lu,\"state\":%lu]}", rec[0].utime, rec[0].data[is] );
-        // Публикуем
-        if( MQTT_Pub( tpc, pay, QOS1, SIM800.mqttReceive.pktIdo++ ) == 0 ){
-          ErrHandler( NON_STOP );
-          return 0;
-        }
-      }
-      else {
-        // TODO: Реализовать остальные события
-      }
-    }
-    else {
-      // Неправильный формат записи журнала
-      return 0;
-    }
+    evntPubProc( rec );
   }
   else {
     // Больше записей не осталось
@@ -661,39 +644,48 @@ void mqttPubProc( uPubFlags * pubfl ){
 }
 
 
+void mqttCfgInit( FlagStatus * ee ){
+  HAL_StatusTypeDef rc;
+  uint32_t updflag ;
+
+
+  if( *ee == RESET ){
+    rc = stmEeRead( USPD_CFG_ADDR + offsetof(sUspdCfg, updateFlag),
+                    &(updflag), sizeof(uint32_t) );
+    updflag &= 0x1;
+    if( (rc == HAL_OK) && (updflag == SET) ){
+      sUspdCfg tmpUspdCfg;
+      // Конфигурация от сервера сохранена - считываем конфиг полностью
+      if( stmEeRead( USPD_CFG_ADDR, (uint32_t *)&(tmpUspdCfg), sizeof(uspdCfg) ) != HAL_OK ){
+        // Конфиг не считался правильно - переписываем на дефолтный
+        uspdCfg.updateFlag = RESET;
+        stmEeWrite( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg.updateFlag) );
+      }
+      else {
+        uspdCfg = tmpUspdCfg;
+      }
+    }
+  }
+  else {
+    stmEeWrite( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg) );
+    *ee = RESET;
+  }
+  // Настройки в соответствии с сохраненной конфигурацией.
+  uspdInit();
+}
+
 /**
  * initialization SIM800.
  * @param NONE
  * @return error status, 0 - OK
  */
 void mqttInit(void) {
-  HAL_StatusTypeDef rc;
-  uint32_t updflag ;
-
   SIM800.mqttServer.tcpconn = RESET;
-    SIM800.mqttServer.mqttconn = RESET;
+  SIM800.mqttServer.mqttconn = RESET;
 //    char str[32] = {0};
 
-    rc = stmEeRead( USPD_CFG_ADDR + offsetof(sUspdCfg, updateFlag),
-                    &(updflag), sizeof(uint32_t) );
-    updflag &= 0x1;
-    if( (rc == HAL_OK) && (updflag == SET) ){
-      // Конфигурация от сервера сохранена - считываем конфиг полностью
-      if( stmEeRead( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg) ) != HAL_OK ){
-        // Конфиг не считался правильно - прерываемся
-        uspdCfg.updateFlag = RESET;
-        stmEeWrite( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg.updateFlag) );
-        // Ждем watchdog
-        while(1)
-        {}
-      }
-    }
-
-    // Настройки в соответствии с сохраненной конфигурацией.
-    uspdInit();
-
-    timerSetup( &mqttPingTimer, mqttPingTout, (uintptr_t)NULL );
-    timerSetup( &mqttSubTimer, mqttSubTout, (uintptr_t)NULL );
+  timerSetup( &mqttPingTimer, mqttPingTout, (uintptr_t)NULL );
+  timerSetup( &mqttSubTimer, mqttSubTout, (uintptr_t)NULL );
 }
 
 
@@ -714,14 +706,15 @@ void mqttProcess( void ){
   if( SIM800.mqttServer.disconnFlag && (SIM800.mqttServer.disconnTout < mTick)){
     // Закрыто соединение TCP
     SIM800.mqttServer.disconnFlag = RESET;
-    SIM800.mqttServer.tcpconn = 0;
-    SIM800.mqttServer.mqttconn = 0;
+    SIM800.mqttServer.tcpconn = RESET;
+    SIM800.mqttServer.mqttconn = RESET;
     mqttConnectCb( SIM800.mqttServer.tcpconn );
     // Получили и обработали строку - если и принимали что-то, но не до конца - все потеряли
     mqttMsgReset( simHnd.rxh, &SIM800 );
   }
 
   if(SIM800.mqttServer.mqttconn == RESET){
+    evntFlags.mqttClose = SET;
     return;
   }
 

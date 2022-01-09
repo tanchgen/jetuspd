@@ -10,6 +10,7 @@
 #include "usart_arch.h"
 #include "mqtt.h"
 #include "uspd.h"
+#include "events.h"
 
 sUspdCfg uspdCfg = {
    .updateFlag = RESET,
@@ -62,7 +63,8 @@ sUspdCfg uspdCfg = {
    }
   },
 
-  .mqttHost = "broker.hivemq.com",
+  .mqttHost = "test.mosquitto.org",
+  //.mqttHost = "broker.hivemq.com",
   .mqttPort = 1883,
   .mqttUser = "",
   .mqttPass = "",
@@ -614,12 +616,14 @@ void uspdCfgProc( sUartRxHandle * rxh, SIM800_t * sim ){
 void cfgUpdate( FlagStatus change ){
   if( change || (uspdCfg.updateFlag == RESET) ){
     // Записать в EEPROM
-    uspdCfg.updateFlag = SET;
     if( stmEeWrite( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg) ) != HAL_OK){
       // Ошибка при записи в EEPROM
       uspdCfg.updateFlag = RESET;
       stmEeWrite( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg.updateFlag) );
       return;
+    }
+    else {
+      uspdCfg.updateFlag = SET;
     }
   }
   // Отмечаем
@@ -629,6 +633,7 @@ void cfgUpdate( FlagStatus change ){
 }
 
 void uspdInit( void ){
+
   SIM800.mqttServer.tcpconn = RESET;
   SIM800.mqttServer.mqttconn = RESET;
 //    char str[32] = {0};
@@ -648,7 +653,17 @@ void uspdInit( void ){
   SIM800.mqttClient.clientID = "";
   SIM800.mqttClient.keepAliveInterval = 60;
 
+  evntFlags.cfgLoad = SET;
+
   uspd.announcePktId = -1;
   uspd.cfgoPktId = -1;
+
+  // Считываем флаги Ресета
+  evntFlags.iwdg = RCC->CSR & RCC_CSR_IWDGRSTF;
+  evntFlags.swrst = RCC->CSR & RCC_CSR_SFTRSTF;
+  RCC->CSR |= RCC_CSR_RMVF;
+
+  // Флаг включения USPD
+  evntFlags.uspdOn = SET;
 }
 

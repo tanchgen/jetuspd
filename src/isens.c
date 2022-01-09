@@ -9,6 +9,7 @@
 #include "logger.h"
 #include "main.h"
 #include "uspd.h"
+#include "events.h"
 #include "isens.h"
 
 // -------------- ДЛЯ ТЕСТА ----------------------------------
@@ -129,8 +130,13 @@ void ISENS_IRQHandler( void ){
   dtime = (tm - iSens[is].tstime) * 1000 + rtc.ss;
   dtime -= iSens[is].tsss;
   if( dtime < 12 ){
-    // Слишком короткий период
-//    logger( tm, is + DEVID_PULSE_1, NULL, 0 );
+    // Слишком короткий период - выставляем флаг события
+
+    uEventFlag evnt;
+
+    evnt.u32evnt = 0;
+    evnt.pulse1 = SET;
+    evntFlags.u32evnt |= evnt.u32evnt << is;
   }
   else {
     timerStack( &(iSens[is].dbTimer), ISENS_DB_TOUT, TIMER_MOD );

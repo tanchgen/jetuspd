@@ -4,16 +4,17 @@
  *  Created on: 3 окт. 2021 г.
  *      Author: jet
  */
-#include <gsm.h>
-#include <gsm.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "my_ntp.h"
 #include "mqtt.h"
+#include "logger.h"
+#include "flash.h"
 #include "usart_arch.h"
 #include "gpio_arch.h"
 #include "uspd.h"
+#include "events.h"
 #include "gsm.h"
 
 extern SIM800_t SIM800;
@@ -38,6 +39,9 @@ uint16_t gprsConnTout[] = {
   3000
 };
 
+
+struct timer_list gsmOnToutTimer;
+
 // -------------- Function prototype ------------------------------------------
 void simUartBaud( uint32_t baudrate );
 void simUartHwFlow( void );
@@ -54,6 +58,56 @@ int ntpInit(void);
 int TCP_Connect(void);
 int clkSet( void );
 // ----------------------------------------------------------------------------
+
+/**
+ * Обработка таймаута процесса включения/подключения GSM/GPRS/NTP/TCP/MQTT
+ * @param arg состояние GSM-машины
+ * @return non
+ */
+static void gsmOnTout( uintptr_t arg ){
+  eGsmState gsmst = (eGsmState)arg;
+
+  trace_printf( "gsmTout %d", gsmst);
+
+  switch( gsmst){
+    case GSM_INIT:
+      evntFlags.gsmFault = SET;
+      break;
+    case GSM_START_INIT:
+      evntFlags.gprsFault = SET;
+      gsmStRestart = GSM_OFF;
+      gsmRun = RESET;
+      break;
+    case GSM_GPRS_CONN:
+      evntFlags.ntpFault = SET;
+      break;
+    case GSM_NTP_INIT:
+      break;
+    case GSM_MQTT_START:
+      if( SIM800.mqttServer.tcpconn == 0 ){
+        evntFlags.tcpFault = SET;
+      }
+      else if( SIM800.mqttServer.mqttconn == 0 ){
+        evntFlags.mqttFault = SET;
+      }
+      gsmStRestart = GSM_OFF;
+      gsmRun = RESET;
+      break;
+    case GSM_MQTT_CONN:
+      break;
+    case GSM_SERV_CONN:
+      break;
+    case GSM_CFG_ON:
+      break;
+    case GSM_WORK:
+      break;
+    case GSM_OFF:
+    case GSM_SIM_ON:
+    default:
+      break;
+
+  }
+}
 
 /**
  * Send AT command to SIM800 over UART.
@@ -223,7 +277,10 @@ void gsmOffFunc( void ){
   if( gsmRun ){
     switch( gsmRunPhase ){
       case PHASE_NON:
-        uspdInit();
+        if( timerPending( &sb2Timer ) ){
+          return;
+        }
+        mqttCfgInit( &uspd.defCfgFlag );
         // On SIM800 power if use
         gpioPinResetNow( &gpioPinSimPwr );
         gpioPinSetNow( &gpioPinPwrKey );
@@ -258,7 +315,10 @@ void gsmOffFunc( void ){
       case PHASE_OFF:
         // TODO: Выставляем будильник, если надо. Усыпляем контроллер
         if( mcuReset ){
-          NVIC_SystemReset();
+          if( (logRdBufFill == 0) && (flashDev.state == FLASH_READY) ){
+            // Все записи в журнал сделаны, операции с флеш закончены
+            NVIC_SystemReset();
+          }
         }
         else {
           gsmRunPhase = PHASE_OFF_OK;
@@ -305,6 +365,7 @@ void gsmInitFunc( void ){
     switch( gsmRunPhase ){
       case PHASE_NON:
         simStartInit();
+        timerModArg( &gsmOnToutTimer, (TOUT_1000 * 60), gsmState );
         tmpTick = mTick + (TOUT_1000 * 30);
         gsmRunPhase = PHASE_ON;
         tmpTick = 0;
@@ -331,6 +392,7 @@ void gsmInitFunc( void ){
           tmpTick = mTick + 100;
         }
         else {
+          timerDel( &gsmOnToutTimer );
           gsmRunPhase = PHASE_NON;
           gsmState++;
         }
@@ -369,7 +431,8 @@ void gsmStartInitFunc( void ){
             break;
           default:
 //            ErrHandler( NON_STOP );
-            mDelay(10);
+            mDelay(50);
+            timerModArg( &gsmOnToutTimer, (TOUT_1000 * 30), gsmState );
             break;
         }
         break;
@@ -381,7 +444,7 @@ void gsmStartInitFunc( void ){
         break;
       case PHASE_ON_OK:
         // Есть соединение GPRS;
-        // TODO: Получить IP-адрес
+        timerDel( &gsmOnToutTimer );
 
         SIM800.mqttServer.tcpconn = 0;
 
@@ -432,6 +495,7 @@ void gsmGprsConnFunc( void ){
   if( gsmRun ){
     switch( gsmRunPhase ){
       case PHASE_NON:
+        timerModArg( &gsmOnToutTimer, (TOUT_1000 * 30), gsmState );
         ntpInit();
         gsmRunPhase = PHASE_ON;
         break;
@@ -442,6 +506,8 @@ void gsmGprsConnFunc( void ){
           gpioPinSetNow( &gpioPinTermOn );
           termSendTime();
 #endif //TERM_UART_ENABLE
+          timerDel( &gsmOnToutTimer );
+
           gsmRunPhase = PHASE_NON;
           gsmState++;
         }
@@ -488,9 +554,11 @@ void gsmMqttStartFunc( void ){
     switch( gsmRunPhase ){
       case PHASE_NON:
         if( SIM800.mqttServer.tcpconn == 0 ){
+          timerModArg( &gsmOnToutTimer, (TOUT_1000 * 20), gsmState );
           TCP_Connect();
         }
         else if( SIM800.mqttServer.mqttconn == 0 ){
+          timerModArg( &gsmOnToutTimer, (TOUT_1000 * 20), gsmState );
           MQTT_Connect();
           gsmRunPhase = PHASE_ON;
           tmpTick = mTick + 10000;
@@ -512,6 +580,7 @@ void gsmMqttStartFunc( void ){
         }
         break;
       case PHASE_ON_OK:
+        timerDel( &gsmOnToutTimer );
         gsmState++;
         gsmRunPhase = PHASE_NON;
         break;
@@ -834,3 +903,12 @@ void gsmProcess( void ){
   }
 }
 
+
+/**
+ * Инициализация GSM-процесса.
+ * @param NONE
+ * @return error status, 0 - OK
+ */
+void gsmInit(void) {
+  timerSetup( &gsmOnToutTimer, gsmOnTout, (uintptr_t)NULL );
+}

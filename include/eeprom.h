@@ -33,7 +33,7 @@ extern volatile uint16_t EEPROMPageSize;
 #define EE_EVNT_ARCH_BUF_ADDR        (FLASH_EEPROM_BASE + 0x040)
 // Адрес данных прошивки во Флеш
 #define EE_FW_HANDLE_ADDR_0          (FLASH_EEPROM_BASE + 0x080)
-// Адрес зранения конфигурации УСПД
+// Адрес хранения конфигурации УСПД
 #define EE_CFG_ADDR                  (FLASH_EEPROM_BASE + 0x100)
 
 

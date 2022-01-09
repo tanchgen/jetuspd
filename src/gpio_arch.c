@@ -1,12 +1,13 @@
-#include <gpio_arch.h>
-#include <led.h>
 #include <stddef.h>
 #include <stdbool.h>
 #include <limits.h>
 
-#include <main.h>
+#include "main.h"
+#include "led.h"
+#include "uspd.h"
+#include "events.h"
+#include "gpio_arch.h"
 //#include "usart_arch.h"
-
 
 // Флаг перезагрузки MCU
 FlagStatus mcuReset = RESET;
@@ -43,9 +44,9 @@ eMcuState mcuState = MCUSTATE_SYS_OFF;
 // -------------- POWER ------------------------------
 // KEYS
 /** Структура дескриптора вывода GPIO SB1_Key. */
-sGpioPin  extiPinSb1Key = {GPIOB, GPIO_PIN_1, GPIO_MODE_IT_RISING_FALLING, GPIO_PULLDOWN, GPIO_SPEED_FREQ_LOW, AF0, Bit_SET, Bit_SET, RESET };
+sGpioPin  extiPinSb1Key = {GPIOB, GPIO_PIN_1, GPIO_MODE_IT_RISING_FALLING, GPIO_NOPULL, GPIO_SPEED_FREQ_LOW, AF0, Bit_RESET, Bit_RESET, RESET };
 /** Структура дескриптора вывода GPIO SB2_Key. */
-sGpioPin  extiPinSb2Key = {GPIOB, GPIO_PIN_3, GPIO_MODE_IT_RISING_FALLING, GPIO_PULLDOWN, GPIO_SPEED_FREQ_LOW, AF0, Bit_SET, Bit_SET, RESET };
+sGpioPin  extiPinSb2Key = {GPIOB, GPIO_PIN_3, GPIO_MODE_IT_RISING_FALLING, GPIO_PULLDOWN, GPIO_SPEED_FREQ_LOW, AF0, Bit_RESET, Bit_RESET, RESET };
 
 sGpioPin  gpioPinO1 = {GPIOB, GPIO_PIN_5, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL, GPIO_SPEED_LOW, AF0, Bit_RESET, Bit_RESET, RESET };
 
@@ -69,6 +70,8 @@ struct timer_list  sb2KeyDebounceTimer;
 ///** Структура дескриптора таймера таймаута восстановления после ошибки */
 struct timer_list  pwrOnCanTimer;
 
+struct timer_list  sb2Timer;
+
 // =================== Прототипы функций ====================================
 // ==========================================================================
 
@@ -88,18 +91,23 @@ static void pwrOnCan(uintptr_t arg){
 }
 
 /**
-  * @brief  Обработчик таймаута ожидания условия при вкл/выкл питания
+  * @brief  Обработчик таймаута нажатия кнопки SB2
   *
   * @param[in]  arg  NULL
   *
   * @retval none
   */
-//static void pwrTimeout(uintptr_t arg){
-//  (void)arg;
-//  // Включаем на постоянно светодиод LED_PWR_FAULE
+static void sb2Tout(uintptr_t arg){
+  (void)arg;
+// Включаем на постоянно светодиод LED_PWR_FAULE
 //  trace_puts("PWR_TOUT");
-//  ledOn( LED_R, 0 );
-//}
+
+  // Флаг для отправки топика
+  evntFlags.sb2 = SET;
+
+  ledOff( LED_G, 0 );
+  uspd.defCfgFlag = SET;
+}
 
 
 /**
@@ -286,17 +294,20 @@ void gpioClock( void ){
 
   //  Обработаем кнопки.
   // SB1_Key
-  if( extiPinSb1Key.change && (extiPinSb1Key.state == Bit_SET) ){
-
+  if( extiPinSb1Key.change ){
+    extiPinSb1Key.change = RESET;
+    if( extiPinSb1Key.state == Bit_SET ){
+      evntFlags.sb1 =SET;
+    }
   }
 
   // SB2_Key
-  if( extiPinSb2Key.change && (extiPinSb1Key.state == Bit_RESET) ){
-
+  if( extiPinSb2Key.change ) {
+    extiPinSb2Key.change = RESET;
+    if( extiPinSb2Key.state == Bit_RESET ){
+      evntFlags.sb2 =SET;
+    }
   }
-
-
-
 }
 
 /**
@@ -310,6 +321,16 @@ void gpioEnable( void ) {
 #if DEBUG_TRACE
   trace_puts("Function: Enable FPGA");
 #endif
+
+  // Кнопка сброса конфигурации
+  if( gpioPinReadNow( &extiPinSb2Key ) == Bit_SET ){
+    timerMod( &sb2Timer, TOUT_1000 * 10 );
+    // Перемигивание Красный светодиод
+    ledToggleSet( LED_R, LED_TOGGLE_TOUT, LED_TOGGLE_TOUT, 0, 0 );
+    // Зеленый светодиод
+    ledToggleSet( LED_G, LED_TOGGLE_TOUT, LED_TOGGLE_TOUT, 0, 0 );
+    ledHandle[LED_G].ledPin.gpio->BSRR = ledHandle[LED_G].ledPin.pin << 16;
+  }
 
   // Включаем прерывания для кнопок
   EXTI->IMR |= extiPinSb1Key.pin;
@@ -383,7 +404,7 @@ void gpioInit( void ){
 //  timerSetup( &pwrToutTimer, pwrTimeout, (uintptr_t)mcuState );
 
   timerSetup( &pwrOnCanTimer, pwrOnCan, (uintptr_t)NULL );
-
+  timerSetup( &sb2Timer, sb2Tout, (uintptr_t)NULL );
 }
 
 

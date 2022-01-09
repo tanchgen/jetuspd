@@ -20,6 +20,7 @@ void mqttInit(void);
 void fwInit( void );
 
 void simUartEnable( void );
+void gpioEnable( void );
 
 void mqttProcess( void );
 void gsmProcess( void );
@@ -41,6 +42,7 @@ void ifaceInit( void ){
   mqttInit();
   isensInit();
   fwInit();
+  gsmInit();
 }
 
 
@@ -49,6 +51,7 @@ void ifaceEnable( void ){
   adcStart();
   simUartEnable();
   isensEnable();
+  gpioEnable();
 //  loggerHwTest();
 //  while(1)
 //  {}

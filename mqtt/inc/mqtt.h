@@ -170,7 +170,7 @@ extern FlagStatus mqttSubFlag;
 extern FlagStatus mqttPingFlag;
 
 void mqttInit( void );
-
+void mqttCfgInit( FlagStatus * ee );
 
 static inline void mqttBufClean( sUartRxHandle *handle, SIM800_t * sim ){
   // Очистим буфер

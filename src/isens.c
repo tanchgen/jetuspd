@@ -75,13 +75,14 @@ void isensProcess( void ){
   if( uspd.archWrFlag ){
     // Настало время записи датчиков в Архив
     uint32_t isdata[ISENS_NUM];
+    sLogRec logrec = {0};
 
     for( eIsens s = 0; s < ISENS_NUM; s++ ){
       isdata[s] = iSens[s].isensCount;
     }
 
     assert_param( ISENS_NUM <= 4 );
-    if( logger( getRtcTime(), DEVID_ISENS_1, isdata, ISENS_NUM ) == 1){
+    if( logger( &logrec, getRtcTime(), DEVID_ISENS_1, isdata, ISENS_NUM ) == 1){
       // Записано в Архив успешно
       uspd.archWrFlag = RESET;
     }

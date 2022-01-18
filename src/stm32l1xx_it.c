@@ -206,7 +206,7 @@ void EXTI0_IRQHandler( void ){           // EXTI Line 0
 
 
 void EXTI1_IRQHandler( void ){           // EXTI Line 1
-  if(EXTI->PR == extiPinSb2Key.pin){
+  if(EXTI->PR & extiPinSb2Key.pin){
     SB2_KEY_TIM->CR1 |= TIM_CR1_CEN;
     // Запрещаем прерывание на период таймаута дребезга
     EXTI->IMR &= ~(extiPinSb2Key.pin);
@@ -223,7 +223,7 @@ void EXTI2_IRQHandler( void ){           // EXTI Line 2
 
 
 void EXTI3_IRQHandler( void ){           // EXTI Line 3
-  if(EXTI->PR == extiPinSb2Key.pin){
+  if(EXTI->PR & extiPinSb1Key.pin){
     SB1_KEY_TIM->CR1 |= TIM_CR1_CEN;
     // Запрещаем прерывание на период таймаута дребезга
     EXTI->IMR &= ~(extiPinSb1Key.pin);

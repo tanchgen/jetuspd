@@ -30,7 +30,7 @@
 /* Private variables ---------------------------------------------------------*/
 extern eGsmRunPhase gsmRunPhase;
 
-//extern const sUartHnd simHnd;
+extern const sUartHnd simHnd;
 
 RCC_ClocksTypeDef RCC_Clocks;
 
@@ -147,7 +147,10 @@ void Error_Handler( int stop, char * file, int line ){
     /* User can add his own implementation to report the HAL error return state */
     trace_printf( "ErrorHandler: file \"%s\",line %d\n", (uint8_t *)file, line );
     GPIOB->BSRR = GPIO_PIN_9;
-    while (stop) {
+    if( stop ){
+      __disable_irq();
+      while(1)
+      {}
     }
   /* USER CODE END Error_Handler_Debug */
 }

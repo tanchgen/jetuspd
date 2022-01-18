@@ -31,7 +31,7 @@ typedef union {
     uint32_t uspdOn: 1;      // включение устройства
     uint32_t swrst: 1;     // программная перезагрузка устройства
     uint32_t fwUpd: 1;      // обновление прошивки
-    uint32_t cfgLoad: 1;     // загрузка конфигурации
+    uint32_t cfgUpd: 1;     // загрузка конфигурации
     uint32_t gsmFault: 1;    // ошибка установки соединения GSM
     uint32_t gprsFault: 1;    // ошибка установки соединения GPRS
     uint32_t tcpFault: 1;    // ошибка установки соединения TCP

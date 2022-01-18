@@ -586,7 +586,7 @@ eLogBufType  flashWriteProbe( void ){
     return rc;
   }
 
-  trace_printf( "a_flash_%x\n", flashDev.rec );
+//  trace_printf( "a_flash_%x\n", flashDev.rec );
 
   logBuf_Read( &logWrBuffer, flashDev.rec, 1 );
   flashDev.quant = 1;
@@ -665,7 +665,7 @@ void flashProcess( void ){
       }
 
       if( flashBuf_Write( &flashDev, buf, flashDev.rec, flashDev.quant ) == flashDev.quant ){
-        trace_printf( "f_flash_%x\n", flashDev.rec );
+//        trace_printf( "f_flash_%x\n", flashDev.rec );
         my_free( flashDev.rec );
       }
       break;

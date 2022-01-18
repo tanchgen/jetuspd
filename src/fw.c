@@ -36,6 +36,7 @@ sFwHandle fwHandle;
 //uint32_t * pfa;
 //uint32_t fa;
 struct timer_list fwUpdTimer;
+FlagStatus fwUpdFlag = RESET;
 
 //------------------- Function prototype -------------------------
 uint32_t ipaddr_addr(const char *cp);
@@ -51,6 +52,7 @@ static void fwUpdTout( uintptr_t arg ){
 
   // Очистим буфер
   mqttMsgReset( simHnd.rxh, &SIM800 );
+  fwUpdFlag = RESET;
 
   gsmStRestart = GSM_OFF;
   gsmRun = RESET;
@@ -244,19 +246,20 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
         tmpfw.good = SET;
         // Запишем данные новой прошивки на место неактивной
         stmEeWrite( (uint32_t)&(eeFwh->fw[fwact]), (uint32_t*)&tmpfw, sizeof(sFw) );
-        // Останавливаем таймер таймаута получения прошивки
-        timerDel( &fwUpdTimer );
         evntFlags.fwUpd = SET;
         fwup->fwUpOk = SET;
         // Перезагрузка после отправки пакета PUBCOMP
       }
       else {
-        trace_printf("0x%08x", CRC->DR );
+        trace_printf("0x%08x\n", CRC->DR );
         fwup->crc = 0;
         fwup->fwLen = 0;
         fwup->fwVer = 0;
       }
       fwHandle.fwFlashState = FWFLASH_READY;
+      // Останавливаем таймер таймаута получения прошивки
+      timerDel( &fwUpdTimer );
+      fwUpdFlag = RESET;
       // Очистим буфер
       mqttMsgReset( rxh, &SIM800 );
       break;

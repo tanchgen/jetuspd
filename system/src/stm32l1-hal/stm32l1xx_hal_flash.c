@@ -228,8 +228,8 @@ extern void    FLASH_PageErase(uint32_t PageAddress);
   * 
   * @retval HAL_StatusTypeDef HAL Status
   */
-HAL_StatusTypeDef HAL_FLASH_Program(uint32_t TypeProgram, uint32_t Address, uint32_t Data)
-{
+HAL_StatusTypeDef HAL_FLASH_Program(uint32_t TypeProgram, uint32_t Address, uint32_t Data){
+  (void)TypeProgram;
   HAL_StatusTypeDef status = HAL_ERROR;
   
   /* Process Locked */

@@ -150,7 +150,7 @@ char * cfgoMsgCreate( void ){
     return NULL;
   }
 
-  trace_printf( "a_cfgo_%x\n", msg );
+//  trace_printf( "a_cfgo_%x\n", msg );
 
   calStrCreate( calStr, &(uspdCfg.arxCalend) );
 
@@ -616,6 +616,7 @@ void uspdCfgProc( sUartRxHandle * rxh, SIM800_t * sim ){
 void cfgUpdate( FlagStatus change ){
   if( change || (uspdCfg.updateFlag == RESET) ){
     // Записать в EEPROM
+    uspdCfg.updateFlag = SET;
     if( stmEeWrite( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg) ) != HAL_OK){
       // Ошибка при записи в EEPROM
       uspdCfg.updateFlag = RESET;
@@ -624,6 +625,7 @@ void cfgUpdate( FlagStatus change ){
     }
     else {
       uspdCfg.updateFlag = SET;
+      evntFlags.cfgUpd = SET;
     }
   }
   // Отмечаем
@@ -652,8 +654,6 @@ void uspdInit( void ){
   SIM800.mqttClient.pass = uspdCfg.mqttPass;
   SIM800.mqttClient.clientID = "";
   SIM800.mqttClient.keepAliveInterval = 60;
-
-  evntFlags.cfgLoad = SET;
 
   uspd.announcePktId = -1;
   uspd.cfgoPktId = -1;

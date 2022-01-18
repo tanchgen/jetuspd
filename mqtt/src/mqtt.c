@@ -20,6 +20,7 @@
 #include "mqtt.h"
 
 extern sFwHandle fwHandle;
+extern FlagStatus fwUpdFlag;
 
 extern struct timer_list mqttSubTimer;
 extern uint16_t logRdBufFill;
@@ -118,7 +119,7 @@ FlagStatus cfgoPubFunc( void ){
       ErrHandler( NON_STOP );
     }
     // Передали на отправку в UART. Удачно-нет - освобождаем;
-    trace_printf( "f_cfgo_%x\n", cfgomsg );
+//    trace_printf( "f_cfgo_%x\n", cfgomsg );
     my_free( cfgomsg );
   }
 
@@ -475,7 +476,12 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
             sim->mqttReceive.topicId = TOPIC_NUM;
           }
           else {
-            sim->mqttReceive.topicId = subList[tp].tpid;
+
+            if( (sim->mqttReceive.topicId = subList[tp].tpid) == TOPIC_FW_BIN ){
+              // Это обновление прошивки - запускаем таймер таймаута получения прошивки
+              timerStack( &fwUpdTimer, TOUT_1000 * 120, TIMER_MOD );  // 2 минуты
+              fwUpdFlag = SET;
+            }
           }
           len0 -= size;
           msgptr += size;
@@ -520,10 +526,6 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
           goto msg_reset;
         }
         else {
-          if( sim->mqttReceive.payloadLen > 1024 ){
-            // Это обновление прошивки - запускаем таймер таймаута получения прошивки
-            timerStack( &fwUpdTimer, TOUT_1000 * 120, TIMER_MOD );  // 2 минуты
-          }
           sim->mqttReceive.msgState = MSG_PAY_LEN;
         }
         break;
@@ -708,13 +710,13 @@ void mqttProcess( void ){
     SIM800.mqttServer.disconnFlag = RESET;
     SIM800.mqttServer.tcpconn = RESET;
     SIM800.mqttServer.mqttconn = RESET;
+    evntFlags.mqttClose = SET;
     mqttConnectCb( SIM800.mqttServer.tcpconn );
     // Получили и обработали строку - если и принимали что-то, но не до конца - все потеряли
     mqttMsgReset( simHnd.rxh, &SIM800 );
   }
 
   if(SIM800.mqttServer.mqttconn == RESET){
-    evntFlags.mqttClose = SET;
     return;
   }
 

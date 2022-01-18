@@ -8,10 +8,12 @@
 #include <stdio.h>
 
 #include "main.h"
-#include "logger.h"
+#include "buffer.log.h"
 #include "topic_id.h"
 #include "mqtt.h"
 #include "events.h"
+
+extern  logBuf_t logRdEvntBuffer;
 
 uEventFlag evntFlags;
 
@@ -123,25 +125,27 @@ void mqttCloseEvFunc( void ){
 // ----------------------------------------------------------------------------
 */
 
-void eventProcess( void ){
-  uint8_t evnum = DEVID_NUM - (DEVID_ISENS_4 + 1);
+void evntProcess( void ){
+  uint8_t evnum = DEVID_NUM - (DEVID_ISENS_4_STATE + 1);
   uint8_t rc = RESET;
+  sLogRec logrec = {0};
 
   for( uint8_t i = 0; i < evnum; i++ ){
     if( evntFlags.u32evnt & (1<<i) ){
       // Есть событие
-      if( logger( getRtcTime(), i + (DEVID_ISENS_4 + 1), NULL, 1 ) != 1){
+
+      if( logger( &logrec, getRtcTime(), i + (DEVID_ISENS_4_STATE + 1), NULL, 1 ) != 1){
         // Ошибка записи в Архив
         ErrHandler( NON_STOP );
         rc = SET;
       }
+      else {
+        evntFlags.u32evnt &= ~(1<<i);
+        logRdBufFill += logBuf_Write( &logRdEvntBuffer, &logrec, 1 );
+      }
     }
   }
 
-  if( rc == RESET ){
-    // Записано успешно
-    evntFlags.u32evnt = 0;
-  }
 }
 
 

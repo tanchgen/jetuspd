@@ -178,7 +178,7 @@ uint16_t uartSend( sUartTxHandle * handle, uint8_t * buf, size_t size ){
     return 0;
   }
 
-  trace_printf( "a_node_%x\n", txnode );
+//  trace_printf( "a_node_%x\n", txnode );
 
   txnode->txbuf = buf;
   txnode->size = size;
@@ -238,7 +238,7 @@ void uartTxClock(sUartTxHandle *handle ){
   if( tx_node != NULL ){
     uartTransmit( handle, tx_node );
     list_del( &(tx_node->node) );
-    trace_printf( "f_node_%x\n", tx_node );
+ //   trace_printf( "f_node_%x\n", tx_node );
     my_free( tx_node );
   }
 }

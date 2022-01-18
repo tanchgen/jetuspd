@@ -44,9 +44,9 @@ eMcuState mcuState = MCUSTATE_SYS_OFF;
 // -------------- POWER ------------------------------
 // KEYS
 /** Структура дескриптора вывода GPIO SB1_Key. */
-sGpioPin  extiPinSb1Key = {GPIOB, GPIO_PIN_1, GPIO_MODE_IT_RISING_FALLING, GPIO_NOPULL, GPIO_SPEED_FREQ_LOW, AF0, Bit_RESET, Bit_RESET, RESET };
+sGpioPin  extiPinSb1Key = {GPIOB, GPIO_PIN_3, GPIO_MODE_IT_RISING_FALLING, GPIO_PULLDOWN, GPIO_SPEED_FREQ_LOW, AF0, Bit_RESET, Bit_RESET, RESET };
 /** Структура дескриптора вывода GPIO SB2_Key. */
-sGpioPin  extiPinSb2Key = {GPIOB, GPIO_PIN_3, GPIO_MODE_IT_RISING_FALLING, GPIO_PULLDOWN, GPIO_SPEED_FREQ_LOW, AF0, Bit_RESET, Bit_RESET, RESET };
+sGpioPin  extiPinSb2Key = {GPIOB, GPIO_PIN_1, GPIO_MODE_IT_RISING_FALLING, GPIO_NOPULL, GPIO_SPEED_FREQ_LOW, AF0, Bit_RESET, Bit_RESET, RESET };
 
 sGpioPin  gpioPinO1 = {GPIOB, GPIO_PIN_5, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL, GPIO_SPEED_LOW, AF0, Bit_RESET, Bit_RESET, RESET };
 
@@ -193,14 +193,13 @@ static void sb2Tout(uintptr_t arg){
   */
 static void debounceTimeout(uintptr_t arg){
   sGpioPin *pin = (sGpioPin*)arg;
-  bool st;
 
   // Нынешнее состояния пина
-  st = ((((pin->gpio)->IDR & (pin->pin))) == pin->pin);
+  pin->state = ((pin->gpio)->IDR & (pin->pin))? Bit_SET : Bit_RESET;
 
-  if( pin->newstate != st ){
+  if( pin->newstate != pin->state  ){
     // Состояние сохранилось - НЕ ложное срабатывание
-    pin->newstate = st;
+    pin->newstate = pin->state;
     pin->change = SET;
   }
 

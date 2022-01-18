@@ -163,7 +163,7 @@ void DMA1_Channel2_IRQHandler( void ){
     if( (simHnd.txh->data >= (uint8_t*)&_Heap_Begin)
         && (simHnd.txh->data <= (uint8_t*)&_Heap_Limit) ){
       // Память выделена из кучи
-      trace_printf( "f_buf_%x\n", simHnd.txh->data );
+//      trace_printf( "f_buf_%x\n", simHnd.txh->data );
       my_free( simHnd.txh->data);
     }
   }

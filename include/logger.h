@@ -143,7 +143,8 @@ void flashHwTest( void );
 void logInit( void );
 void logEnable( void );
 
-uint8_t logger( uint32_t utime, eDevId devid, uint32_t data[], uint8_t size );
+uint8_t logger( sLogRec * logrec, uint32_t utime, eDevId devid, uint32_t data[], uint8_t size );
+
 // -----------------------------------------------------------------------------
 
 #endif /* LOGGER_H_ */

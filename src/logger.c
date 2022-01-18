@@ -141,19 +141,17 @@ uint8_t stmEeBuf_Init(logBuf_t* Buffer, sLogRec * startAddr, uint16_t Size ) {
   *
   * @retval кол-во сделанных записей (1 или 0)
   */
-uint8_t logger( uint32_t utime, eDevId devid, uint32_t data[], uint8_t size ){
-  sLogRec logrec = {0};
+uint8_t logger( sLogRec * logrec, uint32_t utime, eDevId devid, uint32_t data[], uint8_t size ){
+  assert_param( size <= ARRAY_SIZE(logrec->data));
 
-  assert_param( size <= ARRAY_SIZE(logrec.data));
-
-  logrec.utime = utime;            // Время RTC
-  logrec.devid = devid;        // Идентификатор логируемого устройства
+  logrec->utime = utime;            // Время RTC
+  logrec->devid = devid;        // Идентификатор логируемого устройства
   if( data != NULL ){
     for( uint8_t i = 0; i < size; i++ ){
-      logrec.data[i] = data[i];          // Значение логируемого параметра
+      logrec->data[i] = data[i];          // Значение логируемого параметра
     }
   }
-  return logBuf_Write( &logWrBuffer, &logrec, 1 );
+  return logBuf_Write( &logWrBuffer, logrec, 1 );
 }
 
 

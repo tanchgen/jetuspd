@@ -18,7 +18,7 @@
 #include "gsm.h"
 
 extern SIM800_t SIM800;
-extern const uint32_t baudrate[BAUD_NUM];
+//extern const uint32_t baudrate[BAUD_NUM];
 
 static uint32_t tmpTick;
 
@@ -43,7 +43,7 @@ uint16_t gprsConnTout[] = {
 struct timer_list gsmOnToutTimer;
 
 // -------------- Function prototype ------------------------------------------
-void simUartBaud( uint32_t baudrate );
+//void simUartBaud( uint32_t baudrate );
 void simUartHwFlow( void );
 
 int mqttSubProcess(void);
@@ -156,7 +156,7 @@ int simPinEnter( char * pin, char * newpin ){
     return -1;
   }
 
-  trace_printf( "a_buf_%x\n", str );
+//  trace_printf( "a_buf_%x\n", str );
 
   memcpy( str, "AT+CPIN=", 8 );
   memcpy(str+8, pin, 4);
@@ -308,8 +308,8 @@ void gsmOffFunc( void ){
     // Выключаем питание GSM
     switch( gsmRunPhase ){
       case PHASE_NON:
-        gpioPinResetNow( &gpioPinPwrKey );
-        gpioPinSetNow( &gpioPinSimPwr );
+//        gpioPinSetNow( &gpioPinPwrKey );
+//        gpioPinResetNow( &gpioPinSimPwr );
         gsmRunPhase = PHASE_OFF;
         break;
       case PHASE_OFF:
@@ -558,7 +558,7 @@ void gsmMqttStartFunc( void ){
           TCP_Connect();
         }
         else if( SIM800.mqttServer.mqttconn == 0 ){
-          timerModArg( &gsmOnToutTimer, (TOUT_1000 * 20), gsmState );
+          timerModArg( &gsmOnToutTimer, (TOUT_1000 * 60), gsmState );
           MQTT_Connect();
           gsmRunPhase = PHASE_ON;
           tmpTick = mTick + 10000;
@@ -722,26 +722,32 @@ int simStartInit(void) {
 //    HAL_UART_Receive_IT(UART_SIM800, &rx_data, 1);
 
 //    simWaitReady( NON_STOP );
-    for( eBaudrate i = BAUD_9600; baud == BAUD_NUM; ){
-      for( uint8_t j = 0; j < 3; j++ ){
-        if( gsmSendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2, NULL ) == 0 ){
-          // Есть контакт!
-          baud = i;
-          break;
+    for( uint8_t k = 0; k < 3; k++ ){
+      for( eBaudrate i = BAUD_9600; baud == BAUD_NUM; ){
+        for( uint8_t j = 0; j < 3; j++ ){
+          if( gsmSendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2, NULL ) == 0 ){
+            // Есть контакт!
+            baud = i;
+            break;
+          }
+        }
+        if( i != baud ){
+          // Нет отклика от GSM
+          mDelay(1000);
+          // Увиличиваем скорость порта
+//          i++;
+//          if(i < BAUD_NUM){
+//            simUartBaud( baudrate[i] );
+//          }
+//          else {
+//            break;
+//          }
         }
       }
-      if( i != baud ){
-        // Нет отклика от GSM
-        mDelay(1000);
-        // Увиличиваем скорость порта
-        i++;
-        if(i < BAUD_NUM){
-          simUartBaud( baudrate[i] );
-        }
-        else {
-          break;
-        }
+      if( baud != BAUD_NUM ){
+        break;
       }
+      mDelay(10000);
     }
 
     if( baud == BAUD_NUM ){
@@ -751,9 +757,9 @@ int simStartInit(void) {
     if( gsmSendCommand("AT+IFC=2,2\r\n", "OK\r\n", CMD_DELAY_2, NULL ) == 0){
       simUartHwFlow();
     }
-//    if( baud != BAUD_460800 ){
-//      if( gsmSendCommand("AT+IPR=460800\r\n", "OK\r\n", CMD_DELAY_2) == 0){
-//        simUartBaud(460800);
+//    if( baud != BAUD_115200 ){
+//      if( gsmSendCommand("AT+IPR=115200\r\n", "OK\r\n", CMD_DELAY_2, NULL) == 0){
+//        simUartBaud(115200);
 //      }
 //    }
 
@@ -823,7 +829,7 @@ int gprsConn( void ){
   }
   else {
     sprintf(str, "AT+SAPBR=3,1,\"APN\",\"%s\"\r\n", SIM800.sim.apn);
-    trace_printf( "a_buf_%x\n", str );
+//    trace_printf( "a_buf_%x\n", str );
     gsmSendCommand(str, "OK\r\n", CMD_DELAY_5, NULL);
   }
 //  mDelay( 2000 );

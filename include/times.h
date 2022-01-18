@@ -278,6 +278,17 @@ static inline bool timerPending(const struct timer_list *timer){
   return (timer->entry.next != NULL);
 }
 
+/**
+  * @brief  Проверка таймера на ожидание исполнения.
+  *
+  * @param[in]  rtctim дескриптор таймера
+  *
+  * @retval true/false
+  */
+static inline bool rtcTimPending(const struct timer_list *rtctim){
+  return (rtctim->entry.next != NULL);
+}
+
 void timerStack( struct timer_list *timer, uint32_t tout, eTimStack ts );
 
 uint8_t timPscSet( TIM_TypeDef * tim, uint32_t tim_frequency, uint16_t * psc);

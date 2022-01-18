@@ -14,8 +14,13 @@ volatile uint32_t  mTick = 0;
 const uint8_t SynchPrediv = 0xFF;
 const uint8_t AsynchPrediv = 0x7F;
 
-/** Голова очереди таймеров на исполнение. */
-static struct list_head  _timers_queue = LIST_HEAD_INIT(_timers_queue);
+/** Голова очереди ms таймеров на исполнение. */
+static struct list_head  msTimersQueue = LIST_HEAD_INIT(msTimersQueue);
+
+/// Голова очереди секундных таймеров.
+static struct list_head  rtcTimQueue = LIST_HEAD_INIT(rtcTimQueue);
+/// Голова очереди секундных таймеров на исполнение.
+static struct list_head  actRtcTimQueue = LIST_HEAD_INIT(actRtcTimQueue);
 
 //#define RTC_RSF_MASK            ((uint32_t)0xFFFFFF5F)
 /* ------------ RCC registers bit address in the alias region ----------- */
@@ -541,7 +546,7 @@ void usTimInit( void ){
   NVIC_EnableIRQ( TIM2_IRQn);
 }
 
-
+// ================================= ms Timers ==========================================
 void timerSetup(struct timer_list *timer, void (*function)(uintptr_t), uintptr_t data)
 {
 	timer->function = function;
@@ -598,7 +603,7 @@ bool timerMod(struct timer_list *timer, uint32_t expires) {
 
 	timer->expires = expires;
 
-	list_add_tail(&timer->entry, &_timers_queue);
+	list_add_tail(&timer->entry, &msTimersQueue);
 
 	return retval;
 }
@@ -626,7 +631,7 @@ bool timerModArg(struct timer_list *timer, uint32_t expires, uintptr_t arg) {
 
   timer->expires = expires;
 
-  list_add_tail(&timer->entry, &_timers_queue);
+  list_add_tail(&timer->entry, &msTimersQueue);
 
   return retval;
 }
@@ -676,6 +681,167 @@ void timerStack( struct timer_list *timer, uint32_t tout, eTimStack ts ){
   }
 }
 
+
+/**
+  * @brief  Обработка данных подсистемы таймеров.
+  *
+  * @param[in]  self  дескриптор интерфейса
+  *
+  * @retval none
+  */
+void timersClock( void ){
+
+  static uint32_t     _prev_jiffies;
+  struct list_head    work_list;
+  struct list_head   *curr, *next;
+  struct timer_list  *timer;
+
+  if (time_after(mTick, _prev_jiffies)) {
+    _prev_jiffies = mTick;
+
+    timerStack( NULL, 0, 0 );
+
+    INIT_LIST_HEAD(&work_list);
+
+    list_for_each_safe(curr, next, &msTimersQueue) {
+      timer = list_entry(curr, struct timer_list, entry);
+
+      if (time_after(_prev_jiffies, timer->expires))
+        list_move_tail(&timer->entry, &work_list);
+    }
+
+    while (!list_empty(&work_list)) {
+      timer = list_first_entry(&work_list, struct timer_list, entry);
+
+      timerDetach(timer, true);
+
+      if (timer->function != NULL)
+        timer->function(timer->data);
+    }
+  }
+}
+
+/**
+  * @brief  Инициализация подсистемы таймеров.
+  *
+  * @param[in]  self  дескриптор интерфейса
+  *
+  * @retval none
+  */
+void timersInit( void ) {
+
+  /* Настраиваем системный таймер на заданную частоту. */
+  SysTick_Config(rccClocks.SYSCLK_Frequency / TICK_HZ);
+}
+// ==================================================================================
+
+// ============================= RTC Timers =========================================
+void rtcTimSetup(struct timer_list *rtctim, void (*function)(uintptr_t), uintptr_t arg ) {
+  rtctim->function = function;
+  rtctim->data     = arg;
+
+  rtctim->entry.next = NULL;
+}
+
+/**
+  * @brief  Непосредственное удаление таймера из очереди.
+  *
+  * @param[in]  timer   дескриптор таймера
+  * @param[in]  clear_pending удаление признака размещения в очереди на исполнение
+  *
+  * @retval none
+  */
+static void rtcTimDetach(struct timer_list *rtctim, bool clear ) {
+  list_del(&rtctim->entry);
+
+  if( clear ){
+    rtctim->entry.next = NULL;
+  }
+}
+
+bool rtcTimMod(struct timer_list *rtcTim, uint32_t sec) {
+  bool  retval = false;
+
+  sec += getRtcTime();
+
+  if (rtcTimPending(rtcTim)) {
+    rtcTimDetach(rtcTim, false);
+  }
+
+  rtcTim->expires = sec;
+
+  list_add_tail(&rtcTim->entry, &rtcTimQueue);
+
+  return retval;
+}
+
+bool rtcTimModArg(struct timer_list *rtcTim, uint32_t sec, uintptr_t arg) {
+  rtcTim->data = arg;
+  return rtcTimMod( rtcTim, sec );
+}
+
+bool rtcTimDel(struct timer_list *rtctim) {
+  if (!rtcTimPending( rtctim )) {
+    return false;
+  }
+
+  rtcTimDetach(rtctim, true);
+
+  return true;
+}
+
+
+/**
+  * @brief  Обработка данных RTC-таймеров.
+  *
+  * @retval none
+  */
+void rtcTimProcess( void ){
+  struct list_head   *curr, *next;
+  struct timer_list  *rtcTim, *actTim;
+  struct timer_list  *tmptim[10];
+  uint8_t tcount = 0;
+  uint32_t sec = -1;
+  int32_t sec0;
+  uint32_t ut = getRtcTime();
+
+  // Выполняем все RTC-таймеры, назначеные на это время
+  while (!list_empty(&actRtcTimQueue)) {
+    actTim = list_first_entry(&actRtcTimQueue, struct timer_list, entry);
+
+    rtcTimDetach(actTim, true);
+
+    if (actTim->function != NULL) {
+      actTim->function(rtcTim->data);
+    }
+  }
+
+  // Составляем список активных RTC-таймеров
+  list_for_each_safe(curr, next, &rtcTimQueue) {
+    rtcTim = list_entry(curr, struct timer_list, entry);
+
+    if( sec0 < sec ){
+      // Состовляем список заново
+      tcount = 0;
+      tmptim[tcount++] = rtcTim;
+    }
+    else if( sec0 == sec ){
+      tmptim[tcount++] = rtcTim;
+    }
+  }
+
+  for( ; tcount; ){
+    tcount--;
+    // Переносим ближайшие таймеры в список "Активных таймеров"
+    list_add_tail( tmptim[tcount], &actRtcTimQueue );
+  }
+
+  // Заводим будильник на время "Активных таймеров"
+
+  setAlrm( ut + sec0 );
+}
+
+// ==================================================================================
 
 /**
   * @brief Установка делителя "Prescaler" аппаратного таймера для нужной частоты счета
@@ -741,57 +907,4 @@ void SysTick_Handler(void){
   uartTxClock( simHnd.txh );
 
 }
-
-/**
-  * @brief	Обработка данных подсистемы таймеров.
-  *
-  * @param[in]	self	дескриптор интерфейса
-  *
-  * @retval	none
-  */
-void timersClock( void ){
-
-	static uint32_t     _prev_jiffies;
-	struct list_head    work_list;
-	struct list_head   *curr, *next;
-	struct timer_list  *timer;
-
-	if (time_after(mTick, _prev_jiffies)) {
-		_prev_jiffies = mTick;
-
-		timerStack( NULL, 0, 0 );
-
-		INIT_LIST_HEAD(&work_list);
-
-		list_for_each_safe(curr, next, &_timers_queue) {
-			timer = list_entry(curr, struct timer_list, entry);
-
-			if (time_after(_prev_jiffies, timer->expires))
-				list_move_tail(&timer->entry, &work_list);
-		}
-
-		while (!list_empty(&work_list)) {
-			timer = list_first_entry(&work_list, struct timer_list, entry);
-
-			timerDetach(timer, true);
-
-			if (timer->function != NULL)
-				timer->function(timer->data);
-		}
-	}
-}
-
-/**
-  * @brief	Инициализация подсистемы таймеров.
-  *
-  * @param[in]	self	дескриптор интерфейса
-  *
-  * @retval	none
-  */
-void timersInit( void ) {
-
-	/* Настраиваем системный таймер на заданную частоту. */
-	SysTick_Config(rccClocks.SYSCLK_Frequency / TICK_HZ);
-}
-
 

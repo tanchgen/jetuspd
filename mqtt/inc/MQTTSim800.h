@@ -25,6 +25,7 @@ void connectSimReply( sUartRxHandle * handle );
 
 int mqttStart(void);
 void MQTT_Connect(void);
+void MQTT_Disconnect(void);
 
 uint16_t MQTT_Pub(const char *topic, char *payload, enum QoS, uint16_t pktid);
 

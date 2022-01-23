@@ -30,7 +30,6 @@
 /* Private variables ---------------------------------------------------------*/
 extern eGsmRunPhase gsmRunPhase;
 
-extern const sUartHnd simHnd;
 
 RCC_ClocksTypeDef RCC_Clocks;
 

@@ -80,7 +80,6 @@ typedef struct {
   DMA_TypeDef  *dmaRx;
   DMA_Channel_TypeDef  *dmaRxChannel;
   uint32_t  dmaRxItTcif;
-  uint32_t  dmaRxItHtif;
 
   // UART_TX_DESC
   GPIO_TypeDef  *gpioTx;

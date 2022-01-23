@@ -127,7 +127,6 @@ void mqttCloseEvFunc( void ){
 
 void evntProcess( void ){
   uint8_t evnum = DEVID_NUM - (DEVID_ISENS_4_STATE + 1);
-  uint8_t rc = RESET;
   sLogRec logrec = {0};
 
   for( uint8_t i = 0; i < evnum; i++ ){
@@ -137,7 +136,6 @@ void evntProcess( void ){
       if( logger( &logrec, getRtcTime(), i + (DEVID_ISENS_4_STATE + 1), NULL, 1 ) != 1){
         // Ошибка записи в Архив
         ErrHandler( NON_STOP );
-        rc = SET;
       }
       else {
         evntFlags.u32evnt &= ~(1<<i);

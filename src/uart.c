@@ -57,19 +57,10 @@ void do_usart_dma_tx_channel_irq(sUartTxHandle *handle){
 
 
 void do_usart_dma_rx_channel_irq(sUartRxHandle *handle){
-  if( (handle->dma_rx->ISR & handle->dma_rx_it_htif) != RESET ) {
-    handle->dma_rx->IFCR = handle->dma_rx_it_htif;
-    if( handle->half ){
-      // Вторая половина не свободна - останавливаем прием
-      handle->dma_rx_channel->CCR &= ~DMA_CCR_EN;
-    }
-  }
-  else if( (handle->dma_rx->ISR & handle->dma_rx_it_tcif) != RESET ) {
+  if( (handle->dma_rx->ISR & handle->dma_rx_it_tcif) != RESET ) {
     handle->dma_rx->IFCR = handle->dma_rx_it_tcif;
-    if( handle->half == RESET ){
       // Первая половина не свободна - останавливаем прием
       handle->dma_rx_channel->CCR &= ~DMA_CCR_EN;
-    }
   }
 }
 
@@ -82,20 +73,6 @@ void do_usart_tx_irq(sUartTxHandle *handle){
 }
 
 
-//void do_usart_rx_irq(sUartRxHandle *handle){
-//  size_t  new_rb_tail;
-//
-//  if( (handle->uart->CR1 & USART_CR1_RXNEIE) && (handle->uart->ISR & USART_ISR_RXNE) ){
-//    new_rb_tail = (handle->rb_tail + 1) & USART_RX_RINGBUFFER_MASK;
-//
-//    /* Проверка свободного места в буфере. */
-//    if (handle->rb_head != new_rb_tail) {
-//      handle->rb_data[handle->rb_tail] = handle->uart->RDR;
-//
-//      handle->rb_tail = new_rb_tail;
-//    }
-//  }
-//}
 
 
 void uartRxClock(sUartRxHandle *handle){
@@ -103,8 +80,7 @@ void uartRxClock(sUartRxHandle *handle){
 //  uint32_t size;
   uint8_t crc = 0;
   uint8_t byte;
-  FlagStatus oldhalf = handle->half;
-  FlagStatus zero;
+  static FlagStatus nzero;
 
   MAYBE_BUILD_BUG_ON(sizeof(handle->crc) < sizeof(crc));
 
@@ -112,9 +88,12 @@ void uartRxClock(sUartRxHandle *handle){
     return;
   }
 
+  handle->dma_rx_channel->CCR &= ~DMA_CCR_EN;
+
   handle->head = (USART_RX_RINGBUFFER_SIZE - handle->dma_rx_channel->CNDTR);
+
   /* Определим заполненность буфера. */
-  zero = n_bytes = handle->head - handle->tail;
+  nzero = n_bytes = handle->head - handle->tail;
 
   if ((ptrdiff_t)n_bytes < 0){
     n_bytes += USART_RX_RINGBUFFER_SIZE;
@@ -142,15 +121,11 @@ void uartRxClock(sUartRxHandle *handle){
     continue;
   }
 
-
-  /* Обработали все. Освобождаем буфер пакета. */
-//  assert_param( handle->tail == handle->head );
-  handle->half = handle->tail / (USART_RX_RINGBUFFER_SIZE / 2);
-  if( (handle->dma_rx_channel->CCR & DMA_CCR_EN) == RESET ){
-    if( (oldhalf != handle->half) || !zero ) {
-      // Half сменился - можно запускать опять
-      handle->dma_rx_channel->CCR |= DMA_CCR_EN;
-    }
+  if( (nzero == 0) && (handle->rxProcFlag == RESET) ){
+    /* Обработали все. Освобождаем буфер пакета. */
+    handle->dma_rx_channel->CNDTR = USART_RX_RINGBUFFER_SIZE;
+    handle->dma_rx_channel->CCR |= DMA_CCR_EN;
+    handle->tail = 0;
   }
 
   return;
@@ -382,9 +357,7 @@ void uartDmaInit( sUartRxHandle * rxuart, sUartTxHandle * txuart ){
     rxuart->dma_rx_channel->CNDTR = USART_RX_RINGBUFFER_SIZE;
     // Стираем флаги прерываний канала 2 и включаем прерывание
     rxuart->dma_rx->IFCR = rxuart->dma_rx_it_tcif;
-    rxuart->dma_rx->IFCR = rxuart->dma_rx_it_htif;
-    rxuart->dma_rx_channel->CCR |= DMA_CCR_TCIE;
-    rxuart->dma_rx_channel->CCR |= DMA_CCR_HTIE;
+   rxuart->dma_rx_channel->CCR |= DMA_CCR_TCIE;
 
     rxuart->uart->CR3 |= USART_CR3_DMAR;
     rxuart->dma_rx_channel->CCR |= DMA_CCR_EN;
@@ -420,8 +393,6 @@ void uartIfaceInit( sUartTxHandle * txhandle, sUartRxHandle * rxhandle, eUartId 
   rxhandle->dma_rx = uartInitDesc[uartid].dmaRx;
   rxhandle->dma_rx_channel = uartInitDesc[uartid].dmaRxChannel;
   rxhandle->dma_rx_it_tcif = uartInitDesc[uartid].dmaRxItTcif;
-  rxhandle->dma_rx_it_htif = uartInitDesc[uartid].dmaRxItHtif;
-  rxhandle->half = RESET;
   rxhandle->tail = 0;
   rxhandle->baudrate = uartInitDesc[uartid].baudrate;
   rxhandle->rxProcFlag = RESET;

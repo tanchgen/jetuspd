@@ -43,7 +43,7 @@ uint16_t gprsConnTout[] = {
 struct timer_list gsmOnToutTimer;
 
 // -------------- Function prototype ------------------------------------------
-//void simUartBaud( uint32_t baudrate );
+void simUartBaud( uint32_t baudrate );
 void simUartHwFlow( void );
 
 int mqttSubProcess(void);
@@ -280,6 +280,8 @@ void gsmOffFunc( void ){
         if( timerPending( &sb2Timer ) ){
           return;
         }
+
+        simUartBaud(9600);
         mqttCfgInit( &uspd.defCfgFlag );
         // On SIM800 power if use
         gpioPinResetNow( &gpioPinSimPwr );
@@ -534,11 +536,38 @@ void gsmNtpInitFunc( void ){
   else {
     // Продолжаем выключать
     if( gsmRunPhase == PHASE_NON ){
-      mDelay(1010);
-      gsmSendCommand("+++", "OK\r\n", CMD_DELAY_10 + 10, NULL );
-      gsmRunPhase = PHASE_OFF;
+      char tpc[32];
+      char pay[64] = "{\"imei\":";
+      uint32_t ut = getRtcTime();
+
+      // Передача RealTime
+      memset( tpc, 0, 32);
+      memset( pay, 0, 64);
+      sprintf( tpc, tpcTempl[TOPIC_INFO], SIM800.sim.imei );
+      sprintf( pay, "{time\":%u,\"state\":\"bay\"}", (unsigned int)ut );
+      if( MQTT_Pub( tpc, pay, QOS1, SIM800.mqttReceive.pktIdo ) != 0 ){
+        uspd.announcePktId = SIM800.mqttReceive.pktIdo;
+        SIM800.mqttReceive.pktIdo++;
+        tmpTick = 0;
+        gsmRunPhase = PHASE_OFF;
+      }
+      else {
+        return;
+      }
     }
-    else {
+    else if( gsmRunPhase == PHASE_OFF ){
+      if( tmpTick == 0 ){
+        if( uspd.announcePktId == (uint16_t)(~0) ){
+          MQTT_Disconnect();
+          tmpTick = mTick + 1200;
+        }
+      }
+      else if( tmpTick < mTick ){
+        gsmSendCommand("+++", "OK\r\n", CMD_DELAY_10 * 2, NULL );
+        gsmRunPhase = PHASE_OFF_OK;
+      }
+    }
+    else if( gsmRunPhase == PHASE_OFF_OK ){
       if( MQTT_Deinit() == 0){
         gsmState--;
         gsmRunPhase = PHASE_NON;
@@ -719,9 +748,6 @@ int simStartInit(void) {
     int error = SET;
     eBaudrate baud = BAUD_NUM;
 
-//    HAL_UART_Receive_IT(UART_SIM800, &rx_data, 1);
-
-//    simWaitReady( NON_STOP );
     for( uint8_t k = 0; k < 3; k++ ){
       for( eBaudrate i = BAUD_9600; baud == BAUD_NUM; ){
         for( uint8_t j = 0; j < 3; j++ ){
@@ -757,11 +783,11 @@ int simStartInit(void) {
     if( gsmSendCommand("AT+IFC=2,2\r\n", "OK\r\n", CMD_DELAY_2, NULL ) == 0){
       simUartHwFlow();
     }
-//    if( baud != BAUD_115200 ){
-//      if( gsmSendCommand("AT+IPR=115200\r\n", "OK\r\n", CMD_DELAY_2, NULL) == 0){
-//        simUartBaud(115200);
-//      }
-//    }
+    if( baud != BAUD_460800 ){
+      if( gsmSendCommand("AT+IPR=460800\r\n", "OK\r\n", CMD_DELAY_2, NULL) == 0){
+        simUartBaud(460800);
+      }
+    }
 
     if( gsmSendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2, NULL ) != 0 ){
       ErrHandler( STOP );

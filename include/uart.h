@@ -132,7 +132,6 @@ typedef struct uartRxHandle{
   DMA_TypeDef  *dma_rx;
   DMA_Channel_TypeDef  *dma_rx_channel;
   /** Флаг DMA channel transfer complete interrupt приемного DMA. */
-  uint32_t  dma_rx_it_htif;
   uint32_t  dma_rx_it_tcif;
 
   /** Дескрипторы выводов GPIO SDA и SCL. */
@@ -143,11 +142,8 @@ typedef struct uartRxHandle{
 
   uint32_t baudrate;
 
-  volatile FlagStatus half;   // Свободная для записи половина буфера
   /** Текущие положения головы и хвоста кольцевого буфера. */
   volatile size_t  head, tail;
-//  /** Текущее положение бегунка кольцевого буфера. */
-//  size_t  rb_rover;
 
   /** Данные кольцевого буфера. */
   uint8_t  rxBuf[USART_RX_RINGBUFFER_SIZE];

@@ -271,6 +271,195 @@ int simWaitReady( void ){
 }
 
 
+
+/**
+ * initialization SNTP.
+ * @param NONE
+ * @return error status, 0 - OK
+ */
+int clkSet( void ) {
+  uint8_t errCount;
+
+  for( errCount = 0; errCount < 4; errCount++ ){
+    simHnd.rxh->replyBuf = mqtt_buffer;
+    *mqtt_buffer = '\0';
+    if( gsmSendCommand("AT+CCLK?\r\n", "+CCLK: \"", CMD_DELAY_30, saveSimReply ) == 0){
+      int8_t tz;
+      // Получили дату-время
+      sscanf(mqtt_buffer, "+CCLK: \"%d/%d/%d,%d:%d:%d%d\"", \
+                        (int*)&rtc.year, (int*)&rtc.month, (int*)&rtc.date, \
+                         (int*)&rtc.hour, (int*)&rtc.min, (int*)&rtc.sec, (int *)&tz );
+//      tz /= 4;
+      // Переходим в Локальное время
+      setRtcTime( xTm2Utime( &rtc ) + tz * 3600 );
+      return RESET;
+    }
+    else {
+      if( errCount >= 2) {
+        // Никак не получается включить GPRS
+        gsmSendCommand("AT+CFUN=1,1\r\n", "OK\r\n", CMD_DELAY_50, NULL );
+        mDelay(15000);
+      }
+    }
+  }
+
+  return SET;
+}
+
+
+/**
+ * initialization SIM800.
+ * @param NONE
+ * @return error status, 0 - OK
+ */
+int simStartInit(void) {
+    int error = SET;
+    eBaudrate baud = BAUD_NUM;
+
+    for( uint8_t k = 0; k < 3; k++ ){
+      for( eBaudrate i = BAUD_9600; baud == BAUD_NUM; ){
+        for( uint8_t j = 0; j < 3; j++ ){
+          if( gsmSendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2, NULL ) == 0 ){
+            // Есть контакт!
+            baud = i;
+            break;
+          }
+        }
+        if( i != baud ){
+          // Нет отклика от GSM
+          mDelay(1000);
+          // Увиличиваем скорость порта
+//          i++;
+//          if(i < BAUD_NUM){
+//            simUartBaud( baudrate[i] );
+//          }
+//          else {
+//            break;
+//          }
+        }
+      }
+      if( baud != BAUD_NUM ){
+        break;
+      }
+      mDelay(10000);
+    }
+
+    if( baud == BAUD_NUM ){
+      ErrHandler( STOP );
+    }
+
+    if( gsmSendCommand("AT+IFC=2,2\r\n", "OK\r\n", CMD_DELAY_2, NULL ) == 0){
+      simUartHwFlow();
+    }
+    if( baud != BAUD_460800 ){
+      if( gsmSendCommand("AT+IPR=460800\r\n", "OK\r\n", CMD_DELAY_2, NULL) == 0){
+        simUartBaud(460800);
+      }
+    }
+
+    if( gsmSendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2, NULL ) != 0 ){
+      ErrHandler( STOP );
+    }
+
+    gsmSendCommand("ATE1\r\n", "OK\r\n", CMD_DELAY_2, NULL );
+
+    return error;
+}
+
+/*
+int getClk( void ){
+  int8_t tz;
+  int rc = 0;
+
+  simHnd.rxh->replyBuf = mqtt_buffer;
+  if( gsmSendCommand("AT+CCLK?\r\n", "+CCLK: \"", CMD_DELAY_30) == 0, saveSimReply ){
+    // Получили дату-время
+    sscanf(mqtt_buffer, "[^:]*: \"%u/%u/%u,%u:%u:%u%d\"", \
+                       (unsigned int*)&rtc.date, (unsigned int*)&rtc.month, (unsigned int*)&rtc.year, \
+                       (unsigned int*)&rtc.hour, (unsigned int*)&rtc.min, (unsigned int*)&rtc.sec, (int *)&tz );
+    tz /= 4;
+    // Переходим в Локальное время
+    setRtcTime( xTm2Utime( &rtc ) + tz * 3600 );
+    rc = 1;
+  }
+
+  return rc;
+}
+*/
+
+
+int gprsConnTest( void ){
+  int rc = -1;
+  simHnd.rxh->replyBuf = mqtt_buffer;
+  *mqtt_buffer = '\0';
+    if( gsmSendCommand("AT+SAPBR=2,1\r\n", "+SAPBR:", CMD_DELAY_5, saveSimReply ) == 0){
+      rc = mqtt_buffer[10];
+    }
+//    else {
+//      ErrHandler( NON_STOP );
+//    }
+
+  return rc;
+}
+
+
+int gprsConnBreak( void ){
+  if( SIM800.mqttServer.tcpconn ){
+    return MQTT_Deinit();
+  }
+  else {
+    return gsmSendCommand("ATE1\r\n", "OK\r\n", CMD_DELAY_2, NULL );
+  }
+}
+
+
+int gprsConn( void ){
+  char * str;
+
+  gsmSendCommand("AT+SAPBR=3,1,\"Contype\",\"GPRS\"\r\n", "OK\r\n", CMD_DELAY_5, NULL );
+//  mDelay( 2000 );
+  if((str = malloc( 256 )) == NULL ){
+    ErrHandler( NON_STOP );
+  }
+  else {
+    sprintf(str, "AT+SAPBR=3,1,\"APN\",\"%s\"\r\n", SIM800.sim.apn);
+//    trace_printf( "a_buf_%x\n", str );
+    gsmSendCommand(str, "OK\r\n", CMD_DELAY_5, NULL);
+  }
+//  mDelay( 2000 );
+
+  if( gsmSendCommand("AT+SAPBR=1,1\r\n", "OK\r\n", CMD_DELAY_50, NULL) == 0){
+    // Есть соединение GPRS;
+    // TODO: Получение IP
+  }
+  return 0;
+}
+
+
+int ntpInit(void) {
+  if( ntpFlag == RESET ){
+
+    if( gsmSendCommand("AT+CNTPCID=1\r\n", "OK\r\n", CMD_DELAY_5, NULL) ){
+      return ntpFlag;
+    }
+    while( ntpFlag == RESET ){
+
+      if( gsmSendCommand("AT+CNTP=\""NTP_SERVER"\",12\r\n", "OK\r\n", CMD_DELAY_5, NULL) == 0){;
+        if( gsmSendCommand("AT+CNTP\r\n", "+CNTP: 1\r\n", CMD_DELAY_50 * 2, NULL) == 0 ){
+          ntpFlag = SET;
+        }
+        else {
+          ntpFlag = SET;
+          ErrHandler( NON_STOP );
+        }
+      }
+    }
+  }
+
+  return ntpFlag;
+}
+
+
 // ----------------  GSM PROCCESS FUNCTIONS -----------------------------------
 // Включение питания SIM800
 void gsmOffFunc( void ){
@@ -324,7 +513,7 @@ void gsmOffFunc( void ){
         }
         else {
           gsmRunPhase = PHASE_OFF_OK;
-          tmpTick = mTick + 10000;
+          sleepStart();
         }
         break;
       case PHASE_OFF_OK:
@@ -701,194 +890,6 @@ void gsmWorkFunc( void ){
     gsmState--;
     gsmRunPhase = PHASE_NON;
   }
-}
-
-
-/**
- * initialization SNTP.
- * @param NONE
- * @return error status, 0 - OK
- */
-int clkSet( void ) {
-  uint8_t errCount;
-
-  for( errCount = 0; errCount < 4; errCount++ ){
-    simHnd.rxh->replyBuf = mqtt_buffer;
-    *mqtt_buffer = '\0';
-    if( gsmSendCommand("AT+CCLK?\r\n", "+CCLK: \"", CMD_DELAY_30, saveSimReply ) == 0){
-      int8_t tz;
-      // Получили дату-время
-      sscanf(mqtt_buffer, "+CCLK: \"%d/%d/%d,%d:%d:%d%d\"", \
-                        (int*)&rtc.year, (int*)&rtc.month, (int*)&rtc.date, \
-                         (int*)&rtc.hour, (int*)&rtc.min, (int*)&rtc.sec, (int *)&tz );
-//      tz /= 4;
-      // Переходим в Локальное время
-      setRtcTime( xTm2Utime( &rtc ) + tz * 3600 );
-      return RESET;
-    }
-    else {
-      if( errCount >= 2) {
-        // Никак не получается включить GPRS
-        gsmSendCommand("AT+CFUN=1,1\r\n", "OK\r\n", CMD_DELAY_50, NULL );
-        mDelay(15000);
-      }
-    }
-  }
-
-  return SET;
-}
-
-
-/**
- * initialization SIM800.
- * @param NONE
- * @return error status, 0 - OK
- */
-int simStartInit(void) {
-    int error = SET;
-    eBaudrate baud = BAUD_NUM;
-
-    for( uint8_t k = 0; k < 3; k++ ){
-      for( eBaudrate i = BAUD_9600; baud == BAUD_NUM; ){
-        for( uint8_t j = 0; j < 3; j++ ){
-          if( gsmSendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2, NULL ) == 0 ){
-            // Есть контакт!
-            baud = i;
-            break;
-          }
-        }
-        if( i != baud ){
-          // Нет отклика от GSM
-          mDelay(1000);
-          // Увиличиваем скорость порта
-//          i++;
-//          if(i < BAUD_NUM){
-//            simUartBaud( baudrate[i] );
-//          }
-//          else {
-//            break;
-//          }
-        }
-      }
-      if( baud != BAUD_NUM ){
-        break;
-      }
-      mDelay(10000);
-    }
-
-    if( baud == BAUD_NUM ){
-      ErrHandler( STOP );
-    }
-
-    if( gsmSendCommand("AT+IFC=2,2\r\n", "OK\r\n", CMD_DELAY_2, NULL ) == 0){
-      simUartHwFlow();
-    }
-    if( baud != BAUD_460800 ){
-      if( gsmSendCommand("AT+IPR=460800\r\n", "OK\r\n", CMD_DELAY_2, NULL) == 0){
-        simUartBaud(460800);
-      }
-    }
-
-    if( gsmSendCommand("AT\r\n", "OK\r\n", CMD_DELAY_2, NULL ) != 0 ){
-      ErrHandler( STOP );
-    }
-
-    gsmSendCommand("ATE1\r\n", "OK\r\n", CMD_DELAY_2, NULL );
-
-    return error;
-}
-
-/*
-int getClk( void ){
-  int8_t tz;
-  int rc = 0;
-
-  simHnd.rxh->replyBuf = mqtt_buffer;
-  if( gsmSendCommand("AT+CCLK?\r\n", "+CCLK: \"", CMD_DELAY_30) == 0, saveSimReply ){
-    // Получили дату-время
-    sscanf(mqtt_buffer, "[^:]*: \"%u/%u/%u,%u:%u:%u%d\"", \
-                       (unsigned int*)&rtc.date, (unsigned int*)&rtc.month, (unsigned int*)&rtc.year, \
-                       (unsigned int*)&rtc.hour, (unsigned int*)&rtc.min, (unsigned int*)&rtc.sec, (int *)&tz );
-    tz /= 4;
-    // Переходим в Локальное время
-    setRtcTime( xTm2Utime( &rtc ) + tz * 3600 );
-    rc = 1;
-  }
-
-  return rc;
-}
-*/
-
-
-int gprsConnTest( void ){
-  int rc = -1;
-  simHnd.rxh->replyBuf = mqtt_buffer;
-  *mqtt_buffer = '\0';
-    if( gsmSendCommand("AT+SAPBR=2,1\r\n", "+SAPBR:", CMD_DELAY_5, saveSimReply ) == 0){
-      rc = mqtt_buffer[10];
-    }
-//    else {
-//      ErrHandler( NON_STOP );
-//    }
-
-  return rc;
-}
-
-
-int gprsConnBreak( void ){
-  if( SIM800.mqttServer.tcpconn ){
-    return MQTT_Deinit();
-  }
-  else {
-    return gsmSendCommand("ATE1\r\n", "OK\r\n", CMD_DELAY_2, NULL );
-  }
-}
-
-
-int gprsConn( void ){
-  char * str;
-
-  gsmSendCommand("AT+SAPBR=3,1,\"Contype\",\"GPRS\"\r\n", "OK\r\n", CMD_DELAY_5, NULL );
-//  mDelay( 2000 );
-  if((str = malloc( 256 )) == NULL ){
-    ErrHandler( NON_STOP );
-  }
-  else {
-    sprintf(str, "AT+SAPBR=3,1,\"APN\",\"%s\"\r\n", SIM800.sim.apn);
-//    trace_printf( "a_buf_%x\n", str );
-    gsmSendCommand(str, "OK\r\n", CMD_DELAY_5, NULL);
-  }
-//  mDelay( 2000 );
-
-  if( gsmSendCommand("AT+SAPBR=1,1\r\n", "OK\r\n", CMD_DELAY_50, NULL) == 0){
-    // Есть соединение GPRS;
-    // TODO: Получение IP
-  }
-  return 0;
-}
-
-
-int ntpInit(void) {
-  if( ntpFlag == RESET ){
-
-    if( gsmSendCommand("AT+CNTPCID=1\r\n", "OK\r\n", CMD_DELAY_5, NULL) ){
-      return ntpFlag;
-    }
-    while( ntpFlag == RESET ){
-
-      if( gsmSendCommand("AT+CNTP=\""NTP_SERVER"\",12\r\n", "OK\r\n", CMD_DELAY_5, NULL) == 0){;
-        if( gsmSendCommand("AT+CNTP\r\n", "+CNTP: 1\r\n", CMD_DELAY_50 * 2, NULL) == 0 ){
-          ntpFlag = SET;
-        }
-        else {
-          ntpFlag = SET;
-          ErrHandler( NON_STOP );
-        }
-      }
-    }
-  }
-
-  return ntpFlag;
 }
 
 

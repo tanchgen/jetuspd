@@ -244,12 +244,20 @@ void EXTI4_IRQHandler( void ){           // EXTI Line 4
   */
 //void USART3_IRQHandler(void) { while(1){} }
 
+void RTC_WKUP_IRQHandler( void ) {
+  while(1){}
+};
+
+void RTC_Alarm_IRQHandler( void ) {
+  rtcWakeupCb();
+};
+
 
 /* USER CODE BEGIN 1 */
 void WWDG_IRQHandler( void ) { while(1){} };
 void PVD_IRQHandler( void ) { while(1){} };
 void TAMPER_STAMP_IRQHandler( void ) { while(1){} };
-void RTC_WKUP_IRQHandler( void ) { while(1){} };
+// void RTC_WKUP_IRQHandler( void ) { while(1){} };
 void FLASH_IRQHandler( void ) { while(1){} };
 void RCC_IRQHandler( void ) { while(1){} };
 //void EXTI0_IRQHandler( void ) { while(1){} };
@@ -287,7 +295,7 @@ void SPI2_IRQHandler( void ) { while(1){} };
 void USART2_IRQHandler( void ) { while(1){} };
 //void USART3_IRQHandler( void ) { while(1){} };
 void EXTI15_10_IRQHandler( void ) { while(1){} };
-void RTC_Alarm_IRQHandler( void ) { while(1){} };
+//void RTC_Alarm_IRQHandler( void ) { while(1){} };
 void USB_FS_WKUP_IRQHandler( void ) { while(1){} };
 //void TIM6_IRQHandler( void ) { while(1){} };
 //void TIM7_IRQHandler( void ) { while(1){} };

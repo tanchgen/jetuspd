@@ -84,7 +84,7 @@ inline void adcGpioInit( void ){
 
 void adcStart( void ){
   // Вкл тактирование АЦП
-//  RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
+  RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
 //  ADC->CCR |= ADC_CCR_VBATEN;
 
   // Ждем, когда запустится VREFINT

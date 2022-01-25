@@ -543,7 +543,6 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
             handle->rxProcFlag = SET;
             sim->mqttReceive.payOffset = msgptr - handle->rxFrame;
             if( sim->mqttReceive.qos == 1 ){
-              // TODO: Send PUBACK packet (QOS 1)
               MQTT_Puback( sim->mqttReceive.pktId );
             }
             else if( sim->mqttReceive.qos == 2 ) {

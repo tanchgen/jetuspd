@@ -11,6 +11,11 @@ extern const sUartHnd simHnd;
 
 volatile uint32_t  mTick = 0;
 
+// Флаг запуска активных таймеров
+volatile FlagStatus actTimRun = RESET;
+// Флаг запуска составления списка активных таймеров
+volatile FlagStatus actTimListRun = RESET;
+
 const uint8_t SynchPrediv = 0xFF;
 const uint8_t AsynchPrediv = 0x7F;
 
@@ -801,44 +806,61 @@ void rtcTimProcess( void ){
   struct timer_list  *rtcTim, *actTim;
   struct timer_list  *tmptim[10];
   uint8_t tcount = 0;
-  uint32_t sec = -1;
-  int32_t sec0;
-  uint32_t ut = getRtcTime();
+  int32_t sec = (~0UL) >> 1;
+  int32_t sec0 = 0;
 
-  // Выполняем все RTC-таймеры, назначеные на это время
-  while (!list_empty(&actRtcTimQueue)) {
-    actTim = list_first_entry(&actRtcTimQueue, struct timer_list, entry);
+  if( actTimRun ){
 
-    rtcTimDetach(actTim, true);
+    // Выполняем все RTC-таймеры, назначеные на это время
+    while (!list_empty(&actRtcTimQueue)) {
+      actTim = list_first_entry(&actRtcTimQueue, struct timer_list, entry);
 
-    if (actTim->function != NULL) {
-      actTim->function(rtcTim->data);
+      rtcTimDetach(actTim, true);
+
+      if (actTim->function != NULL) {
+        actTim->function(actTim->data);
+      }
     }
+    actTimRun = RESET;
+    return;
   }
+  else if( actTimListRun ){
+    uint32_t ut = getRtcTime();
 
-  // Составляем список активных RTC-таймеров
-  list_for_each_safe(curr, next, &rtcTimQueue) {
-    rtcTim = list_entry(curr, struct timer_list, entry);
+    // Составляем список активных RTC-таймеров
+    list_for_each_safe(curr, next, &rtcTimQueue) {
+      rtcTim = list_entry(curr, struct timer_list, entry);
 
-    if( sec0 < sec ){
-      // Состовляем список заново
-      tcount = 0;
-      tmptim[tcount++] = rtcTim;
+      sec0 = (int32_t)rtcTim->expires - ut;
+      if(sec0 < 0){
+        sec0 = 0;
+      }
+      if( sec0 < sec ){
+        // Этот таймер раньше других - Состовляем список заново
+        tcount = 0;
+        tmptim[tcount++] = rtcTim;
+        sec = sec0;
+      }
+      else if( sec0 == sec ){
+        // Этот таймер в то же  время - Добавляем в список самых ранних
+        tmptim[tcount++] = rtcTim;
+      }
     }
-    else if( sec0 == sec ){
-      tmptim[tcount++] = rtcTim;
+
+    assert_param( tcount > 0 );
+
+    for( ; tcount; ){
+      tcount--;
+      // Переносим ближайшие таймеры в список "Активных таймеров"
+      list_add_tail( &(tmptim[tcount]->entry), &actRtcTimQueue );
     }
+
+    // Заводим будильник на время "Активных таймеров"
+
+    setAlrm( ut + sec0 );
+    actTimListRun = RESET;
+    sleepProcess();
   }
-
-  for( ; tcount; ){
-    tcount--;
-    // Переносим ближайшие таймеры в список "Активных таймеров"
-    list_add_tail( tmptim[tcount], &actRtcTimQueue );
-  }
-
-  // Заводим будильник на время "Активных таймеров"
-
-  setAlrm( ut + sec0 );
 }
 
 // ==================================================================================

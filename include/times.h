@@ -135,6 +135,11 @@ extern volatile uint8_t uxSecTout;
 extern volatile uint32_t mTick;
 extern RCC_ClocksTypeDef  rccClocks;
 
+// Флаг запуска активных таймеров
+extern volatile FlagStatus actTimRun;
+// Флаг запуска составления списка активных таймеров
+extern volatile FlagStatus actTimListRun;
+
 // *********** Инициализация структуры ВРЕМЯ (сейчас - системное ) ************
 void rtcInit(void);
 //void timeInit( void );
@@ -293,6 +298,44 @@ void timerStack( struct timer_list *timer, uint32_t tout, eTimStack ts );
 
 uint8_t timPscSet( TIM_TypeDef * tim, uint32_t tim_frequency, uint16_t * psc);
 void timersClock( void );
+
+//--------------------------------------------------------------------------------------
+/**
+  * @brief  Выполняется по срабатыванию будильника.
+  *
+  * @retval none
+  */
+static inline void rtcWakeupCb( void ){
+  mTick = 0;
+  actTimRun = SET;
+}
+
+/**
+  * @brief  Запуск засыпания
+  *
+  * @retval none
+  */
+static inline void sleepStart( void ){
+  /* TODO: Перевод периферии в режим сна:
+   * 1. Отключить тактирование ненужной периферии
+   * 2. Перевезти неиспользуемые входы в  ANALOG
+   * 3. Переключить тактирование с HSI на MCI
+   * 4. ...
+   */
+  actTimListRun = SET;
+}
+
+/**
+  * @brief  Выполняется по срабатыванию будильника.
+  *
+  * @retval none
+  */
+static inline void sleepProcess( void ){
+  // TODO: Заменить на реальное засыпание
+  while(actTimRun == RESET)
+  {}
+}
+//--------------------------------------------------------------------------------------
 
 #endif /* _TIMES_H */
 

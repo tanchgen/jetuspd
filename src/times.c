@@ -52,6 +52,7 @@ void rtcGetAlrm( tRtc * prtc );
 void rtcCorrAlrm( tRtc * prtc );
 
 //void uartRxClock( void );
+void ledProcess( uint32_t tick );
 
 // *********** Инициализация структуры ВРЕМЯ (сейчас - системное ) ************
 // *********** Инициализация структуры ВРЕМЯ (сейчас - системное ) ************
@@ -740,6 +741,7 @@ void SysTick_Handler(void){
 	uartRxClock( simHnd.rxh );
   uartTxClock( simHnd.txh );
 
+  ledProcess( mTick );
 }
 
 /**

@@ -70,7 +70,7 @@ int main(void) {
   trace_puts("Hello USPD!");
   gsmRunPhase = PHASE_NON;
 
-    // Запускаем watchdog на случай зависания прошивки
+  // Запускаем watchdog на случай зависания прошивки
 //    Check_IWDG_Reset();
 //    Configure_IWDG();
 //    SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;

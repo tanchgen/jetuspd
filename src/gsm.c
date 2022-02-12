@@ -298,7 +298,7 @@ void gsmOffFunc( void ){
         break;
       case PHASE_ON_OK:
         // Две вспышки красного цвета с интервалом в 3 сек
-        ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_TOGGLE_TOUT, TOUT_3000, 2);
+        ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_TOGGLE_TOUT, 2, TOUT_3000 );
         gsmState++;
         gsmRunPhase = PHASE_NON;
         break;
@@ -452,8 +452,8 @@ void gsmStartInitFunc( void ){
 
         // Две вспышки оранжевого цвета с интервалом в 3 сек
         ledOff( LED_R, 0 );
-        ledToggleSet( LED_R, LED_BLINK_ON_TOUT, TOUT_3000, 0, 0);
-        ledToggleSet( LED_G, LED_BLINK_ON_TOUT, TOUT_3000, 0, 0);
+        ledToggleSet( LED_R, LED_BLINK_ON_TOUT, 0, 0, TOUT_3000 );
+        ledToggleSet( LED_G, LED_BLINK_ON_TOUT, 0, 0, TOUT_3000 );
         gsmRunPhase = PHASE_NON;
         gsmState++;
         break;
@@ -783,9 +783,9 @@ int simStartInit(void) {
     if( gsmSendCommand("AT+IFC=2,2\r\n", "OK\r\n", CMD_DELAY_2, NULL ) == 0){
       simUartHwFlow();
     }
-    if( baud != BAUD_460800 ){
-      if( gsmSendCommand("AT+IPR=460800\r\n", "OK\r\n", CMD_DELAY_2, NULL) == 0){
-        simUartBaud(460800);
+    if( baud != BAUD_115200 ){
+      if( gsmSendCommand("AT+IPR=115200\r\n", "OK\r\n", CMD_DELAY_2, NULL) == 0){
+        simUartBaud(115200);
       }
     }
 

@@ -14,9 +14,9 @@
 #include "uspd.h"
 #include "logger.h"
 
-#define VER_MAJOR     0x05
-#define VER_MINOR     0x01
-#define VER_RELEASE   0x0001
+#define VER_MAJOR     0x00
+#define VER_MINOR     0x02
+#define VER_RELEASE   0x0002
 
 #define FW_VERSION    ((VER_MAJOR<<24)|(VER_MINOR<<16)|(VER_RELEASE))
 

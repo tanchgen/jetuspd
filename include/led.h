@@ -31,11 +31,12 @@ typedef struct {
   sGpioPin ledPin;
   uint16_t ledOnTout;
   uint16_t ledOffTout;
+  uint16_t baseBigTout;
   uint8_t ledToggleCount;
   FlagStatus ledToggleFlag;
-  uint16_t ledBigTout;
+  uint32_t ledBigTout;
   uint8_t baseToggleCount;
-  TIM_TypeDef * ledTim;
+  uint32_t timTout;
 } sLed;
 
 extern sLed ledHandle[];
@@ -97,7 +98,7 @@ void ledToggle( eLed led );
   *
   * @retval none
   */
-void ledToggleSet( eLed led, uint16_t onendure, uint16_t offendure, uint16_t globeendure, uint8_t count );
+void ledToggleSet( eLed led, uint16_t onendure, uint16_t offendure, uint8_t count, uint16_t globeendure );
 
 
 /**

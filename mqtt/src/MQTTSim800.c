@@ -76,6 +76,8 @@ void saveImeiReply( sUartRxHandle * handle ){
       // Похоже, получен IMEI
       memcpy( SIM800.sim.imei, (char*)handle->rxFrame, 15 );
       SIM800.sim.imei[15] = '\0';
+      trace_write("imei: ", 6);
+      trace_puts(SIM800.sim.imei);
     }
   }
   clearRxBuffer( (char *)(handle->rxFrame), &(handle->frame_offset) );
@@ -351,8 +353,8 @@ void mqttConnectCb( FlagStatus conn ){
     mqttSubFlag = RESET;
     timerStack( &mqttSubTimer, 0, TIMER_DEL );
     // Две вспышки оранжевого цвета с интервалом в 3 сек
-    ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, TOUT_3000, 2);
-    ledToggleSet( LED_G, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, TOUT_3000, 2);
+    ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, 2, TOUT_3000);
+    ledToggleSet( LED_G, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, 2, TOUT_3000);
     if( gsmState >= GSM_MQTT_START ){
       gsmRun = RESET;
       gsmStRestart = GSM_MQTT_START;

@@ -15,20 +15,20 @@ sLed ledHandle[ LED_NUM ] = {
    .ledPin = {GPIOB, GPIO_PIN_8, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL, GPIO_SPEED_FREQ_LOW, AF0, Bit_RESET, Bit_RESET, RESET },
    .ledOnTout = 0,
    .ledOffTout = 0,
+   .baseBigTout = 0,
    .ledToggleCount = 0,
    .baseToggleCount = 0,
    .ledToggleFlag = RESET,
-   .ledTim = TIM6,
   },
   // LED_R
   {
    .ledPin = {GPIOB, GPIO_PIN_9, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL, GPIO_SPEED_FREQ_LOW, AF0, Bit_RESET, Bit_RESET, RESET },
    .ledOnTout = 0,
    .ledOffTout = 0,
+   .baseBigTout = 0,
    .ledToggleCount = 0,
    .baseToggleCount = 0,
    .ledToggleFlag = RESET,
-   .ledTim = TIM7,
   },
 };
 
@@ -54,6 +54,56 @@ FlagStatus ledIsOff( eLed led ){
   return rc;
 }
 
+
+void _ledOn( eLed led, uint32_t endure){
+  sLed * pled;
+
+  if( led >= LED_NUM ){
+    return;
+  }
+
+  pled = &(ledHandle[led]);
+  gpioPinSetNow( &(pled->ledPin) );
+  if(endure > 0){
+    pled->timTout = endure + mTick;
+  }
+  else {
+    pled->timTout = 0;
+    pled->ledToggleFlag = RESET;
+//    pled->ledToggleCount = pled->baseToggleCount = 0;
+//    pled->baseBigTout = 0;
+  }
+}
+
+
+/**
+  * @brief  Выключает светодиод.
+  *
+  * @param[in]  arg данные таймера (номер вывода GPIO MCU_LED_N)
+  *
+  * @retval none
+  */
+void _ledOff( eLed led, uint32_t endure ){
+  sLed * pled;
+
+  if( led >= LED_NUM ){
+    return;
+  }
+
+  pled = &(ledHandle[led]);
+  gpioPinResetNow( &(pled->ledPin) );
+  if(endure > 0){
+    pled->timTout = endure + mTick;
+  }
+  else {
+    pled->timTout = 0;
+    pled->ledToggleFlag = RESET;
+//    pled->ledToggleCount = pled->baseToggleCount = 0;
+//    pled->baseBigTout = 0;
+  }
+}
+
+
 /**
   * @brief  Включает светодиод на определенное время
   *
@@ -72,17 +122,16 @@ void ledOn( eLed led, uint32_t endure){
   pled = &(ledHandle[led]);
   gpioPinSetNow( &(pled->ledPin) );
   if(endure > 0){
-    // Выставляем таймер
-    pled->ledOnTout = endure;
-    pled->ledTim->ARR = pled->ledOnTout - 1;
-    // Включаем
-    pled->ledTim->CR1 |= TIM_CR1_CEN;
+    pled->timTout = endure + mTick;
   }
   else {
-    pled->ledTim->CR1 &= ~TIM_CR1_CEN ;
+    pled->timTout = 0;
     pled->ledToggleFlag = RESET;
+    pled->ledToggleCount = pled->baseToggleCount = 0;
+    pled->ledBigTout = pled->baseBigTout = 0;
   }
 }
+
 
 /**
   * @brief  Выключает светодиод.
@@ -101,15 +150,13 @@ void ledOff( eLed led, uint32_t endure ){
   pled = &(ledHandle[led]);
   gpioPinResetNow( &(pled->ledPin) );
   if(endure > 0){
-    // Выставляем таймер
-    pled->ledOffTout = endure;
-    pled->ledTim->ARR = pled->ledOffTout - 1;
-    // Включаем
-    pled->ledTim->CR1 |= TIM_CR1_CEN;
+    pled->timTout = endure + mTick;
   }
   else {
-    pled->ledTim->CR1 &= ~TIM_CR1_CEN ;
+    pled->timTout = 0;
     pled->ledToggleFlag = RESET;
+    pled->ledToggleCount = pled->baseToggleCount = 0;
+    pled->ledBigTout = pled->baseBigTout = 0;
   }
 }
 
@@ -130,12 +177,31 @@ void ledToggle( eLed led ){
 
   pled = &(ledHandle[led]);
   if( (pled->ledPin.gpio->ODR & pled->ledPin.pin) == RESET ){
-    ledOn( led, pled->ledOnTout );
+    _ledOn( led, pled->ledOnTout );
   }
   else {
-    ledOff( led, pled->ledOffTout );
+    _ledOff( led, pled->ledOffTout );
   }
 }
+
+
+/**
+  * @brief  Повторное запускание миганием светодиодом
+  *
+  * @param[in]  led номер светодиода @ref enum eLed
+  *
+  * @retval none
+  */
+void ledToggleReset( eLed led ){
+  sLed * pled;
+
+  assert_param( led < LED_NUM );
+
+  pled = &(ledHandle[led]);
+
+  ledToggleSet( led, pled->ledOnTout, pled->ledOffTout, pled->baseToggleCount, pled->baseBigTout );
+}
+
 
 /**
   * @brief  Запускает мигание светодиодом
@@ -146,24 +212,31 @@ void ledToggle( eLed led ){
   *
   * @retval none
   */
-void ledToggleSet( eLed led, uint16_t onendure, uint16_t offendure, uint16_t globeendure, uint8_t count ){
+void ledToggleSet( eLed led, uint16_t onendure, uint16_t offendure, uint8_t count, uint16_t bigendure ){
   sLed * pled;
 
-  if( led >= LED_NUM ){
-    return;
+  assert_param( led < LED_NUM );
+
+  pled = &(ledHandle[led]);
+
+  if( bigendure ){
+    assert_param( bigendure >= ((onendure + offendure) * count) );
+    pled->baseBigTout = bigendure;
+    pled->ledBigTout = bigendure + mTick;
+    if( pled->ledBigTout == 0 ){
+      pled->ledBigTout = 1;
+    }
+  }
+  else {
+    pled->ledBigTout = pled->baseBigTout = 0;
   }
 
   pled = &(ledHandle[led]);
-  pled->ledTim->CR1 &= ~TIM_CR1_CEN;
-  pled->ledTim->EGR = TIM_EGR_UG;
-//  pled->ledPin.gpio->BSRR = pled->ledPin.pin << 16;
   pled->ledOnTout = onendure;
   pled->ledOffTout = offendure;
-  pled->ledBigTout = globeendure;
-  pled->ledToggleCount = pled->baseToggleCount = count * 2;
-//  pled->ledToggleCount = pled->baseToggleCount - 1;
+  pled->ledToggleCount = pled->baseToggleCount = count;
   pled->ledToggleFlag = SET;
-  ledOn( led, onendure );
+  _ledOn( led, onendure );
 }
 
 /**
@@ -174,15 +247,9 @@ void ledToggleSet( eLed led, uint16_t onendure, uint16_t offendure, uint16_t glo
   * @retval none
   */
 void ledWink( uint32_t endure){
-  ledHandle[LED_G].ledOnTout = endure;
-  ledHandle[LED_G].ledOffTout = endure;
-  ledHandle[LED_R].ledOnTout = endure;
-  ledHandle[LED_R].ledOffTout = endure;
-
-  ledOn( LED_G, endure );
-  ledHandle[LED_G].ledToggleFlag = SET;
+  ledToggleSet( LED_G, endure, endure, 0, 0);
+  ledToggleSet( LED_R, endure, endure, 0, 0);
   ledOff( LED_R, endure );
-  ledHandle[LED_R].ledToggleFlag = SET;
 }
 
 void ledAllOff( void ){
@@ -194,66 +261,39 @@ void ledAllOff( void ){
 /**
   * @brief  Обработчик тайм-аута антидребезга выводов GPIO.
   *
-  * @param[in]  led Номер светодиода
+  * @param[in]  arg данные таймера (дескриптор таймера)
   *
   * @retval none
   */
-void ledTimeout( eLed led ){
-  sLed *pled = &(ledHandle[led]);
+void ledTimeout( eLed l ){
+  sLed *pled = &(ledHandle[l]);
 
   if( pled->ledToggleFlag ){
+    ledToggle( l );
     if( pled->ledToggleCount ){
       // Установлен счетчик моргания - обрабатываем его
       if( --pled->ledToggleCount == 0){
         // Это был последняя вспышка
-        if( pled->ledBigTout != 0 ){
-          uint32_t tmp;
-          pled->ledToggleCount = pled->baseToggleCount + 1;
-          pled->ledToggleFlag = 1;
-          tmp = (pled->ledToggleCount +1) * (pled->ledOnTout + pled->ledOffTout ) / 2;
-          pled->ledTim->ARR = (pled->ledBigTout - tmp) - 1;
-          pled->ledTim->CR1 |= TIM_CR1_CEN;
-        }
-        else {
-          pled->ledToggleFlag = 0;
-        }
+        pled->ledToggleFlag = 0;
       }
-      else {
-        ledToggle( led );
-      }
-    }
-    else {
-      ledToggle( led );
     }
   }
   else {
-    ledOff( led, 0 );
+    _ledOff( l, 0 );
   }
 }
 
 
-// Обтаботчик LED_G
-void TIM6_IRQHandler( void ){
-  ledTimeout( LED_G );
-  TIM6->SR &= ~TIM_SR_UIF;
-}
-
-// Обтаботчик LED_R
-void TIM7_IRQHandler( void ){
-  TIM7->SR &= ~TIM_SR_UIF;
-  ledTimeout( LED_R );
-}
-
-
-void ledTimInit( TIM_TypeDef * ledtim ){
-  // Частота счета 1000 Гц
-  ledtim->PSC = (rccClocks.PCLK1_Frequency / 1000) - 1;
-  // Время работы таймера 100мс
-  ledtim->ARR = 100  -1;
-  ledtim->CR1 |= TIM_CR1_URS | TIM_CR1_OPM;
-  ledtim->EGR |= TIM_EGR_UG;
-  ledtim->DIER |= TIM_DIER_UIE;
-
+void ledProcess( uint32_t tick ){
+  for( eLed l = 0; l < LED_NUM; l++ ){
+    sLed * pled = &(ledHandle[l]);
+    if( (pled->timTout != 0) && (pled->timTout <= tick) ){
+      ledTimeout( l );
+    }
+    if( (pled->ledBigTout != 0) && (pled->ledBigTout <= tick) ){
+      ledToggleReset( l );
+    }
+  }
 }
 
 /**
@@ -264,19 +304,16 @@ void ledTimInit( TIM_TypeDef * ledtim ){
   * @retval none
   */
 void ledInit( void ){
-  // ------------------- LEDS -----------------------
-  RCC->APB1ENR |= RCC_APB1ENR_TIM6EN; //LED_R_TIM_CLK_EN;
-  RCC->APB1ENR |= RCC_APB1ENR_TIM7EN;
+//  sGpioPin gpioPinNWork = { GPIOF, GPIO_Pin_6, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_PuPd_NOPULL, Bit_RESET, Bit_RESET };
+//  sGpioPin gpioPinNFail = { GPIOF, GPIO_Pin_8, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_PuPd_NOPULL, Bit_RESET, Bit_RESET };
 
+  // ------------------- LEDS -----------------------
   for( eLed led = LED_G; led < LED_NUM; led++ ){
     gpioPinSetup( &(ledHandle[led].ledPin) );
-    ledTimInit( ledHandle[led].ledTim );
   }
 
-  NVIC_SetPriority( TIM6_IRQn, 4 );
-  NVIC_EnableIRQ( TIM6_IRQn );
-  NVIC_SetPriority( TIM7_IRQn, 4 );
-  NVIC_EnableIRQ( TIM7_IRQn );
+//  gpioPinSetup( &gpioPinNWork );
+//  gpioPinSetup( &gpioPinNFail );
 
 }
 

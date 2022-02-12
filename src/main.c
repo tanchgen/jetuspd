@@ -15,9 +15,9 @@
 #include "logger.h"
 #include "lowpwr.h"
 
-#define VER_MAJOR     0x05
-#define VER_MINOR     0x01
-#define VER_RELEASE   0x0001
+#define VER_MAJOR     0x00
+#define VER_MINOR     0x02
+#define VER_RELEASE   0x0002
 
 #define FW_VERSION    ((VER_MAJOR<<24)|(VER_MINOR<<16)|(VER_RELEASE))
 
@@ -76,7 +76,7 @@ int main(void) {
   trace_puts("Hello USPD!");
   gsmRunPhase = PHASE_NON;
 
-    // Запускаем watchdog на случай зависания прошивки
+  // Запускаем watchdog на случай зависания прошивки
 //    Check_IWDG_Reset();
 //    Configure_IWDG();
     SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;

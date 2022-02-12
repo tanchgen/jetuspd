@@ -244,8 +244,8 @@ void EXTI4_IRQHandler( void ){           // EXTI Line 4
   */
 //void USART3_IRQHandler(void) { while(1){} }
 
-void RTC_WKUP_IRQHandler( void ) {
-  while(1){}
+void RTC_IRQHandler( void ) {
+  rtcWakeupCb();
 };
 
 void RTC_Alarm_IRQHandler( void ) {
@@ -257,7 +257,7 @@ void RTC_Alarm_IRQHandler( void ) {
 void WWDG_IRQHandler( void ) { while(1){} };
 void PVD_IRQHandler( void ) { while(1){} };
 void TAMPER_STAMP_IRQHandler( void ) { while(1){} };
-// void RTC_WKUP_IRQHandler( void ) { while(1){} };
+//void RTC_IRQHandler( void ) { while(1){} };
 void FLASH_IRQHandler( void ) { while(1){} };
 void RCC_IRQHandler( void ) { while(1){} };
 //void EXTI0_IRQHandler( void ) { while(1){} };

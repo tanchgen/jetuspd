@@ -11,6 +11,8 @@
 #include "stm32l1xx.h"
 //#include "uspd.h"
 #include "uart.h"
+#include "times.h"
+#include "lowpwr.h"
 
 // === CONFIG ===
 #define UART_SIM800     &simUart
@@ -39,6 +41,7 @@ typedef enum {
 
 typedef enum {
   SIM_NOT_READY,
+  SIM_PON,
   SIM_PIN_READY,
   SIM_GSM_READY
 } eSimReady;
@@ -58,7 +61,6 @@ typedef struct {
     char *apn_pass;
     uint8_t csq;
     char imei[16];
-    eSimReady ready;
 } sim_t;
 
 extern FlagStatus gsmRun;
@@ -66,9 +68,16 @@ extern eGsmState gsmState;
 extern eGsmState gsmStRestart;
 
 extern struct timer_list mqttPingTimer;
+// Таймер усыпления контроллера при включении GSM_PROC
+extern struct timer_list tGsmOnSleepTimer;
 
 int gsmSendCommand(char *command, char *reply, uint16_t delay, void (*simreplycb)( sUartRxHandle *) );
 
 void gsmProcess( void );
+
+static inline void gsmSleep( uint32_t sec ){
+  rtcTimMod( &tGsmOnSleepTimer, sec );
+  toSleep();
+}
 
 #endif /* GSM_H_ */

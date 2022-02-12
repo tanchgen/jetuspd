@@ -50,6 +50,9 @@ uint32_t htonl(uint32_t n) ;
 static void fwUpdTout( uintptr_t arg ){
   (void)arg;
 
+  // Выключение CRC
+  RCC->AHBENR &= ~RCC_AHBENR_CRCEN;
+
   // Очистим буфер
   mqttMsgReset( simHnd.rxh, &SIM800 );
   fwUpdFlag = RESET;
@@ -59,10 +62,6 @@ static void fwUpdTout( uintptr_t arg ){
 }
 
 void fwInit( void ){
-  // Настройка CRC
-  RCC->AHBENR |= RCC_AHBENR_CRCEN;
-
-  // TODO: Настройка Флеш
   fwHandle.fwActive = SCB->VTOR > FW_1_START_ADDR;
 
   timerSetup( &fwUpdTimer, fwUpdTout, (uintptr_t)NULL );
@@ -156,6 +155,8 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
         // Это первый фрагмент прошивки
         fwup->fwStartAddr = (fwHandle.fwActive)? FW_1_START_ADDR : FW_2_START_ADDR;
         fwup->fwEndAddr = fwup->fwStartAddr + ((fwHandle.fwActive)? FW_1_SIZE : FW_2_SIZE);
+        // Включение CRC
+        RCC->AHBENR |= RCC_AHBENR_CRCEN;
         // Сброс CRC
         CRC->CR = CRC_CR_RESET;
 
@@ -256,6 +257,9 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
         fwup->fwLen = 0;
         fwup->fwVer = 0;
       }
+      // Выключение CRC
+      RCC->AHBENR &= ~RCC_AHBENR_CRCEN;
+
       fwHandle.fwFlashState = FWFLASH_READY;
       // Останавливаем таймер таймаута получения прошивки
       timerDel( &fwUpdTimer );

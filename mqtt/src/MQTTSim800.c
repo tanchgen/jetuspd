@@ -117,9 +117,6 @@ void MQTT_Disconnect(void) {
 int MQTT_Deinit(void) {
   int error = 0;
 
-//  MQTT_Disconnect();
-//  mDelay(100);
-
   gsmSendCommand("AT+CIPCLOSE=1\r\n", "OK\r\n", CMD_DELAY_5, NULL );
   error += gsmSendCommand("AT+CGATT=0\r\n", "OK\r\n", CMD_DELAY_10, NULL );
   error += gsmSendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY_10, NULL );
@@ -387,10 +384,10 @@ void simUartRxProc( sUartRxHandle * handle, uint8_t byte ){
             else {
               // Callback == NULL
               if( strstr(mqtt_buffer, "SMS Ready\r\n" ) != NULL ) {
-                SIM800.sim.ready = SIM_GSM_READY;
+                SIM800.ready = SIM_GSM_READY;
               }
               else if( strstr(mqtt_buffer, "PIN Ready\r\n" ) != NULL ) {
-                SIM800.sim.ready = SIM_PIN_READY;
+                SIM800.ready = SIM_PIN_READY;
               }
               clearRxBuffer( (char *)(simHnd.rxh->rxFrame), &(simHnd.rxh->frame_offset) );
             }

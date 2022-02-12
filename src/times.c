@@ -23,9 +23,9 @@ const uint8_t AsynchPrediv = 0x7F;
 static struct list_head  msTimersQueue = LIST_HEAD_INIT(msTimersQueue);
 
 /// Голова очереди секундных таймеров.
-static struct list_head  rtcTimQueue = LIST_HEAD_INIT(rtcTimQueue);
+struct list_head  rtcTimQueue = LIST_HEAD_INIT(rtcTimQueue);
 /// Голова очереди секундных таймеров на исполнение.
-static struct list_head  actRtcTimQueue = LIST_HEAD_INIT(actRtcTimQueue);
+struct list_head  actRtcTimQueue = LIST_HEAD_INIT(actRtcTimQueue);
 
 //#define RTC_RSF_MASK            ((uint32_t)0xFFFFFF5F)
 /* ------------ RCC registers bit address in the alias region ----------- */
@@ -45,6 +45,9 @@ static struct list_head  actRtcTimQueue = LIST_HEAD_INIT(actRtcTimQueue);
 #define BIN2BCD(__VALUE__) (uint8_t)((((__VALUE__) / 10U) << 4U) | ((__VALUE__) % 10U))
 #define BCD2BIN(__VALUE__) (uint8_t)(((uint8_t)((__VALUE__) & (uint8_t)0xF0U) >> (uint8_t)0x4U) * 10U + ((__VALUE__) & (uint8_t)0x0FU))
 
+// for LSI
+#define WUT_K     ((uint32_t)(1e6 * 4 / LSI_VALUE))
+
 volatile tRtc rtc;
 volatile tUxTime uxTime;
 volatile uint8_t sendToutFlag = SET;
@@ -53,17 +56,16 @@ volatile uint8_t minToutRx;
 volatile uint8_t uxSecTout;
 
 static void rtcSetTime( volatile tRtc * prtc );
-static void rtcGetTime( volatile tRtc * prtc );
+//static void rtcGetTime( volatile tRtc * prtc );
 //static void RTC_GetTime( volatile tRtc * prtc );
 static void rtcSetDate( volatile tRtc * prtc );
-static void rtcGetDate( volatile tRtc * prtc );
+//static void rtcGetDate( volatile tRtc * prtc );
 void rtcSetAlrm( tRtc * prtc );
 void rtcGetAlrm( tRtc * prtc );
 void rtcCorrAlrm( tRtc * prtc );
 
 //void uartRxClock( void );
 
-// *********** Инициализация структуры ВРЕМЯ (сейчас - системное ) ************
 // *********** Инициализация структуры ВРЕМЯ (сейчас - системное ) ************
 void rtcInit(void){
   uint32_t psc;
@@ -114,23 +116,34 @@ void rtcInit(void){
   RTC->PRER = psc;
   RTC->ISR &= ~RTC_ISR_INIT;
 
+  RTC->CR |= RTC_CR_BYPSHAD;
+
   // --- Configure Alarm A -----
   // Disable alarm A to modify it
   RTC->CR &= ~RTC_CR_ALRAE;
   while((RTC->ISR & RTC_ISR_ALRAWF) != RTC_ISR_ALRAWF)
   {}
-  // Устанавливаем секунды в будильник - разбиваем все ноды на 60 групп
   RTC->ALRMAR = 0;
-  // Alarm A every day, every hour, every minute, every second
-  RTC->ALRMAR |= RTC_ALRMAR_MSK4 | RTC_ALRMAR_MSK3 | RTC_ALRMAR_MSK2 | RTC_ALRMAR_MSK1;
   RTC->CR |= RTC_CR_ALRAIE | RTC_CR_ALRAE;
+
+  // --- Configure Alarm B -----
+  // Disable alarm B to modify it
+  RTC->CR &= ~RTC_CR_ALRBE;
+  while((RTC->ISR & RTC_ISR_ALRBWF) != RTC_ISR_ALRBWF)
+  {}
+  RTC->ALRMBR = 0;
+  // Alarm B every day, every hour, every minute, every second
+  RTC->ALRMBR |= RTC_ALRMBR_MSK4 | RTC_ALRMBR_MSK3 | RTC_ALRMBR_MSK2 | RTC_ALRMBR_MSK1;
+  RTC->CR |= RTC_CR_ALRBIE | RTC_CR_ALRBE;
 
   // --- Configure WakeUp Timer -----
   RTC->CR &= ~RTC_CR_WUTE;
   while((RTC->ISR & RTC_ISR_WUTWF) != RTC_ISR_WUTWF)
   {}
+
   // частота = RTCCLOCK (32768кГц) / 4: T = ~122.07мкс
   RTC->CR = (RTC->CR & ~RTC_CR_WUCKSEL) | RTC_CR_WUCKSEL_1 | RTC_CR_WUTIE;
+
   // Disable WUT
   RTC->CR &= ~RTC_CR_WUTE;
 
@@ -149,9 +162,9 @@ void rtcInit(void){
   EXTI->RTSR |= EXTI_RTSR_TR20;
 
   NVIC_SetPriority(RTC_Alarm_IRQn, 1);
-//  NVIC_EnableIRQ(RTC_Alarm_IRQn);
+  NVIC_EnableIRQ(RTC_Alarm_IRQn);
   NVIC_SetPriority(RTC_WKUP_IRQn, 1);
-//  NVIC_EnableIRQ(RTC_WKUP_IRQn);
+  NVIC_EnableIRQ(RTC_WKUP_IRQn);
 }
 
 void timeInit( void ) {
@@ -174,7 +187,7 @@ void timeInit( void ) {
   vol = RTC->DR;
   rtcSetDate( &rtc );
   rtcSetTime( &rtc );
-//  // Выставляем будильник для измерения температуры
+//  // Выставляем будильник для  измерения температуры
 //  rtc.sec = BIN2BCD(rfm.nodeAddr % 60) + 1;
 //  uxTime = xTm2Utime( &rtc );
 //  setAlrm( uxTime, ALRM_A );
@@ -281,16 +294,36 @@ void setRtcTime( tUxTime xtime ){
 }
 
 tUxTime getRtcTime( void ){
+  uint32_t tmpTr;
+  uint32_t tmpDr;
 
-  rtcGetTime( &rtc );
-  rtcGetDate( &rtc );
+  rtc.ss = RTC->SSR;
+  tmpTr = RTC->TR;
+  tmpDr = RTC->DR;
+  if( (rtc.ss != RTC->SSR) || (tmpTr != RTC->TR) || (tmpDr = RTC->DR) ){
+    rtc.ss = RTC->SSR;
+    tmpTr = RTC->TR;
+    tmpDr = RTC->DR;
+  }
+  rtc.hour = BCD2BIN( tmpTr >> 16 );
+  rtc.min = BCD2BIN( tmpTr >> 8 );
+  rtc.sec = BCD2BIN( tmpTr  );
+  rtc.year = BCD2BIN( tmpDr >> 16 );
+  rtc.month = BCD2BIN( (tmpDr >> 8) & 0x1f );
+  rtc.date = BCD2BIN( tmpDr );
+  rtc.wday = ( tmpDr >> 13 ) & 0x7;
+
   return xTm2Utime( &rtc );
 }
 
 uint8_t getRtcMin( void ){
-  while((RTC->ISR & RTC_ISR_RSF) == 0)
-  {}
-  return BCD2BIN( (RTC->TR >> 8) & 0x7F );
+  uint32_t tmpTr;
+
+  tmpTr = RTC->TR;
+  if( tmpTr != RTC->TR ){
+    tmpTr = RTC->TR;
+  }
+  return BCD2BIN( (tmpTr >> 8) & 0x7F );
 }
 
 /* Установка будильника
@@ -424,8 +457,8 @@ static void rtcSetTime( volatile tRtc * prtc ){
   // Time reserved mask
   temp &= (uint32_t)0x007F7F7F;
   RTC->TR = ( RTC->TR & (RTC_TR_PM | RTC_TR_HT | RTC_TR_HU | RTC_TR_MNT | RTC_TR_MNU | RTC_TR_ST | RTC_TR_SU)) | temp;
-  // Сбрасываем флаг синхронизации часов
-  RTC->ISR &= ~RTC_ISR_RSF;
+//  // Сбрасываем флаг синхронизации часов
+//  RTC->ISR &= ~RTC_ISR_RSF;
   RTC->ISR &= ~RTC_ISR_INIT;
   RTC->WPR = 0xFE;
   RTC->WPR = 0x64;
@@ -448,17 +481,18 @@ static void rtcSetDate( volatile tRtc * prtc ){
   // Date reserved mask
   temp &= (uint32_t)0x00FFFF3F;
   RTC->DR = ( RTC->DR & ~(RTC_DR_YT | RTC_DR_YU | RTC_DR_MT | RTC_DR_MU | RTC_DR_DT | RTC_DR_DU | RTC_DR_WDU)) | temp;
-  // Сбрасываем флаг синхронизации часов
-  RTC->ISR &= ~RTC_ISR_RSF;
+//  // Сбрасываем флаг синхронизации часов
+//  RTC->ISR &= ~RTC_ISR_RSF;
   RTC->ISR &= ~RTC_ISR_INIT;
   RTC->WPR = 0xFE;
   RTC->WPR = 0x64;
 }
 
 void rtcGetTime( volatile tRtc * prtc ){
-  while((RTC->ISR & RTC_ISR_RSF) == 0)
-  {}
   uint32_t tmpTr = RTC->TR;
+  if( tmpTr != RTC->TR ){
+    tmpTr = RTC->TR;
+  }
   prtc->hour = BCD2BIN( tmpTr >> 16 );
   prtc->min = BCD2BIN( tmpTr >> 8 );
   prtc->sec = BCD2BIN( tmpTr  );
@@ -466,9 +500,10 @@ void rtcGetTime( volatile tRtc * prtc ){
 }
 
 void rtcGetDate( volatile tRtc * prtc ){
-  while((RTC->ISR & RTC_ISR_RSF) == 0)
-  {}
   uint32_t tmpDr = RTC->DR;
+  if( tmpDr != RTC->DR ){
+    tmpDr = RTC->DR;
+  }
   prtc->year = BCD2BIN( tmpDr >> 16 );
   prtc->month = BCD2BIN( (tmpDr >> 8) & 0x1f );
   prtc->date = BCD2BIN( tmpDr );
@@ -488,8 +523,12 @@ void rtcSetAlrm( tRtc * prtc ){
           BIN2BCD( prtc->hour ) << 16 |
           BIN2BCD( prtc->min ) << 8 |
           BIN2BCD( prtc->sec ) );
+  RTC->CR &= ~RTC_CR_ALRAE;
+  while( (RTC->ISR & RTC_ISR_ALRAWF) == RESET )
+  {}
   RTC->ALRMAR = ( RTC->ALRMAR & (RTC_ALRMAR_PM | RTC_ALRMAR_DT | RTC_ALRMAR_DU | RTC_ALRMAR_HT | RTC_ALRMAR_HU | RTC_ALRMAR_MNT | RTC_ALRMAR_MNU | RTC_ALRMAR_ST | RTC_ALRMAR_SU)) | temp;
 
+  RTC->CR |= RTC_CR_ALRAE;
   RTC->ISR &= ~RTC_ISR_INIT;
   RTC->WPR = 0xFE;
   RTC->WPR = 0x64;
@@ -518,6 +557,28 @@ void rtcCorrAlrm( tRtc * prtc ){
   RTC->WPR = 0xFE;
   RTC->WPR = 0x64;
 }
+
+
+void rtcSetWut( uint32_t mks ){
+  RTC->WPR = 0xCA;
+  RTC->WPR = 0x53;
+//  RTC->ISR |= RTC_ISR_INIT;
+//  while((RTC->ISR & RTC_ISR_INITF)!=RTC_ISR_INITF)
+//  {}
+
+  mks /= WUT_K;
+
+  RTC->CR &= ~RTC_CR_WUTE;
+  while( (RTC->ISR & RTC_ISR_WUTWF) == RESET )
+  {}
+  RTC->WUTR = mks;
+
+  RTC->CR |= RTC_CR_WUTE;
+//  RTC->ISR &= ~RTC_ISR_INIT;
+  RTC->WPR = 0xFE;
+  RTC->WPR = 0x64;
+}
+
 
 void usTimStop( void ){
   // Остонавливаем
@@ -776,6 +837,7 @@ bool rtcTimMod(struct timer_list *rtcTim, uint32_t sec) {
   rtcTim->expires = sec;
 
   list_add_tail(&rtcTim->entry, &rtcTimQueue);
+  actTimListRun = SET;
 
   return retval;
 }
@@ -791,79 +853,70 @@ bool rtcTimDel(struct timer_list *rtctim) {
   }
 
   rtcTimDetach(rtctim, true);
+  actTimListRun = SET;
 
   return true;
 }
 
 
-/**
-  * @brief  Обработка данных RTC-таймеров.
-  *
-  * @retval none
-  */
-void rtcTimProcess( void ){
+uint32_t rtc2ActTimProc( tUxTime ut ){
   struct list_head   *curr, *next;
-  struct timer_list  *rtcTim, *actTim;
+  struct timer_list  *rtcTim;
   struct timer_list  *tmptim[10];
   uint8_t tcount = 0;
   int32_t sec = (~0UL) >> 1;
   int32_t sec0 = 0;
 
-  if( actTimRun ){
+  // Составляем список активных RTC-таймеров
+  list_for_each_safe(curr, next, &rtcTimQueue) {
+    rtcTim = list_entry(curr, struct timer_list, entry);
 
-    // Выполняем все RTC-таймеры, назначеные на это время
-    while (!list_empty(&actRtcTimQueue)) {
-      actTim = list_first_entry(&actRtcTimQueue, struct timer_list, entry);
-
-      rtcTimDetach(actTim, true);
-
-      if (actTim->function != NULL) {
-        actTim->function(actTim->data);
-      }
+    sec0 = (int32_t)rtcTim->expires - ut;
+    if(sec0 < 0){
+      sec0 = 1;
     }
-    actTimRun = RESET;
-    return;
+    if( sec0 < sec ){
+      // Этот таймер раньше других - Состовляем список заново
+      tcount = 0;
+      tmptim[tcount++] = rtcTim;
+      sec = sec0;
+    }
+    else if( sec0 == sec ){
+      // Этот таймер в то же  время - Добавляем в список самых ранних
+      tmptim[tcount++] = rtcTim;
+    }
   }
-  else if( actTimListRun ){
-    uint32_t ut = getRtcTime();
 
-    // Составляем список активных RTC-таймеров
-    list_for_each_safe(curr, next, &rtcTimQueue) {
-      rtcTim = list_entry(curr, struct timer_list, entry);
+//    assert_param( tcount > 0 );
 
-      sec0 = (int32_t)rtcTim->expires - ut;
-      if(sec0 < 0){
-        sec0 = 0;
-      }
-      if( sec0 < sec ){
-        // Этот таймер раньше других - Состовляем список заново
-        tcount = 0;
-        tmptim[tcount++] = rtcTim;
-        sec = sec0;
-      }
-      else if( sec0 == sec ){
-        // Этот таймер в то же  время - Добавляем в список самых ранних
-        tmptim[tcount++] = rtcTim;
-      }
+  // Очистим список
+  INIT_LIST_HEAD(&actRtcTimQueue);
+
+  for( ; tcount; ){
+    tcount--;
+    // Переносим ближайшие таймеры в список "Активных таймеров"
+    list_move_tail( &(tmptim[tcount]->entry), &actRtcTimQueue );
+  }
+
+  return sec0;
+}
+
+
+void actTimProc( void ){
+  struct timer_list  *actTim;
+
+  // Выполняем все RTC-таймеры, назначеные на это время
+  while (!list_empty(&actRtcTimQueue)) {
+    actTim = list_first_entry(&actRtcTimQueue, struct timer_list, entry);
+
+    rtcTimDetach(actTim, true);
+
+    if (actTim->function != NULL) {
+      actTim->function(actTim->data);
     }
-
-    assert_param( tcount > 0 );
-
-    for( ; tcount; ){
-      tcount--;
-      // Переносим ближайшие таймеры в список "Активных таймеров"
-      list_add_tail( &(tmptim[tcount]->entry), &actRtcTimQueue );
-    }
-
-    // Заводим будильник на время "Активных таймеров"
-
-    setAlrm( ut + sec0 );
-    actTimListRun = RESET;
-    sleepProcess();
   }
 }
 
-// ==================================================================================
 
 /**
   * @brief Установка делителя "Prescaler" аппаратного таймера для нужной частоты счета
@@ -919,10 +972,6 @@ uint8_t timPscSet( TIM_TypeDef * tim, uint32_t tim_frequency, uint16_t * psc){
   */
 void SysTick_Handler(void){
 	++mTick;
-  if( (mTick & 0x400) == 0 ){
-    //Пока пауза - обновляем IWDG каждые 1024мс
-    LL_IWDG_ReloadCounter(IWDG);
-  }
 
 	// Нужно проверять регулярно и достаточно часто
 	uartRxClock( simHnd.rxh );

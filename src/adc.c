@@ -12,7 +12,7 @@
 /** Структура дескриптора модуля АЦП: Бат. CMOS (Bat_CMOS, vbat) и Ток нагревателя (Heater_current, hcur) */
 sAdcHandle adcHandle;
 
-struct timer_list adcStartTimer;
+//struct timer_list adcStartTimer;
 
 // Расчет скользящего среднего
 inline void movAvgU( uint16_t *avg, uint32_t pt ){
@@ -60,13 +60,13 @@ void adcInit(void){
 
   // Прерывание по ушибке переполнения
   ADC1->CR1 |= ADC_CR1_EOCIE | ADC_CR1_OVRIE;
-  ADC->CCR |= ADC_CCR_TSVREFE;
+//  ADC->CCR |= ADC_CCR_TSVREFE;
 
-  ADC1->CR2 |= ADC_CR2_ADON;
+//  ADC1->CR2 |= ADC_CR2_ADON;
   NVIC_EnableIRQ( ADC1_IRQn );
   NVIC_SetPriority( ADC1_IRQn, 2 );
 
-  timerSetup( &adcStartTimer, adcStartTout, (uintptr_t)NULL );
+//  timerSetup( &adcStartTimer, adcStartTout, (uintptr_t)NULL );
 }
 
 /**
@@ -82,19 +82,23 @@ inline void adcGpioInit( void ){
   GPIOA->MODER |= GPIO_MODER_MODER0;      // TM_BCM
 }
 
+
+// TODO: Запуск по требованию перед передачей значений VDD и TEMP
 void adcStart( void ){
   // Вкл тактирование АЦП
-//  RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
+  RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
 //  ADC->CCR |= ADC_CCR_VBATEN;
-
+  ADC->CCR |= ADC_CCR_TSVREFE;
   // Ждем, когда запустится VREFINT
   while( (PWR->CSR & PWR_CSR_VREFINTRDYF) == 0 )
   {}
 
   adcHandle.adcOk = RESET;
-  if( (ADC1->SR & ADC_SR_ADONS) != RESET ){
+  if( (ADC1->SR & ADC_SR_ADONS) == RESET ){
     ADC1->CR2 |= ADC_CR2_ADON;
   }
+  while( (ADC1->SR & ADC_SR_ADONS) == RESET )
+  {}
   ADC1->CR2 |= ADC_CR2_SWSTART;
 }
 
@@ -114,6 +118,7 @@ void adcStop( void ){
   }
   while( ADC1->SR & ADC_SR_ADONS )
   {}
+  ADC->CCR &= ~ADC_CCR_TSVREFE;
 
   adcHandle.adcOk = RESET;
 
@@ -166,7 +171,8 @@ void adcProcess( void ){
 
   adcHandle.adcOk = RESET;
 
-  timerMod( &adcStartTimer, TOUT_1000 );
+  adcStop();
+//  timerMod( &adcStartTimer, TOUT_1000 );
 }
 
 

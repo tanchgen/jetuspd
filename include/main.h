@@ -87,11 +87,6 @@ enum {
 
 extern RCC_ClocksTypeDef RCC_Clocks;
 
-/** ARRAY_SIZE() macro. */
-#ifndef ARRAY_SIZE
-# define ARRAY_SIZE(arr)  (sizeof(arr) / sizeof((arr)[0]))
-#endif
-
 void enable_nvic_irq(IRQn_Type irq, uint8_t priority);
 void disable_nvic_irq(IRQn_Type irq);
 /* USER CODE END Private defines */

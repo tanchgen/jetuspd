@@ -54,13 +54,12 @@ sGpioPin  gpioPinSimPwr = {GPIOB, GPIO_PIN_12, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL,
 sGpioPin  gpioPinPwrKey = {GPIOB, GPIO_PIN_2, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL, GPIO_SPEED_LOW, AF0, Bit_RESET, Bit_RESET, RESET };
 
 sGpioPin  gpioPinFlashOn = {GPIOA, GPIO_PIN_12, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL, GPIO_SPEED_LOW, AF0, Bit_SET, Bit_SET, RESET };
-sGpioPin  gpioPinTermOn = {GPIOA, GPIO_PIN_15, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL, GPIO_SPEED_LOW, AF0, Bit_RESET, Bit_RESET, RESET };
+sGpioPin  gpioPinTermOn = {GPIOA, GPIO_PIN_15, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL, GPIO_SPEED_LOW, AF0, Bit_SET, Bit_SET, RESET };
 
 sGpioPin  gpioPinSensOn = {GPIOB, GPIO_PIN_4, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL, GPIO_SPEED_LOW, AF0, Bit_SET, Bit_SET, RESET };
 
 // ------------------- LEDS -----------------------
 // Определено в led.c
-
 
 // ===========================================================================================================
 /** Структуры дескриптора таймера антидребезга выводов GPIO. */
@@ -344,8 +343,6 @@ void gpioEnable( void ) {
   * @retval	none
   */
 void gpioInit( void ){
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-
   // ------------- OTHER PINS -------------------
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
@@ -353,23 +350,23 @@ void gpioInit( void ){
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
-  /*Configure GPIOC pins : PC13 PC14 PC15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-  /*Configure GPIOH pins : PH0 PH1 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
-
-  /*Configure GPIOA pins */
-  GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_11|GPIO_PIN_12;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+//  /*Configure GPIOC pins : PC14 PC15 */
+//  GPIO_InitStruct.Pin = GPIO_PIN_14|GPIO_PIN_15;
+//  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+//  GPIO_InitStruct.Pull = GPIO_NOPULL;
+//  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+//
+//  /*Configure GPIOH pins : PH0 PH1 */
+//  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1;
+//  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+//  GPIO_InitStruct.Pull = GPIO_NOPULL;
+//  HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
+//
+//  /*Configure GPIOA pins */
+//  GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_11;
+//  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+//  GPIO_InitStruct.Pull = GPIO_NOPULL;
+//  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   // -------------- POWER -----------------------
   // KEYS
@@ -386,6 +383,15 @@ void gpioInit( void ){
 
   gpioPinSetup( &gpioPinFlashOn );
   gpioPinSetup( &gpioPinTermOn );
+
+  // ------------------------------------ UNUSED PINS --------------------------------------------
+  // To analog mode
+  GPIOA->MODER |= GPIO_MODER_MODER8;      // PA8
+  GPIOA->MODER |= GPIO_MODER_MODER11;     // PA11
+  GPIOC->MODER |= GPIO_MODER_MODER14;     // PC14
+  GPIOC->MODER |= GPIO_MODER_MODER15;     // PC15
+  GPIOH->MODER |= GPIO_MODER_MODER0;      // PH0
+  GPIOH->MODER |= GPIO_MODER_MODER1;      // PH1
 
   // ------------------- LEDS -----------------------
   // Определено в led.c

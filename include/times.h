@@ -10,6 +10,7 @@
 /** Частота работы системного таймера. */
 #define TICK_HZ   (1000)
 
+// Таймауты в мс
 #define TOUT_50         50
 #define TOUT_100        100
 #define TOUT_200        200
@@ -21,6 +22,39 @@
 #define TOUT_5000       5000
 #define TOUT_10000      10000
 #define TOUT_15000      15000
+
+// Таймауты в с
+#define SEC_1           1
+#define SEC_2           2
+#define SEC_3           3
+#define SEC_5           5
+#define SEC_10          10
+#define SEC_15          15
+#define SEC_20          20
+#define SEC_30          30
+#define SEC_60          60    // 1 мин
+#define SEC_120         120   // 2 мин
+#define SEC_180         180   // 3 мин
+#define SEC_300         300   // 5 мин
+#define MIN_1           SEC_60
+#define MIN_2           SEC_120
+#define MIN_3           SEC_180
+#define MIN_5           SEC_300
+#define MIN_10          (MIN_1 * 10)
+#define MIN_20          (MIN_1 * 20)
+#define MIN_30          (MIN_1 * 30)
+#define MIN_60          (MIN_1 * 60)
+#define HOUR_1          (MIN_60)
+#define HOUR_2          (HOUR_1 * 2)
+#define HOUR_3          (HOUR_3 * 3)
+#define HOUR_12         (HOUR_1 * 12)
+#define HOUR_24         (HOUR_1 * 24)
+#define DAY_1           (HOUR_24)
+#define DAY_2           (DAY_1 * 2)
+#define DAY_3           (DAY_1 * 3)
+#define DAY_5           (DAY_1 * 5)
+#define HOUR_10         (DAY_1 * 10)
+
 
 /** Тайм-аут переходов при включении. */
 /** Тайм-аут переходов между состояниями выводов GPIO FPGA_EN_x или FPGA_EN_x. */
@@ -139,6 +173,7 @@ extern RCC_ClocksTypeDef  rccClocks;
 extern volatile FlagStatus actTimRun;
 // Флаг запуска составления списка активных таймеров
 extern volatile FlagStatus actTimListRun;
+extern volatile FlagStatus sleepStartFlag;
 
 // *********** Инициализация структуры ВРЕМЯ (сейчас - системное ) ************
 void rtcInit(void);
@@ -198,6 +233,11 @@ struct timer_list {
 
 /** Счетчик тиков системного таймера. */
 extern volatile uint32_t  mTick;
+/// Голова очереди секундных таймеров.
+extern struct list_head  rtcTimQueue;
+/// Голова очереди секундных таймеров на исполнение.
+extern struct list_head  actRtcTimQueue;
+
 
 /*
  * These inlines deal with timer wrapping correctly. You are 
@@ -299,43 +339,13 @@ void timerStack( struct timer_list *timer, uint32_t tout, eTimStack ts );
 uint8_t timPscSet( TIM_TypeDef * tim, uint32_t tim_frequency, uint16_t * psc);
 void timersClock( void );
 
-//--------------------------------------------------------------------------------------
-/**
-  * @brief  Выполняется по срабатыванию будильника.
-  *
-  * @retval none
-  */
-static inline void rtcWakeupCb( void ){
-  mTick = 0;
-  actTimRun = SET;
-}
+void rtcTimSetup(struct timer_list *rtctim, void (*function)(uintptr_t), uintptr_t arg );
+bool rtcTimMod(struct timer_list *rtcTim, uint32_t sec);
+bool rtcTimModArg(struct timer_list *rtcTim, uint32_t sec, uintptr_t arg);
+bool rtcTimDel(struct timer_list *rtctim);
 
-/**
-  * @brief  Запуск засыпания
-  *
-  * @retval none
-  */
-static inline void sleepStart( void ){
-  /* TODO: Перевод периферии в режим сна:
-   * 1. Отключить тактирование ненужной периферии
-   * 2. Перевезти неиспользуемые входы в  ANALOG
-   * 3. Переключить тактирование с HSI на MCI
-   * 4. ...
-   */
-  actTimListRun = SET;
-}
+void rtcAlrmCb( void );
 
-/**
-  * @brief  Выполняется по срабатыванию будильника.
-  *
-  * @retval none
-  */
-static inline void sleepProcess( void ){
-  // TODO: Заменить на реальное засыпание
-  while(actTimRun == RESET)
-  {}
-}
-//--------------------------------------------------------------------------------------
 
 #endif /* _TIMES_H */
 

@@ -59,3 +59,47 @@ void SystemClock_Config(void) {
 }
 
 
+//  Переключаем тактирование на MSI
+void rccMsiSw( void ){
+  // MSI = 4.194MHz
+  RCC->ICSCR = (RCC->ICSCR & ~RCC_ICSCR_MSIRANGE) | RCC_ICSCR_MSIRANGE_2;
+  RCC->CR |= RCC_CR_MSION;
+  while( (RCC->CR & RCC_CR_MSIRDY) == 0 )
+  {}
+  RCC->CFGR &= ~RCC_CFGR_SW;
+  while( (RCC->CFGR & RCC_CFGR_SWS) != 0 )
+  {}
+//  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
+  // Power range 3
+  while( (PWR->CSR & PWR_CSR_VOSF) != 0 )
+  {}
+  PWR->CR = (PWR->CR & ~PWR_CR_VOS) | PWR_CR_VOS_0;
+  while( (PWR->CSR & PWR_CSR_VOSF) != 0 )
+  {}
+  RCC->CR &= ~(RCC_CR_PLLON | RCC_CR_HSION);
+}
+
+
+//  Переключаем тактирование на HSI
+void rccHsiSw( void ){
+//  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+  // Power range 1
+  while( (PWR->CSR & PWR_CSR_VOSF) != 0 )
+  {}
+  PWR->CR = (PWR->CR & ~PWR_CR_VOS) | PWR_CR_VOS_0;
+  while( (PWR->CSR & PWR_CSR_VOSF) != 0 )
+  {}
+
+  RCC->CR |= RCC_CR_HSION;
+  while( (RCC->CR & RCC_CR_HSIRDY) == 0 )
+  {}
+  RCC->CR |= RCC_CR_PLLON;
+  while( (RCC->CR & RCC_CR_PLLRDY) == 0)
+  {}
+  RCC->CFGR = (RCC->CFGR & ~RCC_CFGR_SW) | RCC_CFGR_SW_PLL;
+  while( (RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL )
+  {}
+  RCC->CR &= ~RCC_CR_MSION;
+}
+
+

@@ -70,6 +70,16 @@ void archReadTout( uintptr_t arg ){
   timerMod( &archReadTimer, tout );
 }
 
+
+// =================== Функции календаря =========================
+// Выполняется по календарю, когда надо передавать данные из архива
+void calWkupFunc( void ){
+  mTick = 0;
+}
+
+// ===============================================================
+
+
 void isensProcess( void ){
 
   if( uspd.archWrFlag ){

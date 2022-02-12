@@ -42,7 +42,7 @@ sUspdCfg uspdCfg = {
      .gprsApn = "internet.tele2.ru",
      .simActiv = RESET,                   // Флаг периодической активации SIM
      .simActivTout = 45,                  // Период активации SIM в ДНЯХ
-     .simActivMax = 1,                    // Макс. кол-во попыток активации SIM
+     .simActivMax = 3,                    // Макс. кол-во попыток активации SIM
      // Текущие значения
      .simActivDay = 0,                    // Количество прошедших дней с последней активации
      .simActivCount = 0,                  // Кол-во попыток активации SIM
@@ -56,7 +56,7 @@ sUspdCfg uspdCfg = {
      .gprsApn = "internet.tele2.ru",
      .simActiv = RESET,                   // Флаг периодической активации SIM
      .simActivTout = 45,                  // Период активации SIM в ДНЯХ
-     .simActivMax = 1,                    // Макс. кол-во попыток активации SIM
+     .simActivMax = 3,                    // Макс. кол-во попыток активации SIM
      // Текущие значения
      .simActivDay = 0,                    // Количество прошедших дней с последней активации
      .simActivCount = 0,                  // Кол-во попыток активации SIM
@@ -641,7 +641,7 @@ void uspdInit( void ){
 //    char str[32] = {0};
 
   // MQQT settings
-  SIM800.sim.ready = SIM_NOT_READY;
+  SIM800.ready = SIM_NOT_READY;
   SIM800.sim.pin = (uspdCfg.simcfg[0].pinAuto)? UID_0 % 10000 : uspdCfg.simcfg[0].pin;
   SIM800.sim.apn = uspdCfg.simcfg[0].gprsApn;
   SIM800.sim.apn_user = uspdCfg.simcfg[0].gprsUser;

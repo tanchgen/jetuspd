@@ -106,6 +106,7 @@ typedef struct {
   mqttServer_t mqttServer;
   mqttClient_t mqttClient;
   mqttReceive_t mqttReceive;
+  eSimReady ready;
 } SIM800_t;
 
 #if 0

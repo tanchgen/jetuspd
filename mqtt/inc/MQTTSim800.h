@@ -19,6 +19,7 @@ void clearMqttBuffer(void);
 
 int MQTT_Deinit(void);
 
+void ponSimReply( sUartRxHandle * handle );
 void saveSimReply( sUartRxHandle * handle );
 void saveImeiReply( sUartRxHandle * handle );
 void connectSimReply( sUartRxHandle * handle );

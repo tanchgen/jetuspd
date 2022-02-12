@@ -27,6 +27,7 @@ void evntProcess( void );
 void gsmProcess( void );
 void flashProcess( void );
 void logClock( void );
+void rtcTimProcess( void );
 
 void gsmInit( void );
 
@@ -68,8 +69,9 @@ void ifaceClock( void ){
   adcProcess();
   isensProcess();
   evntProcess();
-  mqttProcess();
-  gsmProcess();
-  flashProcess();
   logClock();
+  mqttProcess();
+  flashProcess();
+  gsmProcess();
+  rtcTimProcess();
 }

@@ -542,7 +542,7 @@ void gsmOffFunc( void ){
         break;
       case PHASE_ON_OK:
         // Две вспышки красного цвета с интервалом в 3 сек
-        ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_TOGGLE_TOUT, TOUT_3000, 2);
+        ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_TOGGLE_TOUT, 2, TOUT_3000);
         gsmState++;
         gsmRunPhase = PHASE_NON;
         wutSleep( 1000 * 1e3 );
@@ -720,9 +720,8 @@ void gsmStartInitFunc( void ){
         SIM800.mqttServer.tcpconn = 0;
 
         // Две вспышки оранжевого цвета с интервалом в 3 сек
-        ledOff( LED_R, 0 );
-        ledToggleSet( LED_R, LED_BLINK_ON_TOUT, TOUT_3000, 0, 0);
-        ledToggleSet( LED_G, LED_BLINK_ON_TOUT, TOUT_3000, 0, 0);
+        ledToggleSet( LED_G, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, 2, TOUT_3000);
+        ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, 2, TOUT_3000);
         gsmRunPhase = PHASE_NON;
         gsmState++;
         break;

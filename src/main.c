@@ -84,7 +84,8 @@ int main(void) {
     SIM800.mqttServer.mqttconn = SET;
     SIM800.mqttServer.tcpconn = SET;
 
-//    ledOff( LED_R, 0 );
+    ledOn( LED_R, 0 );
+    mDelay( 5000 );
     GPIOB->BSRR = GPIO_PIN_9 << 16;
     for( uint8_t i = 0; i < 10; i++ ){
       wutSleep( 1000e3 );

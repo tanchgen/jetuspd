@@ -13,8 +13,8 @@
 #include "isens.h"
 
 // -------------- ДЛЯ ТЕСТА ----------------------------------
-#define ISENS_ARCH_TOUT        30000  // 3000 мс
-#define ARCH_READ_TOUT         120
+#define ARCH_READ_TOUT         12 // 120
+#define ISENS_ARCH_TOUT        3600  // 3000 мс
 
 struct timer_list isArchTimer;
 struct timer_list archReadTimer;
@@ -56,7 +56,7 @@ sISens iSens[ISENS_NUM] = {
 
 
 void isArchTout( uintptr_t arg ){
-  uint32_t tout = *((uint32_t *)arg) * 20;
+  uint32_t tout = *((uint32_t *)arg);// * 20;
   uspd.archWrFlag = SET;
   timerMod( &isArchTimer, tout );
 }
@@ -93,13 +93,46 @@ void isensProcess( void ){
 }
 
 
+void isensIrqHandler( eIsens is ){
+  uint32_t t0;
+
+  // Обновим
+  uxTime = getRtcTime();
+
+  // Разница времени при сработывании датчика
+  t0 = ((uxTime - iSens[is].tstime) % 1000) * 1000;
+  // Вычисляем доли секунды
+  t0 += ((int32_t)rtc.ss - iSens[is].tsss) * 1000 / 0x129;
+
+  if( t0 > 50 ){
+    // Нормальное срабатывание - счетчик импульсов
+    // Состояние сохранилось в "1" - НЕ ложное срабатывание
+    iSens[is].isensCount++;
+    // Метка времени
+    iSens[is].tstime = uxTime;
+    iSens[is].tsss = rtc.ss;
+  }
+  else if( t0 > 10 ){
+    // Не дребезг, но слишком частое срабатывание - отмечаем событие
+    uEventFlag evnt;
+
+    evnt.u32evnt = 0;
+    evnt.pulse1 = SET;
+    evntFlags.u32evnt |= evnt.u32evnt << is;
+  }
+  else {
+    // Бребезг - игнорируем
+  }
+}
+
+
 // Обработка сигналов с датчиков Холла
 void ISENS_IRQHandler( void ){
   eIsens is;
-  uint32_t tm;
-  uint32_t dtime;
+//  uint32_t tm;
+//  uint32_t dtime;
 
-  tm = getRtcTime();
+//  tm = getRtcTime();
 
   if(ISENS_TIM->SR & TIM_SR_CC1IF){
     // Сработал Датчик 1
@@ -128,20 +161,21 @@ void ISENS_IRQHandler( void ){
     return;
   }
 
-  dtime = (tm - iSens[is].tstime) * 1000 + rtc.ss;
-  dtime -= iSens[is].tsss;
-  if( dtime < 12 ){
-    // Слишком короткий период - выставляем флаг события
-
-    uEventFlag evnt;
-
-    evnt.u32evnt = 0;
-    evnt.pulse1 = SET;
-    evntFlags.u32evnt |= evnt.u32evnt << is;
-  }
-  else {
-    timerStack( &(iSens[is].dbTimer), ISENS_DB_TOUT, TIMER_MOD );
-  }
+  isensIrqHandler( is );
+//  dtime = (tm - iSens[is].tstime) * 1000 + rtc.ss;
+//  dtime -= iSens[is].tsss;
+//  if( dtime < 12 ){
+//    // Слишком короткий период - выставляем флаг события
+//
+//    uEventFlag evnt;
+//
+//    evnt.u32evnt = 0;
+//    evnt.pulse1 = SET;
+//    evntFlags.u32evnt |= evnt.u32evnt << is;
+//  }
+//  else {
+//    timerStack( &(iSens[is].dbTimer), ISENS_DB_TOUT, TIMER_MOD );
+//  }
 }
 
 
@@ -253,7 +287,8 @@ void isensEnable( void ){
 
   // --------------------- ДЛЯ ТЕСТА ----------------------------
   // XXX: Для теста сенсоров
-  timerMod( &isArchTimer, uspdCfg.arxTout * 20 );
+  uspdCfg.arxTout = ARCH_READ_TOUT;
+  timerMod( &isArchTimer, uspdCfg.arxTout );// * 20 );
   timerMod( &archReadTimer, ARCH_READ_TOUT * TOUT_1000 );
 }
 

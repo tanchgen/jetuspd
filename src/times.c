@@ -7,6 +7,8 @@
 #include "times.h"
 #include "uart.h"
 
+#define PREDIV_S      0x128
+
 extern const sUartHnd simHnd;
 
 volatile uint32_t  mTick = 0;
@@ -89,8 +91,9 @@ void rtcInit(void){
 
     RCC->CSR = (RCC->CSR & ~RCC_CSR_RTCSEL) | RCC_CSR_RTCSEL_1 | RCC_CSR_RTCEN;
     // ~38kHz / 0x80 / 0x129 = ~1Hz (1s)
-    psc = 0x007F0128;
+    psc = 0x007F0000 | (PREDIV_S - 1);
   }
+
   // Write access for RTC registers
   RTC->WPR = 0xCA;
   RTC->WPR = 0x53;
@@ -102,6 +105,8 @@ void rtcInit(void){
   {}
   // RTCCLOCK deviser
   RTC->PRER = psc;
+  assert_param( (RTC->PRER & 0xFFFF) == (PREDIV_S - 1) );
+
   RTC->ISR &= ~RTC_ISR_INIT;
 
   // --- Configure Alarm A -----
@@ -452,7 +457,7 @@ void rtcGetTime( volatile tRtc * prtc ){
   prtc->hour = BCD2BIN( tmpTr >> 16 );
   prtc->min = BCD2BIN( tmpTr >> 8 );
   prtc->sec = BCD2BIN( tmpTr  );
-  prtc->ss = RTC->SSR;
+  prtc->ss = 0x129 - RTC->SSR;
 }
 
 void rtcGetDate( volatile tRtc * prtc ){
@@ -662,6 +667,7 @@ void timerStack( struct timer_list *timer, uint32_t tout, eTimStack ts ){
     timPr[timCount].tout = tout;
     timPr[timCount].ts = ts;
     timCount++;
+    assert_param( timCount < 5 );
   }
   else {
     for(; timCount; ){

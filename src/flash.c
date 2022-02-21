@@ -383,7 +383,7 @@ uint16_t flashBuf_Read( sFlashDev * flash, logBuf_t* Buffer, sLogRec * pkt, uint
   /* We have calculated memory for write */
   if( count ){
     /* Go through all elements */
-    ((sSpiHandle *)(Buffer->UserParameters))->rxCallback = rxCb;
+    flash->flashSpi.rxCallback = rxCb;
     while (count) {
       uint16_t wrcount;
       uint32_t out;
@@ -516,7 +516,7 @@ void flashWriteOkProbe( sSpiHandle * spi ){
   // Ждем окончания приема
   while( spi->spi->SR & SPI_SR_BSY )
   {}
-  // Проверяем флаг разрешения приема
+  // Проверяем флаги ошибки
   if( (flashRxXfer[1] & (FLASH_EFAIL_FLAG | FLASH_PFAIL_FLAG)) == RESET ){
     // Освобождаем Флеш
     flashDev.state = FLASH_READY;
@@ -666,7 +666,7 @@ void flashProcess( void ){
 
       if( flashBuf_Write( &flashDev, buf, flashDev.rec, flashDev.quant ) == flashDev.quant ){
 //        trace_printf( "f_flash_%x\n", flashDev.rec );
-        my_free( flashDev.rec );
+        free( flashDev.rec );
       }
       break;
     }

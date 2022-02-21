@@ -13,8 +13,8 @@
 #include "isens.h"
 
 // -------------- ДЛЯ ТЕСТА ----------------------------------
-#define ARCH_READ_TOUT         12 // 120
 #define ISENS_ARCH_TOUT        3600  // 3000 мс
+#define ARCH_READ_TOUT         12 // 120
 
 struct timer_list isArchTimer;
 struct timer_list archReadTimer;
@@ -287,7 +287,6 @@ void isensEnable( void ){
 
   // --------------------- ДЛЯ ТЕСТА ----------------------------
   // XXX: Для теста сенсоров
-  uspdCfg.arxTout = ARCH_READ_TOUT;
   timerMod( &isArchTimer, uspdCfg.arxTout );// * 20 );
   timerMod( &archReadTimer, ARCH_READ_TOUT * TOUT_1000 );
 }

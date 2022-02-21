@@ -666,7 +666,7 @@ void flashProcess( void ){
 
       if( flashBuf_Write( &flashDev, buf, flashDev.rec, flashDev.quant ) == flashDev.quant ){
 //        trace_printf( "f_flash_%x\n", flashDev.rec );
-        free( flashDev.rec );
+        my_free( flashDev.rec );
       }
       break;
     }

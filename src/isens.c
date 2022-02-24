@@ -14,12 +14,15 @@
 
 // -------------- ДЛЯ ТЕСТА ----------------------------------
 #define ISENS_ARCH_TOUT        3600  // 3000 мс
-#define ARCH_READ_TOUT         12 // 120
+#define ARCH_READ_TOUT         120
 
 struct timer_list isArchTimer;
 struct timer_list archReadTimer;
 
 void isensDbTout( uintptr_t arg );
+HAL_StatusTypeDef   stmEeRead( uint32_t addr, uint32_t * data, uint32_t datalen);
+HAL_StatusTypeDef   stmEeWrite( uint32_t addr, uint32_t * data, uint32_t datalen);
+
 
 sISens iSens[ISENS_NUM] = {
   {
@@ -56,7 +59,7 @@ sISens iSens[ISENS_NUM] = {
 
 
 void isArchTout( uintptr_t arg ){
-  uint32_t tout = *((uint32_t *)arg);// * 20;
+  uint32_t tout = *((uint32_t *)arg) * 20;
   uspd.archWrFlag = SET;
   timerMod( &isArchTimer, tout );
 }
@@ -82,6 +85,10 @@ void isensProcess( void ){
     }
 
     assert_param( ISENS_NUM <= 4 );
+
+    // Запись в EEPROM состояние датчиков
+    stmEeWrite( USPD_SENS_ADDR, isdata, (ISENS_NUM * 4) );
+
     if( logger( &logrec, getRtcTime(), DEVID_ISENS_1, isdata, ISENS_NUM ) == 1){
       // Записано в Архив успешно
       uspd.archWrFlag = RESET;
@@ -271,6 +278,9 @@ void isensInit( void ){
 
 
 void isensEnable( void ){
+
+  assert_param( ISENS_NUM <= 4 );
+
   tUxTime tm;
   // Ввод
 
@@ -283,11 +293,22 @@ void isensEnable( void ){
     // Метка времени
     iSens[i].tstime = tm;
     iSens[i].tsss = rtc.ss;
+    // Чтение в EEPROM состояние датчиков
+    stmEeRead( USPD_SENS_ADDR + (i * FIELD_SIZEOF(sISens, isensCount)),
+               &(iSens[i].isensCount),
+               FIELD_SIZEOF(sISens, isensCount)
+             );
+    if( iSens[i].isensCount == ~0UL ){
+      iSens[i].isensCount = 0;
+    }
+    if( iSens[i].isensCount == 0 ){
+      iSens[i].isensCount = (i + 1) * 11;
+    }
   }
 
   // --------------------- ДЛЯ ТЕСТА ----------------------------
   // XXX: Для теста сенсоров
-  timerMod( &isArchTimer, uspdCfg.arxTout );// * 20 );
+  timerMod( &isArchTimer, uspdCfg.arxTout * 20 );
   timerMod( &archReadTimer, ARCH_READ_TOUT * TOUT_1000 );
 }
 

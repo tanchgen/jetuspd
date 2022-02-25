@@ -1002,8 +1002,10 @@ HAL_StatusTypeDef HAL_RCC_ClockConfig(RCC_ClkInitTypeDef  *RCC_ClkInitStruct, ui
   *            @arg @ref RCC_MCODIV_16 division by 16 applied to MCO clock
   * @retval None
   */
-void HAL_RCC_MCOConfig(uint32_t RCC_MCOx, uint32_t RCC_MCOSource, uint32_t RCC_MCODiv)
-{
+void HAL_RCC_MCOConfig(uint32_t RCC_MCOx, uint32_t RCC_MCOSource, uint32_t RCC_MCODiv){
+#ifndef  USE_FULL_ASSERT
+  (void)RCC_MCOx;
+#endif  // USE_FULL_ASSERT
   GPIO_InitTypeDef gpio;
 
   /* Check the parameters */

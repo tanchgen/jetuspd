@@ -35,6 +35,8 @@ extern volatile uint16_t EEPROMPageSize;
 #define EE_FW_HANDLE_ADDR_0          (FLASH_EEPROM_BASE + 0x080)
 // Адрес хранения конфигурации УСПД
 #define EE_CFG_ADDR                  (FLASH_EEPROM_BASE + 0x100)
+// Адрес хранения счетчика импульсов
+#define EE_SENS_ADDR                 (FLASH_EEPROM_BASE + 0x600)
 
 
 void stmEeInit( void );

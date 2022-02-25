@@ -528,6 +528,8 @@ void gsmOffFunc( void ){
         if( timerPending( &sb2Timer ) ){
           return;
         }
+
+        simUartBaud(9600);
         mqttCfgInit( &uspd.defCfgFlag );
         // On SIM800 power if use
         gpioPinResetNow( &gpioPinSimPwr );
@@ -803,9 +805,44 @@ void gsmNtpInitFunc( void ){
   }
   else {
     // Продолжаем выключать
-    gsmRun = SET;
-    gsmRunPhase = PHASE_NON;
-    gsmState--;
+    if( gsmRunPhase == PHASE_NON ){
+      char tpc[32];
+      char pay[64] = "{\"imei\":";
+      uint32_t ut = getRtcTime();
+
+      // Передача RealTime
+      memset( tpc, 0, 32);
+      memset( pay, 0, 64);
+      sprintf( tpc, tpcTempl[TOPIC_INFO], SIM800.sim.imei );
+      sprintf( pay, "{time\":%u,\"state\":\"bay\"}", (unsigned int)ut );
+      if( MQTT_Pub( tpc, pay, QOS1, SIM800.mqttReceive.pktIdo ) != 0 ){
+        uspd.announcePktId = SIM800.mqttReceive.pktIdo;
+        SIM800.mqttReceive.pktIdo++;
+        tmpTick = 0;
+        gsmRunPhase = PHASE_OFF;
+      }
+      else {
+        return;
+      }
+    }
+    else if( gsmRunPhase == PHASE_OFF ){
+      if( tmpTick == 0 ){
+        if( uspd.announcePktId == (uint16_t)(~0) ){
+          MQTT_Disconnect();
+          tmpTick = mTick + 1200;
+        }
+      }
+      else if( tmpTick < mTick ){
+        gsmSendCommand("+++", "OK\r\n", CMD_DELAY_10 * 2, NULL );
+        gsmRunPhase = PHASE_OFF_OK;
+      }
+    }
+    else if( gsmRunPhase == PHASE_OFF_OK ){
+      if( MQTT_Deinit() == 0){
+        gsmState--;
+        gsmRunPhase = PHASE_NON;
+      }
+    }
   }
 }
 
@@ -884,50 +921,7 @@ void gsmMqttConnFunc( void ){
   }
   else {
     // Выключаем питание GSM
-    if( SIM800.mqttServer.mqttconn == 1 ){
-      if( gsmRunPhase == PHASE_NON ){
-        char tpc[32];
-        char pay[64] = "{\"imei\":";
-        uint32_t ut = getRtcTime();
-
-        // Передача RealTime
-        memset( tpc, 0, 32);
-        memset( pay, 0, 64);
-        sprintf( tpc, tpcTempl[TOPIC_INFO], SIM800.sim.imei );
-        sprintf( pay, "{time\":%u,\"state\":\"bay\"}", (unsigned int)ut );
-        if( MQTT_Pub( tpc, pay, QOS1, SIM800.mqttReceive.pktIdo ) != 0 ){
-          uspd.announcePktId = SIM800.mqttReceive.pktIdo;
-          SIM800.mqttReceive.pktIdo++;
-          tmpTick = 0;
-          gsmRunPhase = PHASE_OFF;
-        }
-        else {
-          return;
-        }
-      }
-      else if( gsmRunPhase == PHASE_OFF ){
-        if( tmpTick == 0 ){
-          if( uspd.announcePktId == (uint16_t)(~0) ){
-            MQTT_Disconnect();
-            tmpTick = mTick + 1200;
-          }
-        }
-        else if( tmpTick < mTick ){
-          gsmSendCommand("+++", "OK\r\n", CMD_DELAY_10 * 2, NULL );
-          gsmRunPhase = PHASE_OFF_OK;
-        }
-      }
-      else if( gsmRunPhase == PHASE_OFF_OK ){
-        if( MQTT_Deinit() == 0){
-          gsmState--;
-          gsmRunPhase = PHASE_NON;
-        }
-      }
-    }
-    else {
-      gsmState--;
-      gsmRunPhase = PHASE_NON;
-    }
+    gsmState--;
   }
 }
 

@@ -13,13 +13,16 @@
 #include "isens.h"
 
 // -------------- ДЛЯ ТЕСТА ----------------------------------
-#define ISENS_ARCH_TOUT        30000  // 3000 мс
+#define ISENS_ARCH_TOUT        3600  // 3000 мс
 #define ARCH_READ_TOUT         120
 
 struct timer_list isArchTimer;
 struct timer_list archReadTimer;
 
 void isensDbTout( uintptr_t arg );
+HAL_StatusTypeDef   stmEeRead( uint32_t addr, uint32_t * data, uint32_t datalen);
+HAL_StatusTypeDef   stmEeWrite( uint32_t addr, uint32_t * data, uint32_t datalen);
+
 
 sISens iSens[ISENS_NUM] = {
   {
@@ -92,6 +95,10 @@ void isensProcess( void ){
     }
 
     assert_param( ISENS_NUM <= 4 );
+
+    // Запись в EEPROM состояние датчиков
+    stmEeWrite( USPD_SENS_ADDR, isdata, (ISENS_NUM * 4) );
+
     if( logger( &logrec, getRtcTime(), DEVID_ISENS_1, isdata, ISENS_NUM ) == 1){
       // Записано в Архив успешно
       uspd.archWrFlag = RESET;
@@ -103,13 +110,46 @@ void isensProcess( void ){
 }
 
 
+void isensIrqHandler( eIsens is ){
+  uint32_t t0;
+
+  // Обновим
+  uxTime = getRtcTime();
+
+  // Разница времени при сработывании датчика
+  t0 = ((uxTime - iSens[is].tstime) % 1000) * 1000;
+  // Вычисляем доли секунды
+  t0 += ((int32_t)rtc.ss - iSens[is].tsss) * 1000 / 0x129;
+
+  if( t0 > 50 ){
+    // Нормальное срабатывание - счетчик импульсов
+    // Состояние сохранилось в "1" - НЕ ложное срабатывание
+    iSens[is].isensCount++;
+    // Метка времени
+    iSens[is].tstime = uxTime;
+    iSens[is].tsss = rtc.ss;
+  }
+  else if( t0 > 10 ){
+    // Не дребезг, но слишком частое срабатывание - отмечаем событие
+    uEventFlag evnt;
+
+    evnt.u32evnt = 0;
+    evnt.pulse1 = SET;
+    evntFlags.u32evnt |= evnt.u32evnt << is;
+  }
+  else {
+    // Бребезг - игнорируем
+  }
+}
+
+
 // Обработка сигналов с датчиков Холла
 void ISENS_IRQHandler( void ){
   eIsens is;
-  uint32_t tm;
-  uint32_t dtime;
+//  uint32_t tm;
+//  uint32_t dtime;
 
-  tm = getRtcTime();
+//  tm = getRtcTime();
 
   if(ISENS_TIM->SR & TIM_SR_CC1IF){
     // Сработал Датчик 1
@@ -138,20 +178,21 @@ void ISENS_IRQHandler( void ){
     return;
   }
 
-  dtime = (tm - iSens[is].tstime) * 1000 + rtc.ss;
-  dtime -= iSens[is].tsss;
-  if( dtime < 12 ){
-    // Слишком короткий период - выставляем флаг события
-
-    uEventFlag evnt;
-
-    evnt.u32evnt = 0;
-    evnt.pulse1 = SET;
-    evntFlags.u32evnt |= evnt.u32evnt << is;
-  }
-  else {
-    timerStack( &(iSens[is].dbTimer), ISENS_DB_TOUT, TIMER_MOD );
-  }
+  isensIrqHandler( is );
+//  dtime = (tm - iSens[is].tstime) * 1000 + rtc.ss;
+//  dtime -= iSens[is].tsss;
+//  if( dtime < 12 ){
+//    // Слишком короткий период - выставляем флаг события
+//
+//    uEventFlag evnt;
+//
+//    evnt.u32evnt = 0;
+//    evnt.pulse1 = SET;
+//    evntFlags.u32evnt |= evnt.u32evnt << is;
+//  }
+//  else {
+//    timerStack( &(iSens[is].dbTimer), ISENS_DB_TOUT, TIMER_MOD );
+//  }
 }
 
 
@@ -247,6 +288,9 @@ void isensInit( void ){
 
 
 void isensEnable( void ){
+
+  assert_param( ISENS_NUM <= 4 );
+
   tUxTime tm;
   // Ввод
 
@@ -259,6 +303,17 @@ void isensEnable( void ){
     // Метка времени
     iSens[i].tstime = tm;
     iSens[i].tsss = rtc.ss;
+    // Чтение в EEPROM состояние датчиков
+    stmEeRead( USPD_SENS_ADDR + (i * FIELD_SIZEOF(sISens, isensCount)),
+               &(iSens[i].isensCount),
+               FIELD_SIZEOF(sISens, isensCount)
+             );
+    if( iSens[i].isensCount == ~0UL ){
+      iSens[i].isensCount = 0;
+    }
+    if( iSens[i].isensCount == 0 ){
+      iSens[i].isensCount = (i + 1) * 11;
+    }
   }
 
   // --------------------- ДЛЯ ТЕСТА ----------------------------

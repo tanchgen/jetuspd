@@ -15,6 +15,7 @@
 #include "mqtt.h"
 
 #define USPD_CFG_ADDR      (EE_CFG_ADDR - FLASH_EEPROM_BASE)
+#define USPD_SENS_ADDR      (EE_SENS_ADDR - FLASH_EEPROM_BASE)
 
 typedef enum {
   SENS_TYPE_COUNT,

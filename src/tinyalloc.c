@@ -286,5 +286,6 @@ void my_free( void * ptr ){
 //  trace_printf( "f_%x\n", ptr );
 
   free( ptr );
+  ptr = NULL;
 }
 

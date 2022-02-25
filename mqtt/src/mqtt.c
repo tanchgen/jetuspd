@@ -131,6 +131,12 @@ FlagStatus uspdAnnouncePub( void ){
   char pay[64] = "{\"imei\":";
   uint32_t ut = getRtcTime();
   int tu, td;
+  sFwHandle * eeFwh = (sFwHandle *)FW_HANDLE_ADDR_0;
+  uint32_t fw1;
+  uint32_t fw2;
+
+  stmEeRead( (uint32_t)&(eeFwh->fw[0]), (uint32_t*)&fw1, sizeof(fw1) );
+  stmEeRead( (uint32_t)&(eeFwh->fw[1]), (uint32_t*)&fw2, sizeof(fw2) );
 
   // Передача IMEI
   strcat( pay, SIM800.sim.imei );
@@ -161,6 +167,23 @@ FlagStatus uspdAnnouncePub( void ){
   else {
     goto err_exit;
   }
+
+  // Передача прошивки
+  memset( tpc, 0, 32);
+  memset( pay, 0, 64);
+  sprintf( tpc, tpcTempl[TOPIC_FW], SIM800.sim.imei );
+  sprintf( pay, "{fwf:\"%u.%u.%u\",fws:\"%u.%u.%u\",boot:\"%u\"}", \
+      (unsigned int)((fw1 >> 16) & 0xFF), (unsigned int)((fw1 >> 8) & 0xFF), (unsigned int)(fw1 & 0xFF),
+      (unsigned int)((fw2 >> 16) & 0xFF), (unsigned int)((fw2 >> 8) & 0xFF), (unsigned int)(fw2 & 0xFF),
+      fwHandle.fwActive + 1 );
+  if( MQTT_Pub( tpc, pay, QOS1, SIM800.mqttReceive.pktIdo ) != 0 ){
+    uspd.announcePktId = SIM800.mqttReceive.pktIdo;
+    SIM800.mqttReceive.pktIdo++;
+  }
+  else {
+    goto err_exit;
+  }
+
 
   tu = adcHandle.adcVbat / 1000;
   td = adcHandle.adcVbat - (tu * 1000);

@@ -112,6 +112,8 @@ int main(void) {
 
   /* Infinite loop */
     while (1) {
+      /* Refresh IWDG down-counter to default value */
+      LL_IWDG_ReloadCounter(IWDG);
       ifaceClock();
     }
 }

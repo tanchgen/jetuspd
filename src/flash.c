@@ -388,7 +388,6 @@ uint16_t flashBuf_Read( sFlashDev * flash, logBuf_t* Buffer, sLogRec * pkt, uint
       uint16_t wrcount;
       uint32_t out;
 
-      // TODO: непосредственная запись в FLASH
       // Проверяем ,сколько можно читать за раз (не выходя за границы Буфера и FLASH)
       if( (Buffer->Out + count) <= (Buffer->Buffer + Buffer->Size) ) {      // Проверяем границу FLASH
         wrcount = count;
@@ -460,7 +459,6 @@ uint16_t flashBuf_Write( sFlashDev * flash, logBuf_t* Buffer, sLogRec * pkt, uin
   /* Go through all elements */
   while (count) {
     uint16_t wrcount;
-    // TODO: непосредственная запись в FLASH
     if( (Buffer->In + count) <= (Buffer->Buffer + Buffer->Size) ){      // Проверяем границу FLASH
       wrcount = count;
       count = 0;
@@ -703,9 +701,6 @@ void flashInit( void ){
 
   sSpiHandle *hspi = &(flashDev.flashSpi);
 
-#if DEBUG_TRACE
-  trace_puts("Function: Init LOGGER");
-#endif
   /* Выводы MRAM_SPI
     * SPI MOSI - PA7
     * SPI MISO - PA6

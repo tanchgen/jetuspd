@@ -10,7 +10,7 @@
 
 uint32_t tmpCount = 0;
 
-static uint32_t gpioaModer;
+static uint32_t gpioaModer = 0xFFFFFFFF;
 static uint32_t gpioaPupdr;
 static uint32_t gpioaOdr;
 
@@ -35,6 +35,8 @@ const uint32_t gpiocOdrSl = 0x00000000;
 
 // XXX: UNTIL DEVELOPING: WUT wakeup flag
 volatile FlagStatus sleepFlag = RESET;
+// Флаг предустановки запуска составления списка активных таймеров
+volatile FlagStatus sleepPreFlag = RESET;
 // Флаг запуска составления списка активных таймеров
 volatile FlagStatus sleepStartFlag = RESET;
 
@@ -45,6 +47,7 @@ void rccMsiSw( void );
 void rccHsiSw( void );
 //void rtcSetWut( uint32_t mks );
 uint32_t rtc2ActTimProc( tUxTime ut );
+void actTimProc( void );
 // ===================================================================================
 
 void pwrInit( void ){
@@ -64,6 +67,66 @@ void pwrInit( void ){
 #endif // STOP_EN
   FLASH->OBR &= ~FLASH_OBR_BOR_LEV;
 }
+
+
+/** Сохранение состояния GPIO
+ *
+ */
+void gpioStore( void ){
+  /*
+    // Сохраняем значения GPIO
+    gpioaModer = GPIOA->MODER;
+    gpioaPupdr = GPIOA->PUPDR;
+    gpioaOdr = GPIOA->ODR;
+
+    GPIOA->MODER = gpioaModerSl;
+    GPIOA->PUPDR = 0;
+    // Устанавливаем статическое значение, кроме PA13, PA14
+    GPIOA->ODR = (gpioaOdrSl & ~(GPIO_PIN_13 | GPIO_PIN_14)) | (GPIOA->ODR & (GPIO_PIN_13 | GPIO_PIN_14));
+
+    gpiobModer = GPIOB->MODER;
+    gpiobPupdr = GPIOB->PUPDR;
+    gpiobOdr = GPIOB->ODR;
+
+    GPIOB->MODER = gpiobModerSl;
+    GPIOB->PUPDR = 0;
+    // Устанавливаем статическое значение, кроме PB5
+    GPIOB->ODR = (gpiobOdrSl & ~GPIO_PIN_5) | (GPIOB->ODR & GPIO_PIN_5);
+
+    gpiocModer = GPIOC->MODER;
+    gpiocPupdr = GPIOC->PUPDR;
+    gpiocOdr = GPIOC->ODR;
+
+    GPIOC->MODER = gpiocModerSl;
+    GPIOC->PUPDR = 0;
+    // Устанавливаем статическое значение
+    GPIOC->ODR = gpiocOdrSl;
+  */
+}
+
+
+/** Восстановление состояния GPIO
+ *
+ */
+void gpioRestore( void ){
+  if( gpioaModer != 0xFFFFFFFF ){
+    // Сохраняем значения GPIO
+    GPIOA->MODER = gpioaModer;
+    GPIOA->PUPDR = gpioaPupdr;
+    GPIOA->ODR = gpioaOdr;
+
+    GPIOB->MODER = gpiobModer;
+    GPIOB->PUPDR = gpiobPupdr;
+    GPIOB->ODR = gpiobOdr;
+
+    GPIOC->MODER = gpiocModer;
+    GPIOC->PUPDR = gpiocPupdr;
+    GPIOC->ODR = gpiocOdr;
+    gpioaModer = 0xFFFFFFFF;
+  }
+
+}
+
 
 /**
   * @brief  Запуск засыпания
@@ -87,34 +150,9 @@ static void sleepStart( void ){
       | RCC_APB1ENR_USART3EN
   );
   // ----------------- 2 . . . ----------------------------
-  // Сохраняем значения GPIO
-  gpioaModer = GPIOA->MODER;
-  gpioaPupdr = GPIOA->PUPDR;
-  gpioaOdr = GPIOA->ODR;
-
-  GPIOA->MODER = gpioaModerSl;
-  GPIOA->PUPDR = 0;
-  // Устанавливаем статическое значение, кроме PA13, PA14
-  GPIOA->ODR = (gpioaOdrSl & ~(GPIO_PIN_13 | GPIO_PIN_14)) | (GPIOA->ODR & (GPIO_PIN_13 | GPIO_PIN_14));
-
-  gpiobModer = GPIOB->MODER;
-  gpiobPupdr = GPIOB->PUPDR;
-  gpiobOdr = GPIOB->ODR;
-
-  GPIOB->MODER = gpiobModerSl;
-  GPIOB->PUPDR = 0;
-  // Устанавливаем статическое значение, кроме PB5
-  GPIOB->ODR = (gpiobOdrSl & ~GPIO_PIN_5) | (GPIOB->ODR & GPIO_PIN_5);
-
-  gpiocModer = GPIOC->MODER;
-  gpiocPupdr = GPIOC->PUPDR;
-  gpiocOdr = GPIOC->ODR;
-
-  GPIOC->MODER = gpiocModerSl;
-  GPIOC->PUPDR = 0;
-  // Устанавливаем статическое значение
-  GPIOC->ODR = gpiocOdrSl;
-
+  if( sleepPreFlag ){
+    gpioStore();
+  }
   // ----------------- 3 . . . ----------------------------
   // Переключение тактирования на MCI
   rccMsiSw();
@@ -161,19 +199,7 @@ void sleepStop( void ){
   PWR->CR = (PWR->CR & ~PWR_CR_LPSDSR) | PWR_CR_CWUF;
 
   // ----------------- 2 . . . ----------------------------
-  // Сохраняем значения GPIO
-  GPIOA->MODER = gpioaModer;
-  GPIOA->PUPDR = gpioaPupdr;
-  GPIOA->ODR = gpioaOdr;
-
-  GPIOB->MODER = gpiobModer;
-  GPIOB->PUPDR = gpiobPupdr;
-  GPIOB->ODR = gpiobOdr;
-
-  GPIOC->MODER = gpiocModer;
-  GPIOC->PUPDR = gpiocPupdr;
-  GPIOC->ODR = gpiocOdr;
-
+  gpioRestore();
   // ----------------- 3 . . . ----------------------------
   // Переключение тактирования на MCI
   rccHsiSw();
@@ -199,7 +225,10 @@ void wutTimeCheck( uint32_t mks ){
   }
 
   tmp = list_first_entry( &actRtcTimQueue, struct timer_list, entry );
-  assert_param( wuttime <= tmp->expires );
+  if( wuttime >= tmp->expires ){
+    trace_printf("w%u-t%u\n", wuttime, tmp->expires);
+    assert_param(0);
+  }
 }
 
 
@@ -249,6 +278,7 @@ void rtcTimProcess( void ){
   if( actTimRun ){
     rtcAlrmCb();
 
+    actTimProc();
     actTimRun = RESET;
     return;
   }

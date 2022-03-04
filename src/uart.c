@@ -382,10 +382,6 @@ void init_uart_tx_handle(sUartTxHandle *handle){
   * @retval none
   */
 void uartIfaceInit( sUartTxHandle * txhandle, sUartRxHandle * rxhandle, eUartId uartid ){
-  #if DEBUG_TRACE
-    trace_puts("Function: Init UART IFACE");
-  #endif
-
   /* Инициализируем дескриптор USART_RX. */
   rxhandle->uart = uartInitDesc[uartid].uartRx;
   rxhandle->gpio_rx = uartInitDesc[uartid].gpioRx;

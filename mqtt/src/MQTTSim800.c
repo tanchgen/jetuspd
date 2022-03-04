@@ -89,7 +89,9 @@ void connectSimReply( sUartRxHandle * handle ){
   if( strcmp( handle->reply, "CONNECT\r\n") == 0 ) {
     // Есть соединение с MQTT-сервером
     SIM800.mqttServer.tcpconn = SET;
-    trace_puts("tcp conn");
+#if DEBUG_GSM_TRACE
+    trace_puts("TCP conn");
+#endif
   }
   clearRxBuffer( (char *)(handle->rxFrame), &(handle->frame_offset) );
 }
@@ -119,9 +121,13 @@ void MQTT_Disconnect(void) {
 int MQTT_Deinit(void) {
   int error = 0;
 
+#if DEBUG_GSM_TRACE
+  trace_puts("GPRS off");
+#endif
+
   gsmSendCommand("AT+CIPCLOSE=1\r\n", "OK\r\n", CMD_DELAY_5, NULL );
-  error += gsmSendCommand("AT+CGATT=0\r\n", "OK\r\n", CMD_DELAY_10, NULL );
-  error += gsmSendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY_10, NULL );
+  gsmSendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY_10, NULL );
+  gsmSendCommand("AT+CGATT=0\r\n", "OK\r\n", CMD_DELAY_10, NULL );
   SIM800.mqttServer.tcpconn = 0;
   SIM800.mqttServer.mqttconn = 0;
   return error;
@@ -351,6 +357,7 @@ void mqttConnectCb( FlagStatus conn ){
   else {
     mqttPingFlag = RESET;
     mqttSubFlag = RESET;
+    SIM800.mqttClient.evntPubFlag = RESET;
     timerStack( &mqttSubTimer, 0, TIMER_DEL );
     // Две вспышки оранжевого цвета с интервалом в 3 сек
     ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, 2, TOUT_3000);

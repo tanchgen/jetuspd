@@ -47,12 +47,19 @@ typedef enum {
 } eSimReady;
 
 typedef enum {
+  PHASE_NON_0,
   PHASE_NON,
   PHASE_ON,
   PHASE_ON_OK,
   PHASE_OFF,
   PHASE_OFF_OK,
 } eGsmRunPhase;
+
+typedef enum {
+  MCU_RESET,
+  MCU_SLEEP,
+  SIM_RESET
+} eGsmReset;
 
 typedef struct {
     uint16_t pin;
@@ -61,11 +68,21 @@ typedef struct {
     char *apn_pass;
     uint8_t csq;
     char imei[16];
+    union{
+      struct {
+        uint8_t ip4_0;
+        uint8_t ip4_1;
+        uint8_t ip4_2;
+        uint8_t ip4_3;
+      };
+      uint32_t u32ip4;
+    };
 } sim_t;
 
 extern FlagStatus gsmRun;
 extern eGsmState gsmState;
 extern eGsmState gsmStRestart;
+extern eGsmReset gsmReset;
 
 extern struct timer_list mqttPingTimer;
 // Таймер усыпления контроллера при включении GSM_PROC
@@ -75,9 +92,9 @@ int gsmSendCommand(char *command, char *reply, uint16_t delay, void (*simreplycb
 
 void gsmProcess( void );
 
-static inline void gsmSleep( uint32_t sec ){
+static inline void gsmSleep( uint32_t sec, FlagStatus pre ){
   rtcTimMod( &tGsmOnSleepTimer, sec );
-  toSleep();
+  toSleep( pre );
 }
 
 #endif /* GSM_H_ */

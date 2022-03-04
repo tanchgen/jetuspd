@@ -77,6 +77,7 @@ typedef struct {
     unsigned short keepAliveInterval;
     uint8_t subCount;
     uPubFlags pubFlags;
+    FlagStatus evntPubFlag;
     uint8_t pubReady;
     //    uint32_t toutTick;
 } mqttClient_t;

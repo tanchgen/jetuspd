@@ -19,11 +19,19 @@ extern volatile FlagStatus wutSlFlag;
 // XXX: UNTIL DEVELOPING: WUT wakeup flag
 extern volatile FlagStatus sleepFlag;
 
+extern volatile FlagStatus sleepPreFlag;
+
 //--------------------------------------------------------------------------------------
 void wutTimeCheck( uint32_t mks );
 
-static inline void toSleep( void ){
-  sleepStartFlag = SET;
+// Предванительная или окончательная отправка в сон
+static inline void toSleep( FlagStatus pre ){
+  if( pre ){
+    sleepPreFlag = SET;
+  }
+  else {
+    sleepStartFlag = SET;
+  }
 }
 
 /**
@@ -34,7 +42,7 @@ static inline void toSleep( void ){
 static inline void wutSleep( uint32_t mks ){
   wutTimeCheck( mks );
   rtcSetWut( mks );
-  toSleep();
+  toSleep( RESET );
 }
 
 

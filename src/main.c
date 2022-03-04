@@ -30,8 +30,10 @@
 
 /* Private variables ---------------------------------------------------------*/
 extern eGsmRunPhase gsmRunPhase;
-extern const sUartHnd simHnd;
-extern uint32_t tmpCount;
+//extern const sUartHnd simHnd;
+extern struct timer_list tGsmOnToutTimer;
+
+//extern uint32_t tmpCount;
 
 RCC_ClocksTypeDef RCC_Clocks;
 
@@ -42,7 +44,7 @@ RCC_ClocksTypeDef RCC_Clocks;
 void Configure_IWDG(void);
 void Check_IWDG_Reset(void);
 
-void rtcTimProcess( void );
+// void rtcTimProcess( void );
 
 void pwrInit( void );
 
@@ -79,13 +81,17 @@ int main(void) {
   // Запускаем watchdog на случай зависания прошивки
 //    Check_IWDG_Reset();
 //    Configure_IWDG();
-    SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
-    gsmState = GSM_WORK;
-    SIM800.mqttServer.mqttconn = SET;
-    SIM800.mqttServer.tcpconn = SET;
+//    SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
+//    gsmState = GSM_WORK;
+//    SIM800.mqttServer.mqttconn = SET;
+//    SIM800.mqttServer.tcpconn = SET;
 
     ledOn( LED_R, 0 );
     mDelay( 5000 );
+
+    rtcTimModArg( &tGsmOnToutTimer, SEC_10, GSM_MQTT_START );
+
+/*
     GPIOB->BSRR = GPIO_PIN_9 << 16;
     for( uint8_t i = 0; i < 10; i++ ){
       wutSleep( 1000e3 );
@@ -107,6 +113,7 @@ int main(void) {
 //      }
 //      mDelay(2);
 //      trace_printf( "t: %u\n", getRtcTime() );
+*/
 
     /* USER CODE END 2 */
 

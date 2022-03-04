@@ -9,10 +9,6 @@
 #include "gpio_arch.h"
 //#include "usart_arch.h"
 
-// Флаг перезагрузки MCU
-FlagStatus mcuReset = RESET;
-
-
 /** Флаг наличия ПРОЧИХ_ОШИБОК системы */
 FlagStatus  otherError = RESET;
 
@@ -286,10 +282,6 @@ void gpioIrqHandler10_15( uint32_t pin ){
   */
 void gpioClock( void ){
 
-#if DEBUG_TRACE
-  trace_puts("Function: Clock FPGA");
-#endif
-
   //  Обработаем кнопки.
   // SB1_Key
   if( extiPinSb1Key.change ){
@@ -316,9 +308,6 @@ void gpioClock( void ){
   * @retval	none
   */
 void gpioEnable( void ) {
-#if DEBUG_TRACE
-  trace_puts("Function: Enable FPGA");
-#endif
 
   // Кнопка сброса конфигурации
   if( gpioPinReadNow( &extiPinSb2Key ) == Bit_SET ){

@@ -665,5 +665,7 @@ void uspdInit( void ){
 
   // Флаг включения USPD
   evntFlags.uspdOn = SET;
+
+  // TODO: Установка таймера календаря отправки архива сенсоров
 }
 

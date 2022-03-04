@@ -57,7 +57,13 @@ static void fwUpdTout( uintptr_t arg ){
   mqttMsgReset( simHnd.rxh, &SIM800 );
   fwUpdFlag = RESET;
 
+#if DEBUG_GSM_TRACE
+  trace_puts("FW Upd TOUT");
+#endif
+
+  // Перезагрузим SIM: может сервер отсоединен, а мы и не знаем, потому что не отслеживали
   gsmStRestart = GSM_OFF;
+  gsmReset = SIM_RESET;
   gsmRun = RESET;
 }
 
@@ -125,9 +131,16 @@ void fwManProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
   // Очистим буфер
   mqttMsgReset( rxh, &SIM800 );
 
+#if DEBUG_GSM_TRACE
+  trace_puts("FW man OK");
+#endif
+
   return;
 
 bad_man:
+#if DEBUG_GSM_TRACE
+  trace_puts("FW man BAD");
+#endif
   pfw->crc = ~0;
   pfw->fwLen = 0;
   // Очистим буфер
@@ -240,7 +253,9 @@ void fwUpProc( sUartRxHandle * rxh, mqttReceive_t * mqttrx ){
         sFw tmpfw;
         eFwNum fwact = !(fwHandle.fwActive);
 
-        // TODO: Сохранение данных прошивки в EEPROM
+#if DEBUG_GSM_TRACE
+        trace_puts("FW Upd OK");
+#endif
         tmpfw.crc = fwup->crc;
         tmpfw.fwLen = fwup->fwLen;
         tmpfw.fwVer = fwup->fwVer;

@@ -17,6 +17,7 @@
 #define TOUT_300        300
 #define TOUT_500        500
 #define TOUT_1000       1000
+#define TOUT_1500       1500
 #define TOUT_2000       2000
 #define TOUT_3000       3000
 #define TOUT_5000       5000

@@ -208,10 +208,6 @@ void simUartHwFlow( void ){
   */
 void simUartInit( void ) {
 
-#if DEBUG_TRACE
-  trace_puts("Function: Init SIM_UART");
-#endif
-
   assert_param(uartInitDesc[UART_ID_SIM].dmaRx == DMA1);
   assert_param(uartInitDesc[UART_ID_SIM].dmaTx == DMA1);
   assert_param(uartInitDesc[UART_ID_SIM].uartRx == USART3);
@@ -235,9 +231,6 @@ void simUartInit( void ) {
   * @retval none
   */
 void simUartEnable( void ){
-#if DEBUG_TRACE
-  trace_puts("Function: Enable SIM_UART");
-#endif
 
   NVIC_EnableIRQ( SIM_UART_RX_DMA_IRQn );
   NVIC_SetPriority( SIM_UART_RX_DMA_IRQn, 1);
@@ -258,9 +251,6 @@ void simUartEnable( void ){
   * @retval none
   */
 void simUartClock( void ){
-#if DEBUG_TRACE
-  trace_puts("Function: Clock SIM_UART");
-#endif
 
   /* Обработаем данные SIM_UART. */
   uartRxClock( simHnd.rxh );

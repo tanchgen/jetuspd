@@ -24,6 +24,7 @@
 #include "stm32l1xx_it.h"
 
 #include "gpio_arch.h"
+#include "lowpwr.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */

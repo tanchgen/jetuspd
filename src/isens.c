@@ -319,7 +319,6 @@ void isensEnable( void ){
   // --------------------- ДЛЯ ТЕСТА ----------------------------
   // XXX: Для теста сенсоров
   timerMod( &isArchTimer, uspdCfg.arxTout * 20 );
-  timerMod( &archReadTimer, ARCH_READ_TOUT * TOUT_1000 );
 }
 
 

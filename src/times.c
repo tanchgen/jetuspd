@@ -63,6 +63,7 @@ static void rtcSetTime( volatile tRtc * prtc );
 static void rtcSetDate( volatile tRtc * prtc );
 //static void rtcGetDate( volatile tRtc * prtc );
 void rtcSetAlrm( tRtc * prtc );
+void rtcSetAlrmMask( tRtc * prtc, uint32_t mask );
 void rtcGetAlrm( tRtc * prtc );
 void rtcCorrAlrm( tRtc * prtc );
 
@@ -99,7 +100,7 @@ void rtcInit(void){
     {}
     if( (RCC->CSR & RCC_CSR_LSIRDY) == RESET ){
       trace_puts("LSI Fail");
-      assert_param( 0 );
+      ErrHandler( STOP );
     }
 
     RCC->CSR = (RCC->CSR & ~RCC_CSR_RTCSEL) | RCC_CSR_RTCSEL_1 | RCC_CSR_RTCEN;
@@ -187,7 +188,7 @@ void timeInit( void ) {
   rtc.wday = 5;
   rtc.hour = 12;
   rtc.min = 0;
-  rtc.sec = 0;;
+  rtc.sec = 50;;
   rtc.ss = 0;
 
   vol = RTC->DR;
@@ -343,6 +344,17 @@ void setAlrm( tUxTime xtime){
   rtcSetAlrm( &tmpRtc );
 }
 
+/* Установка будильника c маской
+ *  xtime - UNIX-времени
+ *  alrm - номере будильника
+ */
+void setAlrmMask( tUxTime xtime, uint32_t mask){
+  tRtc tmpRtc;
+
+  xUtime2Tm( &tmpRtc, xtime);
+  rtcSetAlrmMask( &tmpRtc, mask & (RTC_ALRMAR_MSK4 | RTC_ALRMAR_MSK3 | RTC_ALRMAR_MSK2 | RTC_ALRMAR_MSK1) );
+}
+
 /* Получениевремени будильника
  *  alrm - номере будильника
  *  Возвращает - UNIX-время
@@ -432,9 +444,9 @@ void timersProcess( void ) {
 #if 1
 // Задержка по SysTick без прерывания
 void mDelay( uint32_t t_ms ){
+    while ( !( SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk ) ) // wait for underflow
 //  SysTick->VAL = 0;
   while ( t_ms > 0 ){
-    while ( !( SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk ) ) // wait for underflow
     {}
     t_ms--;
   }
@@ -462,7 +474,7 @@ static void rtcSetTime( volatile tRtc * prtc ){
           BIN2BCD( prtc->sec ) );
   // Time reserved mask
   temp &= (uint32_t)0x007F7F7F;
-  RTC->TR = ( RTC->TR & (RTC_TR_PM | RTC_TR_HT | RTC_TR_HU | RTC_TR_MNT | RTC_TR_MNU | RTC_TR_ST | RTC_TR_SU)) | temp;
+  RTC->TR = ( RTC->TR & ~(RTC_TR_PM | RTC_TR_HT | RTC_TR_HU | RTC_TR_MNT | RTC_TR_MNU | RTC_TR_ST | RTC_TR_SU)) | temp;
 //  // Сбрасываем флаг синхронизации часов
 //  RTC->ISR &= ~RTC_ISR_RSF;
   RTC->ISR &= ~RTC_ISR_INIT;
@@ -486,7 +498,7 @@ static void rtcSetDate( volatile tRtc * prtc ){
           BIN2BCD( prtc->wday ) << 13 );
   // Date reserved mask
   temp &= (uint32_t)0x00FFFF3F;
-  RTC->DR = ( RTC->DR & ~(RTC_DR_YT | RTC_DR_YU | RTC_DR_MT | RTC_DR_MU | RTC_DR_DT | RTC_DR_DU | RTC_DR_WDU)) | temp;
+  RTC->DR = temp;
 //  // Сбрасываем флаг синхронизации часов
 //  RTC->ISR &= ~RTC_ISR_RSF;
   RTC->ISR &= ~RTC_ISR_INIT;
@@ -532,7 +544,31 @@ void rtcSetAlrm( tRtc * prtc ){
   RTC->CR &= ~RTC_CR_ALRAE;
   while( (RTC->ISR & RTC_ISR_ALRAWF) == RESET )
   {}
-  RTC->ALRMAR = ( RTC->ALRMAR & (RTC_ALRMAR_PM | RTC_ALRMAR_DT | RTC_ALRMAR_DU | RTC_ALRMAR_HT | RTC_ALRMAR_HU | RTC_ALRMAR_MNT | RTC_ALRMAR_MNU | RTC_ALRMAR_ST | RTC_ALRMAR_SU)) | temp;
+  RTC->ALRMAR = temp;
+
+  RTC->CR |= RTC_CR_ALRAE;
+  RTC->ISR &= ~RTC_ISR_INIT;
+  RTC->WPR = 0xFE;
+  RTC->WPR = 0x64;
+}
+
+void rtcSetAlrmMask( tRtc * prtc, uint32_t mask ){
+  register uint32_t temp = 0U;
+
+  RTC->WPR = 0xCA;
+  RTC->WPR = 0x53;
+  RTC->ISR |= RTC_ISR_INIT;
+  while((RTC->ISR & RTC_ISR_INITF)!=RTC_ISR_INITF)
+  {}
+
+  temp = (BIN2BCD( prtc->date ) << 24 |
+          BIN2BCD( prtc->hour ) << 16 |
+          BIN2BCD( prtc->min ) << 8 |
+          BIN2BCD( prtc->sec ) );
+  RTC->CR &= ~RTC_CR_ALRAE;
+  while( (RTC->ISR & RTC_ISR_ALRAWF) == RESET )
+  {}
+  RTC->ALRMAR = (mask & (RTC_ALRMAR_MSK4 | RTC_ALRMAR_MSK3 | RTC_ALRMAR_MSK2 | RTC_ALRMAR_MSK1)) | temp;
 
   RTC->CR |= RTC_CR_ALRAE;
   RTC->ISR &= ~RTC_ISR_INIT;
@@ -557,7 +593,7 @@ void rtcCorrAlrm( tRtc * prtc ){
   {}
 
   temp = BIN2BCD( prtc->sec );
-  RTC->ALRMAR = ( RTC->ALRMAR & (RTC_ALRMAR_ST | RTC_ALRMAR_SU)) | temp;
+  RTC->ALRMAR = ( RTC->ALRMAR & ~(RTC_ALRMAR_ST | RTC_ALRMAR_SU)) | temp;
 
   RTC->ISR &= ~RTC_ISR_INIT;
   RTC->WPR = 0xFE;
@@ -834,8 +870,9 @@ static void rtcTimDetach(struct timer_list *rtctim, bool clear ) {
 
 bool rtcTimMod(struct timer_list *rtcTim, uint32_t sec) {
   bool  retval = false;
+  uint32_t ut = getRtcTime();
 
-  sec += getRtcTime();
+  sec += ut;
 
   if (rtcTimPending(rtcTim)) {
     rtcTimDetach(rtcTim, false);

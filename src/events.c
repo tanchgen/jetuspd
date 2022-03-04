@@ -139,7 +139,9 @@ void evntProcess( void ){
       }
       else {
         evntFlags.u32evnt &= ~(1<<i);
-        logRdBufFill += logBuf_Write( &logRdEvntBuffer, &logrec, 1 );
+        if( SIM800.mqttClient.evntPubFlag ){
+          logRdBufFill += logBuf_Write( &logRdEvntBuffer, &logrec, 1 );
+        }
       }
     }
   }

@@ -56,7 +56,6 @@ uint16_t stmEeBuf_Read( logBuf_t* Buffer, sLogRec * pkt, uint16_t count) {
     while (count) {
       uint16_t wrcount;
 
-      // TODO: непосредственная запись в FLASH
       // Проверяем ,сколько можно читать за раз (не выходя за границы Буфера и FLASH)
       if( (Buffer->Out + count) <= (Buffer->Buffer + Buffer->Size) ) {      // Проверяем границу FLASH
         wrcount = count;
@@ -130,7 +129,6 @@ uint16_t stmEeBuf_Write( logBuf_t* Buffer, sLogRec * pkt, uint16_t count) {
   /* Go through all elements */
   while (count) {
     uint16_t wrcount;
-    // TODO: непосредственная запись в FLASH
     if( (Buffer->In + count) <= (Buffer->Buffer + Buffer->Size) ){      // Проверяем границу FLASH
       wrcount = count;
       count = 0;

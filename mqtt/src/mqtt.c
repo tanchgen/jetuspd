@@ -19,6 +19,9 @@
 #include "events.h"
 #include "mqtt.h"
 
+extern struct timer_list tBigOnToutTimer;
+extern struct timer_list archReadTimer;
+
 extern sFwHandle fwHandle;
 extern FlagStatus fwUpdFlag;
 
@@ -326,12 +329,21 @@ void mqttCtlProc( SIM800_t * sim ){
         // Получили подтверждение успешной отправки <imei/cfgo>
         uspd.cfgoPktId = -1;
         gsmStRestart = GSM_OFF;
+        gsmReset = SIM_RESET;
         gsmRun = RESET;
         uspdCfg.updateFlag = SET;
       }
       if(uspd.announcePktId == pktid){
         uspd.announcePktId = -1;
         SIM800.mqttClient.pubFlags.uspdAnnounce = RESET;
+        SIM800.mqttClient.evntPubFlag = SET;
+
+#if DEBUG_GSM_TRACE
+        trace_puts("Del BIG_TOUT");
+#endif
+        rtcTimDel( &tBigOnToutTimer );
+        // Можно публиковать архив
+        timerMod( &archReadTimer, 0 );
       }
       // Можно публиковать следующее
       SIM800.mqttClient.pubReady--;
@@ -351,7 +363,7 @@ void mqttCtlProc( SIM800_t * sim ){
         // TODO: Запуск выключения и перезагрузки
         mDelay(50);
         gsmStRestart = GSM_OFF;
-        mcuReset = SET;
+        gsmReset = MCU_RESET;
         gsmRun = RESET;
       }
       break;
@@ -648,20 +660,34 @@ void mqttPubProc( uPubFlags * pubfl ){
   // Требуются некоторые публикации
   if( pubfl->cfgoPub ){
     pubfl->cfgoPub = cfgoPubFunc();         // Если успешно - флаг сбрасываем
+#if DEBUG_GSM_TRACE
+    trace_puts("CFGO Pub");
+#endif
   }
   else if( pubfl->uspdAnnounce ){
     pubfl->uspdAnnounce = uspdAnnouncePub();      // Если успешно - флаг сбрасываем
+#if DEBUG_GSM_TRACE
+    trace_puts("Annce Pub");
+#endif
 //    if( (pubfl->uspdAnnounce = uspdAnnouncePub()) == RESET ){      // Если успешно - флаг сбрасываем
 //      uspdCfg.updateFlag = SET;
 //    }
   }
   else if( pubfl->archPub ){
     int8_t num;       // Количество публикаций из Архива
+#if DEBUG_GSM_TRACE
+    trace_puts("Arch Pub");
+#endif
     if( (num = archPubFunc()) < 0 ){
       logRdBufFill = 0;
     }
     else {
       logRdBufFill -= num;         // Если успешно - флаг сбрасываем
+#if DEBUG_GSM_TRACE
+      if(logRdBufFill == 0){
+        trace_puts("Arch Pub FIN");
+      }
+#endif
     }
   }
 
@@ -729,6 +755,9 @@ void mqttProcess( void ){
 
   if( SIM800.mqttServer.disconnFlag && (SIM800.mqttServer.disconnTout < mTick)){
     // Закрыто соединение TCP
+#if DEBUG_GSM_TRACE
+    trace_puts("TCP close");
+#endif
     SIM800.mqttServer.disconnFlag = RESET;
     SIM800.mqttServer.tcpconn = RESET;
     SIM800.mqttServer.mqttconn = RESET;

@@ -31,9 +31,10 @@
 /* Private variables ---------------------------------------------------------*/
 extern eGsmRunPhase gsmRunPhase;
 //extern const sUartHnd simHnd;
-extern struct timer_list tGsmOnToutTimer;
+//extern struct timer_list tIsArchTimer;
 
 //extern uint32_t tmpCount;
+//static uint32_t tmpTick = 0;
 
 RCC_ClocksTypeDef RCC_Clocks;
 
@@ -44,7 +45,9 @@ RCC_ClocksTypeDef RCC_Clocks;
 void Configure_IWDG(void);
 void Check_IWDG_Reset(void);
 
-// void rtcTimProcess( void );
+//void rtcTimProcess( void );
+
+//void mqttCtlProc( SIM800_t * sim );
 
 void pwrInit( void );
 
@@ -82,38 +85,24 @@ int main(void) {
 //    Check_IWDG_Reset();
 //    Configure_IWDG();
 //    SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
-//    gsmState = GSM_WORK;
-//    SIM800.mqttServer.mqttconn = SET;
-//    SIM800.mqttServer.tcpconn = SET;
+
+//    setRtcTime( 1648373911 );
+//    uspdCfgInit( RESET );
+//    mqttPubInit();
+    gsmState = GSM_WORK;
+    SIM800.mqttServer.mqttconn = SET;
+    SIM800.mqttServer.tcpconn = SET;
 
     ledOn( LED_R, 0 );
     mDelay( 5000 );
 
-    rtcTimModArg( &tGsmOnToutTimer, SEC_10, GSM_MQTT_START );
+    timerModArg( &gsmOnToutTimer, SEC_10*1e3, GSM_MQTT_START );
 
-/*
-    GPIOB->BSRR = GPIO_PIN_9 << 16;
-    for( uint8_t i = 0; i < 10; i++ ){
-      wutSleep( 1000e3 );
-      rtcTimProcess();
-//      GPIOB->ODR ^= GPIO_PIN_9;
-    }
-//    trace_printf( "t: %u.%u\n", getRtcTime(), tmpCount );
-    mDelay( 1000 );
-//    trace_printf( "t: %u.%u\n", getRtcTime(), tmpCount );
-    gsmSleep( 100 );
-    rtcTimProcess();
-    GPIOB->BSRR = GPIO_PIN_9;
-//    trace_printf( "t: %u.%u\n", getRtcTime(), tmpCount );
-    while(1)
-    {}
-//
-//      for( uint8_t i = 0; i < 10; i++ ){
-//        rtcTimProcess();
-//      }
-//      mDelay(2);
-//      trace_printf( "t: %u\n", getRtcTime() );
-*/
+//    SIM800.mqttClient.pubFlags.announceEnd = RESET;
+
+//    cfgCalProc( &(uspd.arxCal), defCal, uspdCfg.arxCalStr );
+    cfgCalProc( &(uspd.arxCal), "0 8,9,10 1,11,21 * *", uspdCfg.arxCalStr );
+    sensPubAlrmSet( &(uspd.arxCal) );
 
     /* USER CODE END 2 */
 
@@ -122,6 +111,24 @@ int main(void) {
       /* Refresh IWDG down-counter to default value */
       LL_IWDG_ReloadCounter(IWDG);
       ifaceClock();
+
+//      if( (mTick >30000) && (SIM800.mqttClient.pubFlags.announceEnd == RESET) ){
+//        SIM800.mqttClient.pubFlags.announceEnd = SET;
+//        uspd.readArchSensQuery = SET;
+//        uspd.readArchEvntQuery = SET;
+//      }
+//
+//      if( tmpTick == 0) {
+//        if( (int16_t)uspd.archPktId > 0 ){
+//          tmpTick = mTick + 100;
+//        }
+//      }
+//      else if(tmpTick < mTick ){
+//        SIM800.mqttReceive.pktId = uspd.archPktId;
+//        SIM800.mqttReceive.msgType = MQTT_PUBCOMP;
+//        mqttCtlProc( &SIM800 );
+//        tmpTick = 0;
+//      }
     }
 }
 

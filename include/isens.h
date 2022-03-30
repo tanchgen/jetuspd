@@ -56,10 +56,48 @@ typedef struct {
   struct timer_list dbTimer;   // Таймер антидребезга
 } sISens;
 
+// ------------------ Archive Calendar --------------------------------------------
+typedef enum {
+  SMALLER,
+  EQUAL,
+  GREATER
+} eCmp;
+
+typedef enum field {
+  F_BEGIN,
+  F_END,
+  F_STEP,
+  F_NUM
+} eField;
+
+typedef enum timesect{
+  TS_MIN,
+  TS_HOUR,
+  TS_DAY,
+  TS_NUM
+} eTimeSect;
+
+typedef struct {
+  struct list_head node;
+  uint8_t beg;     // Начало интервала
+  uint8_t end;     // Конец интервала
+  uint8_t step;     // Шаг приращения внутри интервала
+} sCal;
+
+typedef struct {
+  struct list_head mQ;
+  struct list_head hQ;
+  struct list_head dQ;
+} sCalend;
+
+// -------------------------------------------------------------------------------
+
+extern char * defCal;
 extern sISens iSens[ISENS_NUM];
 
 void isensInit( void );
 void isensEnable( void );
 void isensProcess( void );
+void sensPubAlrmSet( sCalend * cal );
 
 #endif /* ISENS_H_ */

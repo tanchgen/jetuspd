@@ -326,6 +326,9 @@ void flashSensRxCb( void ){
   // Сохранить новые данные о буфере
   flashBufSave( &flashSensBuffer );
   logRdBufFill += logBuf_Write( &logRdSensBuffer, (sLogRec*)(flashRxXfer+4), flashDev.quant );
+  if( logBuf_GetFull( &flashSensBuffer ) == 0 ){
+    uspd.readArchSensQuery = RESET;
+  }
   // Освобождаем Флеш
   flashDev.state = FLASH_READY;
 }
@@ -335,6 +338,9 @@ void flashEvntRxCb( void ){
   // Сохранить новые данные о буфере
   flashBufSave( &flashEvntBuffer );
   logRdBufFill += logBuf_Write( &logRdEvntBuffer, (sLogRec*)(flashRxXfer+4), flashDev.quant );
+  if( logBuf_GetFull( &flashEvntBuffer ) == 0 ){
+    uspd.readArchEvntQuery = RESET;
+  }
   // Освобождаем Флеш
   flashDev.state = FLASH_READY;
 }
@@ -549,6 +555,7 @@ eLogBufType flashReadProbe( void ){
         return LOG_BUF_SENS;
       }
     }
+    SIM800.mqttClient.pubFlags.archPub = SET;
   }
 
 // ----------- Журнал Событий -------------------------
@@ -560,12 +567,13 @@ eLogBufType flashReadProbe( void ){
     else {
       // Чтобы поместилось в буфер чтения SPI и буфер logRdBuffer
       quant = min( quant, (ARRAY_SIZE(flashRxXfer) - 4) / sizeof(sLogRec) );
-      quant = min( quant, logBuf_GetFull( &logRdEvntBuffer) );
+      quant = min( quant, logBuf_GetFree( &logRdEvntBuffer) );
       if( quant ){
         flashDev.quant = quant;
         return LOG_BUF_EVNT;
       }
     }
+    SIM800.mqttClient.pubFlags.archPub = SET;
   }
 
   return LOG_BUF_NULL;

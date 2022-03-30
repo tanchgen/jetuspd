@@ -139,7 +139,7 @@ void evntProcess( void ){
       }
       else {
         evntFlags.u32evnt &= ~(1<<i);
-        if( SIM800.mqttClient.evntPubFlag ){
+        if( SIM800.mqttClient.pubFlags.announceEnd ){
           logRdBufFill += logBuf_Write( &logRdEvntBuffer, &logrec, 1 );
         }
       }
@@ -220,15 +220,15 @@ int8_t evntPubProc( sLogRec * rec ){
       break;
     default:
       // Неправильный формат записи журнала
-      return 0;
+      return -1;
       break;
   }
 
   // Публикуем
-  if( MQTT_Pub( tpc, pay, QOS1, SIM800.mqttReceive.pktIdo++ ) == 0 ){
+  if( MQTT_Pub( tpc, pay, QOS1, SIM800.mqttReceive.pktIdo ) == 0 ){
     ErrHandler( NON_STOP );
-    return 0;
+    return -1;
   }
-
-  return 1;
+  SIM800.mqttReceive.pktIdo++;
+  return SIM800.mqttReceive.pktIdo;
 }

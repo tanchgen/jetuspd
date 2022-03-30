@@ -4,6 +4,7 @@
  *  Created on: 24 нояб. 2021 г.
  *      Author: jet
  */
+
 #include <string.h>
 #include <ctype.h>
 
@@ -11,6 +12,7 @@
 #include "mqtt.h"
 #include "uspd.h"
 #include "events.h"
+#include "times.h"
 
 sUspdCfg uspdCfg = {
    .updateFlag = RESET,
@@ -26,7 +28,7 @@ sUspdCfg uspdCfg = {
   .outState = OUT_UPDOWN,                     // UP/DOWN вывода Выхода
   .arxTout = 3600,                            // Период записи данных в архив
   .arxSend = SET,                             // Флаг разрешения отправки архива на сервер
-  .arxCalend = { 0, 8, {1, 11, 21, 0, 0} },   // Календарь отправки архива
+  .arxCalStr = "0 8 1,11,21 * *",                            // Календарь отправки архива
   .autonamur = RESET,                         // Автоматическое определение уровней срабатывания по сопротивлению
   .simSel = SIM_SEL_AUTO,                     // Режим выбора SIM
   .gprsClass = GPRS_CLASS_12,                 // Класс GPRS
@@ -71,12 +73,7 @@ sUspdCfg uspdCfg = {
   .termGate = RESET                           // Прозрачный режим терминала
 };
 
-
 sUspd uspd = {0};
-
-
-
-void cfgUpdate( FlagStatus change );
 
 // ======================= Формирование сообщения с конфигурацией =================================
 const char * cfgiMsgTedmpl =
@@ -106,44 +103,14 @@ const char * cfgiMsgTedmpl =
   "\"232\" : %s"                            // Прозрачный режим терминала (termGate)
 " }";
 
+void cfgUpdate( FlagStatus change );
+int calPars( struct list_head * lst, char ** pstr );
 
 #define BOOL_STR(x)    ((x)? "true" : "false")
-
-void calStrCreate( char str[], sArxCal * cal ){
-  char * beg = str;
-
-  utoa( cal->min, str, 10 );
-  while( *str != '\0' ){
-    str++;
-  }
-  *str++ = ' ';
-  utoa( cal->hour, str, 10 );
-  while( *str != '\0' ){
-    str++;
-  }
-  *str++ = ' ';
-  for( uint8_t i = 0; i < 5; i++ ){
-    if( cal->day[i] ){
-      utoa( cal->day[i], str, 10 );
-      while( *str != '\0' ){
-        str++;
-      }
-      *str++ = ',';
-    }
-  }
-  // Вместо последней запятой ставим терминатор
-  str--;
-  *str = '\0';
-
-  assert_param( strlen(beg) < 21);
-  (void)beg;
-}
-
 
 // Формируем сообщение для топика "TOPIC_CFG_O"
 char * cfgoMsgCreate( void ){
   char * msg;
-  char calStr[21];
 
   if( (msg = malloc(1024)) == NULL ){
     ErrHandler( NON_STOP );
@@ -151,8 +118,6 @@ char * cfgoMsgCreate( void ){
   }
 
 //  trace_printf( "a_cfgo_%x\n", msg );
-
-  calStrCreate( calStr, &(uspdCfg.arxCalend) );
 
   sprintf( msg, cfgiMsgTedmpl, \
           /* Режим работы входов датчиков (isensType) */
@@ -164,8 +129,8 @@ char * cfgoMsgCreate( void ){
           uspdCfg.arxTout,
           /* Флаг разрешения отправки архива на сервер (arxSend: "true"/"false") */
           BOOL_STR(uspdCfg.arxSend),
-          /* Календарь отправки архива (arxCalend: { <min>, <hour>, {<d1>, <d2>, <d3>, <d4>, <d5>} } */
-          calStr,
+          /* Календарь отправки архива (arxCalend: "m.m h.h d.d * *") */
+          uspdCfg.arxCalStr,
           /* Автоматическое определение уровней срабатывания по сопротивлению (autonamur: "true"/"false")*/
           BOOL_STR(uspdCfg.autonamur),
           /* Режим выбора SIM (simSel) */
@@ -274,65 +239,56 @@ fault_parse:
   return NULL;
 }
 
-// ======================= Обработка отдельных полей конфигкрации ============================
+// ======================= Обработка отдельных полей конфигурации ============================
+// Sensors archive send calendar
+FlagStatus cfgCalProc( sCalend * cal, char * newstr, char * oldstr ){
+  FlagStatus change;
+  char * tstr;
+  char * tstr1;
+  char tmpstr1[22];
+  char tmpstr2[22];
 
-FlagStatus cfgCalProc( sArxCal * cal, char * str ){
-  FlagStatus change = RESET;
-  sArxCal cal0;
+  assert_param( newstr != NULL );
 
-  while( isspace((int)*str) || ispunct((int)*str) ){
-    str++;
-  }
-
-  if( *str == '*' ){
-    cal0.min = -1;
-  }
-  else {
-    cal0.min = strtol( str, &str, 10 );
-  }
-  if( cal0.min != cal->min ){
-    cal->min = cal0.min;
-    change = SET;
-  }
-  while( isspace((int)*str) ){
-    str++;
-  }
-  if( *str == '*' ){
-    cal0.hour = -1;
-  }
-  else {
-    cal0.hour = strtol( str, &str, 10 );
-  }
-  if( cal->hour != cal0.hour ){
-    cal->hour = cal0.hour;
-    change = SET;
-  }
-  while( isspace((int)*str) ){
-    str++;
-  }
-  // Дни
-  for( uint8_t i = 0; (isspace((int)*str) == 0) && (i < ARRAY_SIZE(cal->day)); i++ ){
-    if( *str == '*' ){
-      cal0.day[0] = -1;
-      // Каждый день - дальнейшая обработка списка дней бесполезна
-      i = ARRAY_SIZE(cal->day);
+  if( oldstr != NULL ){
+    // Убираем пробелы
+    for( tstr1 = tmpstr1, tstr = oldstr; *tstr != '\0'; tstr++ ){
+      if( !isspace((int)*tstr) ){
+        *tstr1++ = *tstr;
+      }
     }
-    else {
-      cal0.day[i] = strtol( str, &str, 10 );
+    *tstr1 = '\0';
+    for( tstr1 = tmpstr2, tstr = (char *)newstr; *tstr != '\0'; tstr++ ){
+      if( !isspace((int)*tstr) ){
+        *tstr1++ = *tstr;
+      }
     }
-
-    if( cal0.day[i] != cal->day[i] ){
-      cal->day[i] = cal0.day[i];
+    *tstr1 = '\0';
+    if( strcmp(tmpstr1, tmpstr2) ){
+      strcpy(tmpstr1, tmpstr2);
       change = SET;
     }
-    while( ispunct((int)*str) ){
-      str++;
+    else {
+      change = RESET;
     }
   }
-  if( isspace((int)*str) == 0 ){
-    // Ошибка формата - выходим
-    ErrHandler( NON_STOP );
-    return RESET;
+  else {
+    change = SET;
+  }
+
+  if( change
+      || (list_empty( &(cal->mQ) ))
+      || (list_empty( &(cal->hQ) ))
+      || (list_empty( &(cal->dQ) ))
+    )
+  {
+    // Есть обновление - Надо обновить календарь
+
+    // -------------- Создание списков минут/часов/дней
+    // mQ
+    calPars( &(cal->mQ), &newstr);
+    calPars( &(cal->hQ), &newstr);
+    calPars( &(cal->dQ), &newstr);
   }
 
   return change;
@@ -535,7 +491,7 @@ void uspdCfgProc( sUartRxHandle * rxh, SIM800_t * sim ){
       change |= cfgBoolFieldProc( &(uspdCfg.arxSend), NULL, vol );
     }
     else if( strcmp( top, "arxsend") == 0 ){
-      change |= cfgCalProc( &(uspdCfg.arxCalend), vol );
+      change |= cfgCalProc( &(uspd.arxCal), vol, uspdCfg.arxCalStr );
     }
     else if( strcmp( top, "autonamur") == 0 ){
       change |= cfgBoolFieldProc( &(uspdCfg.autonamur), NULL, vol );
@@ -616,23 +572,62 @@ void uspdCfgProc( sUartRxHandle * rxh, SIM800_t * sim ){
 void cfgUpdate( FlagStatus change ){
   if( change || (uspdCfg.updateFlag == RESET) ){
     // Записать в EEPROM
-    uspdCfg.updateFlag = SET;
     if( stmEeWrite( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg) ) != HAL_OK){
       // Ошибка при записи в EEPROM
-      uspdCfg.updateFlag = RESET;
       stmEeWrite( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg.updateFlag) );
       return;
     }
     else {
-      uspdCfg.updateFlag = SET;
       evntFlags.cfgUpd = SET;
+      // Отмечаем
+      SIM800.mqttClient.pubFlags.cfgoPub = SET;
     }
   }
-  // Отмечаем
-  SIM800.mqttClient.pubFlags.cfgoPub = SET;
   // Сбрасываем флаг до отправки подтверждения
   uspdCfg.updateFlag = RESET;
 }
+
+
+void uspdCfgInit( FlagStatus * ee ){
+  HAL_StatusTypeDef rc;
+  uint32_t updflag ;
+
+
+  if( *ee == RESET ){
+    rc = stmEeRead( USPD_CFG_ADDR + offsetof(sUspdCfg, updateFlag),
+                    &(updflag), sizeof(uint32_t) );
+    updflag &= 0x1;
+    if( (rc == HAL_OK) && (updflag == SET) ){
+      sUspdCfg tmpUspdCfg;
+      // Конфигурация от сервера сохранена - считываем конфиг полностью
+      if( stmEeRead( USPD_CFG_ADDR, (uint32_t *)&(tmpUspdCfg), sizeof(uspdCfg) ) != HAL_OK ){
+        // Конфиг не считался правильно - переписываем на дефолтный
+        goto defcfg_save;
+      }
+      else {
+        uspdCfg = tmpUspdCfg;
+        if( uspd.runMode == RUN_MODE_NULL ){
+          uspd.runMode = RUN_MODE_SENS_SEND;
+        }
+      }
+      goto uspd_init;
+    }
+    goto defcfg_save;
+  }
+
+  *ee = RESET;
+defcfg_save:
+  uspd.runMode = RUN_MODE_FIRST;
+  uspdCfg.updateFlag = RESET;
+  stmEeWrite( USPD_CFG_ADDR, (uint32_t *)&(uspdCfg), sizeof(uspdCfg) );
+
+uspd_init:
+  // Настройки в соответствии с сохраненной конфигурацией.
+  uspdInit();
+}
+
+
+// ----------------------------------------------------------------------------------
 
 void uspdInit( void ){
 
@@ -655,9 +650,6 @@ void uspdInit( void ){
   SIM800.mqttClient.clientID = "";
   SIM800.mqttClient.keepAliveInterval = 60;
 
-  uspd.announcePktId = -1;
-  uspd.cfgoPktId = -1;
-
   // Считываем флаги Ресета
   evntFlags.iwdg = RCC->CSR & RCC_CSR_IWDGRSTF;
   evntFlags.swrst = RCC->CSR & RCC_CSR_SFTRSTF;
@@ -666,6 +658,7 @@ void uspdInit( void ){
   // Флаг включения USPD
   evntFlags.uspdOn = SET;
 
-  // TODO: Установка таймера календаря отправки архива сенсоров
+  cfgCalProc( &(uspd.arxCal), uspdCfg.arxCalStr, NULL );
+
 }
 

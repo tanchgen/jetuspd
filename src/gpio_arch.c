@@ -297,6 +297,11 @@ void gpioClock( void ){
     if( extiPinSb2Key.state == Bit_RESET ){
       evntFlags.sb2 =SET;
     }
+    else if( timerPending( &sb2Timer ) ){
+      // Отпустили раньше 10сек
+      timerDel( &sb2Timer );
+      uspd.runMode = RUN_MODE_KEY;
+    }
   }
 }
 

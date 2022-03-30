@@ -4,9 +4,12 @@
  *  Created on: 30 авг. 2021 г.
  *      Author: Gennadiy Tanchin <g.tanchin@yandex.ru>
  */
+#include <string.h>
+#include <ctype.h>
 
 #include "times.h"
 #include "logger.h"
+#include "flash.h"
 #include "main.h"
 #include "uspd.h"
 #include "events.h"
@@ -14,10 +17,12 @@
 
 // -------------- ДЛЯ ТЕСТА ----------------------------------
 #define ISENS_ARCH_TOUT        3600  // 3000 мс
-#define ARCH_READ_TOUT         120
+#define ARCH_READ_TOUT         TOUT_1000 // Каждую секунду
 
-struct timer_list isArchTimer;
-struct timer_list archReadTimer;
+extern eGsmRunPhase gsmRunPhase;
+
+struct timer_list tIsArchTimer;
+struct timer_list tArchPubTimer;
 
 void isensDbTout( uintptr_t arg );
 HAL_StatusTypeDef   stmEeRead( uint32_t addr, uint32_t * data, uint32_t datalen);
@@ -57,27 +62,373 @@ sISens iSens[ISENS_NUM] = {
 //  },
 };
 
+// ======================= Клендарь отправки архива сенсоров ======================================
+char * defCal = "7,8,9 10-12 1,11,21 * *";
+
+tRtc oldCalAlrm = {0};
+
+const struct limit {
+  uint8_t begLim;
+  uint8_t endLim;
+} lim[TS_NUM] = {
+    {0,59},
+    {0,59},
+    {1,31}
+};
+
+eTimeSect tsect;
+// ================================================================================================
 
 void isArchTout( uintptr_t arg ){
-  uint32_t tout = *((uint32_t *)arg) * 20;
+  uint32_t tout = *((uint32_t *)arg);
   uspd.archWrFlag = SET;
-  timerMod( &isArchTimer, tout );
+  rtcTimMod( &tIsArchTimer, tout );
 }
-
-void archReadTout( uintptr_t arg ){
-  uint32_t tout = (uint32_t)arg * TOUT_1000;
-  if( gsmState >= GSM_CFG_ON ){
-    uspd.readArchSensQuery = SET;
-    uspd.readArchEvntQuery = SET;
-  }
-  timerMod( &archReadTimer, tout );
-}
-
 
 // =================== Функции календаря =========================
+
+// -------------------- Archive Calendar --------------------------------------------
+int calPars( struct list_head * head, char ** pstr ){
+  sCal * pxc;
+  uint8_t * pnum;
+  char * str = *pstr;
+  struct list_head * lst = head;
+
+  while(1){
+    if( list_is_last(lst, head) ){
+      // Дальше елементов нет
+      if( (pxc = malloc(sizeof(sCal))) == NULL ){
+        perror("malloc:");
+        exit(EXIT_FAILURE);
+      }
+      else {
+        // Сохраняем в списке
+        list_add( &(pxc->node), lst);
+      }
+    }
+    else {
+      pxc = list_first_entry( lst, sCal, node );
+    }
+
+    pnum = &(pxc->beg);
+    for( eField f = F_BEGIN; (f < F_NUM) && (*str != '\0'); f++ ){
+      if( *str == '*' ){
+        pxc->beg = lim[tsect].begLim;
+        pxc->end = lim[tsect].endLim;
+        pxc->step = 1;
+        while( !isspace((int)*str) ){
+          str++;
+        }
+        break;
+      }
+
+      *pnum = strtoul( str, pstr, 10 );
+      str = *pstr;
+      if( str == NULL ){
+        perror("String format!");
+        return -1;
+      }
+      else if( *str == '-') {
+        str++;
+        pnum = &(pxc->end);
+      }
+      else if( *str == '/' ){
+        pnum = &(pxc->step);
+      }
+      else {
+        // Строка закончилась
+        if( f == F_BEGIN){
+          // "end" не обрабатывался
+          pxc->end = pxc->beg;
+          // "step" не обрабатывался
+          pxc->step = 1;
+        }
+        else if( f == F_END ){
+          // "step" не обрабатывался
+          pxc->step = 1;
+        }
+        while( isspace((int)*str) ){
+          str++;
+        }
+        if(*str != ','){
+          goto end_field;
+        }
+        lst = lst->next;
+        str++;
+        break;
+      }
+    }
+  }
+
+end_field:
+  lst = lst->next->next;
+  while( lst != head ){
+    struct list_head * lst2 = lst;
+    lst = lst2->next;
+    pxc = list_entry( lst2, sCal, node );
+    list_del( lst2 );
+    free( pxc );
+  }
+
+  *pstr = str;
+  return 0;
+}
+
+
+void nextMon( sCalend * cal, tRtc * cltime, tRtc * alr, eCmp cmp ){
+  sCal * cl;
+
+  cl = list_entry( cal->hQ.next, sCal, node );
+  alr->hour = cl->beg;
+  cl = list_entry( cal->mQ.next, sCal, node );
+  alr->min = cl->beg;
+  alr->sec = 2;
+  if( cmp == SMALLER ){
+    // Все переносится на следующий месяц
+    cl = list_entry( cal->dQ.next, sCal, node );
+    alr->date = cl->beg;
+    if(cltime->month == 11){
+      // Сейчас декабрь -> Следующий год, январь
+      alr->year = cltime->year + 1;
+      alr->month = 0;
+    }
+    else {
+      // Следующий месяц
+      alr->year = cltime->year;
+      alr->month = cltime->month + 1;
+    }
+  }
+  else if( cmp == GREATER ){
+    alr->month = cltime->month;
+  }
+}
+
+eCmp searchAlrm( sCalend * cal, tRtc * alr, tRtc * old ){
+  tRtc cltime;
+  struct list_head *dcurr, *dhead;
+  struct list_head *hcurr, *hhead;
+  struct list_head *mcurr, *mnext;
+  sCal * cl;
+  eCmp cmp;
+  eTimeSect curr = TS_DAY;
+
+  dhead = &(cal->dQ);
+  hhead = &(cal->hQ);
+  hcurr = hhead->next;
+
+  getRtcTime();
+  cltime = rtc;
+
+  // -------------------------- Поиск -----------------------------------
+  for( cmp = SMALLER; cmp != GREATER; ){
+    // Day
+    if( curr == TS_DAY){
+      hhead = &(cal->hQ);
+
+      for (dcurr = dhead->next; dcurr != &(cal->dQ); dcurr = dcurr->next){
+        cl = list_entry(dcurr, sCal, node);
+
+        alr->date = cl->beg;
+        for( uint8_t d = cl->beg; d <= cl->end; d += cl->step ){
+          if( d > cltime.date ){
+            cmp = GREATER;
+            alr->date = d;
+            break;
+          }
+          else if( d == cltime.date ){
+            cmp = EQUAL;
+            alr->date = d;
+            break;
+          }
+        }
+        if(cmp != SMALLER){
+          // Сегодня или в будущем - выходим
+          hhead = &(cal->hQ);
+          curr = TS_HOUR;
+          break;
+        }
+      }
+
+      if( cmp != EQUAL ){
+        // День не совпадает: минимальные час, минута и секунда
+        nextMon( cal, &cltime, alr, cmp );
+        return GREATER;
+      }
+    }
+
+    if( curr == TS_HOUR){
+      // День - сегодняшний
+      //Hour
+      cmp = SMALLER;
+      for (hcurr = hhead->next; hcurr != &(cal->hQ); hcurr = hcurr->next){
+        cl = list_entry(hcurr, sCal, node);
+
+        alr->hour = cl->beg;
+        for( uint8_t h = cl->beg; h <= cl->end; h += cl->step ){
+          if( h > cltime.hour ){
+            cmp = GREATER;
+            alr->hour = h;
+            break;
+          }
+          else if( h == cltime.hour ){
+            cmp = EQUAL;
+            alr->hour = h;
+            break;
+          }
+        }
+        if(cmp != SMALLER){
+          // На этот час или в будущем - выходим
+          curr = TS_MIN;
+          break;
+        }
+      }
+      if(cmp == SMALLER ){
+        // На сегодня уже все  выполнено. Возвращаемся - ищем следующие дни
+        cltime.date += 1;
+        cltime.hour = 0;
+        dhead = dcurr;
+        curr = TS_DAY;
+        continue;
+      }
+      else if( cmp == GREATER ){
+        // Сегодня в следующие часы: минимальные минута и секунда
+        cl = list_entry( cal->mQ.next, sCal, node );
+        alr->min = cl->beg;
+        alr->sec = 2;
+        // Нашли
+        return GREATER;
+      }
+    }
+
+    if( curr == TS_MIN){
+      // Час - текущий
+      //Minute
+//      cmp = SMALLER;
+      list_for_each_safe( mcurr, mnext, &(cal->mQ) ) {
+        cl = list_entry(mcurr, sCal, node);
+
+        alr->min = cl->beg;
+        for( uint8_t m = cl->beg; m <= cl->end; m += cl->step ){
+          if( m > cltime.min ){
+            cmp = GREATER;
+            alr->min = m;
+            alr->sec = 2;
+            // Нашли
+            return GREATER;
+          }
+          else if( (m == cltime.min) && (m > old->min) ){
+            cmp = GREATER;
+            alr->min = m;
+            // На всякий случай на 2 сек вперед
+            alr->sec = cltime.sec + 2;
+            // Нашли
+            return GREATER;
+          }
+        }
+      }
+//      if(cmp == SMALLER ){
+
+      // На этот час ничего не нашли. Возвращаемся - ищем следующие часы
+      cltime.hour += 1;
+      cltime.min = 0;
+      hhead = hcurr->prev;
+      curr = TS_HOUR;
+      continue;
+//    }
+    }
+
+    // Совпадают месяц, час, минута календаря и текущие;
+    if( cmp == SMALLER ) {
+      nextMon( cal, &cltime, alr, cmp );
+      return GREATER;
+    }
+  }
+
+  return cmp;
+}
+
+// ----------------------------------------------------------------------------------
+void sensPubAlrmSet( sCalend * cal ){
+  tRtc tmpalrm;
+  eCmp cmp;
+  tUxTime ut;
+
+  assert_param( !list_empty(&(cal->mQ)) );
+  rtcGetDate( &tmpalrm );
+  cmp = searchAlrm( cal, &tmpalrm, &oldCalAlrm );
+  assert_param( cmp == GREATER );
+  ut = xTm2Utime( &tmpalrm );
+  trace_printf( "a0:%d\n", ut );
+  ut -= getRtcTime();
+  rtcTimMod( &tArchPubTimer, ut );
+}
+
+
 // Выполняется по календарю, когда надо передавать данные из архива
-void calWkupFunc( void ){
+void calWkupFunc( uintptr_t arg ){
+  (void)arg;
   mTick = 0;
+  // Предварительное разрешение передачи записей архива
+  uspd.runMode = RUN_MODE_SENS_SEND;
+}
+
+
+char * fillField( char * str, struct list_head * xqu ){
+  struct list_head * curr;
+  sCal * cl;
+
+  // Minute string
+  list_for_each( curr, xqu ){
+    cl = list_entry(curr, sCal, node);
+    utoa( cl->beg, str, 10 );
+    while( *str != '\0' ){
+      str++;
+    }
+    if( cl->beg != cl->end ){
+      *str++ = '-';
+      utoa( cl->end, str, 10 );
+      while( *str != '\0' ){
+        str++;
+      }
+    }
+    if( cl->step != 1 ){
+      *str++ = '/';
+      utoa( cl->step, str, 10 );
+      while( *str != '\0' ){
+        str++;
+      }
+    }
+    // ',' - между элементами списка
+    *str++ = ',';
+  }
+  if( *(str-1) == ','){
+    *(str-1) = ' ';
+  }
+
+  return str;
+}
+
+
+void calStrCreate( char str[], sCalend * cal ){
+  char * beg = str;
+
+  // Minute string
+  if( list_empty(&(cal->mQ))
+      || list_empty(&(cal->hQ))
+      || list_empty(&(cal->dQ)))
+  {
+    str[0] = '\0';
+  }
+  {
+    str = fillField( str, &(cal->mQ) );
+    str = fillField( str, &(cal->hQ) );
+    str = fillField( str, &(cal->dQ) );
+
+    strcpy( str, "* *" );
+
+    assert_param( strlen(beg) < 21 );
+    (void)beg;
+  }
 }
 
 // ===============================================================
@@ -85,26 +436,36 @@ void calWkupFunc( void ){
 
 void isensProcess( void ){
 
-  if( uspd.archWrFlag ){
-    // Настало время записи датчиков в Архив
-    uint32_t isdata[ISENS_NUM];
-    sLogRec logrec = {0};
+  if( uspd.runMode == RUN_MODE_SENS_WRITE ){
+    // Работаем только если надо записать датчики во флеш
+    if( uspd.archWrFlag ){
+      // Настало время записи датчиков в Архив
+      uint32_t isdata[ISENS_NUM];
+      sLogRec logrec = {0};
 
-    for( eIsens s = 0; s < ISENS_NUM; s++ ){
-      isdata[s] = iSens[s].isensCount;
+      for( eIsens s = 0; s < ISENS_NUM; s++ ){
+        isdata[s] = iSens[s].isensCount;
+      }
+
+      assert_param( ISENS_NUM <= 4 );
+
+      // Запись в EEPROM состояние датчиков
+      stmEeWrite( USPD_SENS_ADDR, isdata, (ISENS_NUM * 4) );
+
+      if( logger( &logrec, getRtcTime(), DEVID_ISENS_1, isdata, ISENS_NUM ) == 1){
+        // Записано в Архив успешно
+        uspd.archWrFlag = RESET;
+      }
+      else {
+        ErrHandler( NON_STOP );
+      }
     }
-
-    assert_param( ISENS_NUM <= 4 );
-
-    // Запись в EEPROM состояние датчиков
-    stmEeWrite( USPD_SENS_ADDR, isdata, (ISENS_NUM * 4) );
-
-    if( logger( &logrec, getRtcTime(), DEVID_ISENS_1, isdata, ISENS_NUM ) == 1){
-      // Записано в Архив успешно
-      uspd.archWrFlag = RESET;
-    }
-    else {
-      ErrHandler( NON_STOP );
+    else if( flashDev.state == FLASH_READY ){
+      // Запись датчиков окончена
+      gsmReset = SIM_RESET;
+      gsmRun = RESET;
+      gsmRunPhase = PHASE_OFF_OK;
+      toSleep( RESET );
     }
   }
 }
@@ -278,12 +639,20 @@ void isensInit( void ){
   // Инициализация таймера, на который подключены ISENS
   isensTimInit();
 
+  // Инициализация списка календаря
+  INIT_LIST_HEAD( &(uspd.arxCal.mQ) );
+  INIT_LIST_HEAD( &(uspd.arxCal.hQ) );
+  INIT_LIST_HEAD( &(uspd.arxCal.dQ) );
+
   gpioPinResetNow( &gpioPinSensOn );
+
+  rtcTimSetup( &tArchPubTimer, calWkupFunc, (uintptr_t)&(uspd.arxCal) );
+  rtcTimSetup( &tIsArchTimer, isArchTout, (uintptr_t)&(uspdCfg.arxTout) );
 
   // ДЛЯ ТЕСТА
   // XXX: Для теста сенсоров
-  timerSetup( &isArchTimer, isArchTout, (uintptr_t)&(uspdCfg.arxTout) );
-  timerSetup( &archReadTimer, archReadTout, (uintptr_t)ARCH_READ_TOUT );
+//  timerSetup( &isArchTimer, isArchTout, (uintptr_t)&(uspdCfg.arxTout) );
+
 }
 
 
@@ -316,9 +685,7 @@ void isensEnable( void ){
     }
   }
 
-  // --------------------- ДЛЯ ТЕСТА ----------------------------
-  // XXX: Для теста сенсоров
-  timerMod( &isArchTimer, uspdCfg.arxTout * 20 );
+  rtcTimMod( &tIsArchTimer, uspdCfg.arxTout );
 }
 
 

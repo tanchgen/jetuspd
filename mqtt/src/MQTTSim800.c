@@ -32,7 +32,6 @@ struct timer_list mqttPingTimer;
 struct timer_list mqttSubTimer;
 
 // ------------------- Function prototype ---------------------------
-void mqttConnectCb( FlagStatus conn );
 void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim );
 // ------------------------------------------------------------------
 
@@ -357,7 +356,6 @@ void mqttConnectCb( FlagStatus conn ){
   else {
     mqttPingFlag = RESET;
     mqttSubFlag = RESET;
-    SIM800.mqttClient.evntPubFlag = RESET;
     timerStack( &mqttSubTimer, 0, TIMER_DEL );
     // Две вспышки оранжевого цвета с интервалом в 3 сек
     ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, 2, TOUT_3000);

@@ -8,7 +8,8 @@
 #include "lowpwr.h"
 
 
-uint32_t tmpCount = 0;
+//uint32_t tmpCount = 0;
+uint32_t ssleep;
 
 static uint32_t gpioaModer = 0xFFFFFFFF;
 static uint32_t gpioaPupdr;
@@ -47,7 +48,7 @@ void rccMsiSw( void );
 void rccHsiSw( void );
 //void rtcSetWut( uint32_t mks );
 uint32_t rtc2ActTimProc( tUxTime ut );
-void actTimProc( void );
+FlagStatus actTimProc( void );
 // ===================================================================================
 
 void pwrInit( void ){
@@ -156,12 +157,12 @@ static void sleepStart( void ){
   // ----------------- 3 . . . ----------------------------
   // Переключение тактирования на MCI
   rccMsiSw();
-  // Power range 3
-  while( (PWR->CSR & PWR_CSR_VOSF) != 0 )
-  {}
-  PWR->CR |= PWR_CR_VOS;
-  while( (PWR->CSR & PWR_CSR_VOSF) != 0 )
-  {}
+//  // Power range 3
+//  while( (PWR->CSR & PWR_CSR_VOSF) != 0 )
+//  {}
+//  PWR->CR |= PWR_CR_VOS;
+//  while( (PWR->CSR & PWR_CSR_VOSF) != 0 )
+//  {}
   PWR->CR &= ~PWR_CR_PVDE;
   // ----------------- 4 . . . ----------------------------
   SysTick->CTRL  &= ~SysTick_CTRL_ENABLE_Msk;
@@ -214,24 +215,6 @@ void sleepStop( void ){
 }
 
 
-// XXX: FOr teting only !!!
-// Проверка, что нет RTC-таймеров раньше, чем WUT-таймер
-void wutTimeCheck( uint32_t mks ){
-  uint32_t wuttime = getRtcTime() + mks/1e6 + 1;
-  struct timer_list * tmp;
-
-  if( list_empty(&actRtcTimQueue) ){
-    return;
-  }
-
-  tmp = list_first_entry( &actRtcTimQueue, struct timer_list, entry );
-  if( wuttime >= tmp->expires ){
-    trace_printf("w%u-t%u\n", wuttime, tmp->expires);
-    assert_param(0);
-  }
-}
-
-
 /**
   * @brief  Выполняется по срабатыванию будильника.
   *
@@ -240,9 +223,9 @@ void wutTimeCheck( uint32_t mks ){
 static inline void sleepProcess( void ){
   // TODO: Заменить на реальное засыпание
   sleepStart();
-  __WFI();
-//  while(sleepFlag)
-//  {}
+//  __WFI();
+  while(sleepFlag)
+  {}
 }
 
 
@@ -252,7 +235,6 @@ static inline void sleepProcess( void ){
   * @retval none
   */
 void rtcTimProcess( void ){
-  uint32_t ssleep;
   uint32_t ut = getRtcTime();
 
 // =================== CREATE ACTIVE TIMERS LIST ==============================
@@ -262,7 +244,8 @@ void rtcTimProcess( void ){
     // Заводим будильник на время "Активных таймеров"
 
     if( ssleep ){
-      setAlrm( ut + ssleep );
+      trace_printf("next alrm: %d\n", ssleep );
+      setAlrm( ssleep );
     }
     actTimListRun = RESET;
   }
@@ -276,9 +259,12 @@ void rtcTimProcess( void ){
 // =================== ACTIVE TIMERS RUN ==============================
   // Когда проснулись...
   if( actTimRun ){
-    rtcAlrmCb();
 
-    actTimProc();
+    if( actTimProc() == 0 ){
+      // Активируем следующий(ие) таймер(ры)
+      actTimListRun = SET;
+    }
+
     actTimRun = RESET;
     return;
   }
@@ -308,6 +294,7 @@ static inline void rtcStopWut( void ){
 void rtcWakeupCb( void ){
   if( (RTC->ISR & RTC_ISR_ALRAF) && (RTC->CR & RTC_CR_ALRAIE) ){
     actTimRun = SET;
+    rtcAlrmCb();
 
     sleepStop();
     RTC->ISR &= ~RTC_ISR_ALRAF;
@@ -319,7 +306,9 @@ void rtcWakeupCb( void ){
     IWDG->KR = 0x0000AAAA;
     RTC->ISR = ~(RTC_ISR_ALRBF | RTC_ISR_INIT) | (RTC->ISR & RTC_ISR_INIT);
     EXTI->PR = EXTI_IMR_MR17;
-    tmpCount++;
+    // Проверяем активные таймеры каждую секунду
+    actTimRun = SET;
+//    tmpCount++;
 //    trace_printf( "b: %u\n", getRtcTime() );
   }
   if( (RTC->ISR & RTC_ISR_WUTF) && (RTC->CR & RTC_CR_WUTIE) ){

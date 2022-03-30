@@ -52,11 +52,16 @@ typedef enum {
   MSG_PAYLOAD,
 } eMsgState;
 
+#define PUB_FLAG_MASK     0xF
+
 typedef union {
   struct {
     uint16_t uspdAnnounce: 1;
     uint16_t cfgoPub: 1;
     uint16_t archPub: 1;
+    uint16_t cmdPub: 1;
+    uint16_t archPubEnd: 1;
+    uint16_t announceEnd: 1;
   };
   uint16_t u16pubFlags;
 } uPubFlags;
@@ -77,7 +82,6 @@ typedef struct {
     unsigned short keepAliveInterval;
     uint8_t subCount;
     uPubFlags pubFlags;
-    FlagStatus evntPubFlag;
     uint8_t pubReady;
     //    uint32_t toutTick;
 } mqttClient_t;
@@ -171,8 +175,9 @@ extern uint16_t mqtt_index;
 extern FlagStatus mqttSubFlag;
 extern FlagStatus mqttPingFlag;
 
+void mqttPubInit( void );
 void mqttInit( void );
-void mqttCfgInit( FlagStatus * ee );
+void mqttConnectCb( FlagStatus conn );
 
 static inline void mqttBufClean( sUartRxHandle *handle, SIM800_t * sim ){
   // Очистим буфер

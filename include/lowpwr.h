@@ -8,6 +8,7 @@
 #ifndef LOWPWR_H_
 #define LOWPWR_H_
 
+#include "diag/trace.h"
 #include "times.h"
 
 void rtcSetWut( uint32_t mks );
@@ -21,8 +22,9 @@ extern volatile FlagStatus sleepFlag;
 
 extern volatile FlagStatus sleepPreFlag;
 
+extern uint32_t ssleep;
+
 //--------------------------------------------------------------------------------------
-void wutTimeCheck( uint32_t mks );
 
 // Предванительная или окончательная отправка в сон
 static inline void toSleep( FlagStatus pre ){
@@ -39,10 +41,19 @@ static inline void toSleep( FlagStatus pre ){
   *
   * @retval none
   */
-static inline void wutSleep( uint32_t mks ){
-  wutTimeCheck( mks );
-  rtcSetWut( mks );
-  toSleep( RESET );
+static inline FlagStatus wutSleep( uint32_t mks ){
+  uint32_t wuttime = getRtcTime() + mks/1e6 + 1;
+
+  if( ssleep && (wuttime >= ssleep) ){
+    trace_printf("w%u-t%u\n", wuttime, ssleep);
+    mDelay( mks / 1000 );
+  }
+  else {
+    rtcSetWut( mks );
+    toSleep( RESET );
+  }
+
+  return 0;
 }
 
 

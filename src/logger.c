@@ -162,15 +162,15 @@ void logClock( void ){
 //  uint16_t num;
 //  sLogRec logrec;
 //
-  // Проверка на наличие записей из Архива
-  if( logRdBufFill ){
-    // Есть записи для публикации из Архива
-    SIM800.mqttClient.pubFlags.archPub = SET;
-  }
-  else {
-    // Нет записей для публикации из Архива
-    SIM800.mqttClient.pubFlags.archPub = RESET;
-  }
+//  // Проверка на наличие записей из Архива
+//  if( logRdBufFill ){
+//    // Есть записи для публикации из Архива
+//    SIM800.mqttClient.pubFlags.archPub = SET;
+//  }
+//  else {
+//    // Нет записей для публикации из Архива
+//    SIM800.mqttClient.pubFlags.archPub = RESET;
+//  }
 
   return;
 }

@@ -34,8 +34,8 @@ typedef enum {
   GSM_NTP_INIT,
   GSM_MQTT_START,
   GSM_MQTT_CONN,
-  GSM_SERV_CONN,
-  GSM_CFG_ON,
+//  GSM_SERV_CONN,
+//  GSM_CFG_ON,
   GSM_WORK,
 } eGsmState;
 
@@ -87,6 +87,7 @@ extern eGsmReset gsmReset;
 extern struct timer_list mqttPingTimer;
 // Таймер усыпления контроллера при включении GSM_PROC
 extern struct timer_list tGsmOnSleepTimer;
+extern struct timer_list gsmOnToutTimer;
 
 int gsmSendCommand(char *command, char *reply, uint16_t delay, void (*simreplycb)( sUartRxHandle *) );
 

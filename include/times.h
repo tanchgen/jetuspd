@@ -191,8 +191,7 @@ void mDelay( uint32_t del );
 void setRtcTime( tUxTime xtime );
 tUxTime getRtcTime( void );
 
-void RTC_GetTime( volatile tRtc * prtc );
-
+void rtcGetDate( volatile tRtc * prtc );
 void setAlrm( tUxTime xtime );
 tUxTime getAlrm( void );
 void correctAlrm( void );

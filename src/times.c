@@ -320,7 +320,7 @@ tUxTime getRtcTime( void ){
   rtc.date = BCD2BIN( tmpDr );
   rtc.wday = ( tmpDr >> 13 ) & 0x7;
 
-  return xTm2Utime( &rtc );
+  return (uxTime = xTm2Utime( &rtc ));
 }
 
 uint8_t getRtcMin( void ){
@@ -374,7 +374,7 @@ void correctAlrm( void ){
   tRtc tmpRtc;
 
   // Получим текущее время, заодно обновим глобальное значение
-  uxTime = getRtcTime();
+  getRtcTime();
   xUtime2Tm( &tmpRtc, uxTime);
   rtcCorrAlrm( &tmpRtc );
 }
@@ -870,15 +870,16 @@ static void rtcTimDetach(struct timer_list *rtctim, bool clear ) {
 
 bool rtcTimMod(struct timer_list *rtcTim, uint32_t sec) {
   bool  retval = false;
-  uint32_t ut = getRtcTime();
 
-  sec += ut;
+  sec += getRtcTime();
 
   if (rtcTimPending(rtcTim)) {
     rtcTimDetach(rtcTim, false);
   }
 
   rtcTim->expires = sec;
+
+  trace_printf("a:%d\n", sec );
 
   list_add_tail(&rtcTim->entry, &rtcTimQueue);
   actTimListRun = SET;
@@ -903,21 +904,49 @@ bool rtcTimDel(struct timer_list *rtctim) {
 }
 
 
+// Переустановка на новое время при переводе часов
+void rtcTimCorr( int32_t timediff ){
+  struct list_head   *curr, *next;
+  struct timer_list  *rtcTim;
+
+  list_for_each_safe(curr, next, &actRtcTimQueue) {
+    rtcTim = list_entry(curr, struct timer_list, entry);
+    // Вносим поправку на новое время
+    rtcTim->expires += timediff;
+    // Возвращаем таймеры из списка "Активных таймеров" в основной
+    list_move_tail( &(rtcTim->entry), &rtcTimQueue );
+  }
+  list_for_each_safe(curr, next, &rtcTimQueue) {
+    rtcTim = list_entry(curr, struct timer_list, entry);
+    // Вносим поправку на новое время
+    rtcTim->expires += timediff;
+  }
+}
+
+
+// Составляем список "Активных" таймеров из ближайших таймеров
 uint32_t rtc2ActTimProc( tUxTime ut ){
   struct list_head   *curr, *next;
   struct timer_list  *rtcTim;
   struct timer_list  *tmptim[10];
   uint8_t tcount = 0;
-  int32_t sec = (~0UL) >> 1;
-  int32_t sec0 = 0;
+  uint32_t sec = (~0UL);
+  uint32_t sec0 = 0;
+
+  list_for_each_safe(curr, next, &actRtcTimQueue) {
+    rtcTim = list_entry(curr, struct timer_list, entry);
+    // Возвращаем таймеры из списка "Активных таймеров" в основной
+    list_move_tail( &(rtcTim->entry), &rtcTimQueue );
+  }
 
   // Составляем список активных RTC-таймеров
   list_for_each_safe(curr, next, &rtcTimQueue) {
     rtcTim = list_entry(curr, struct timer_list, entry);
 
-    sec0 = (int32_t)rtcTim->expires - ut;
-    if(sec0 < 0){
-      sec0 = 1;
+    sec0 = (int32_t)rtcTim->expires;
+    assert_param( ut > 0);
+    if(sec0 <= (uint32_t)ut){
+      sec0 = ut + 1;
     }
     if( sec0 < sec ){
       // Этот таймер раньше других - Состовляем список заново
@@ -946,19 +975,24 @@ uint32_t rtc2ActTimProc( tUxTime ut ){
 }
 
 
-void actTimProc( void ){
+FlagStatus actTimProc( void ){
   struct timer_list  *actTim;
+  tUxTime ut = getRtcTime();
 
   // Выполняем все RTC-таймеры, назначеные на это время
   while (!list_empty(&actRtcTimQueue)) {
     actTim = list_first_entry(&actRtcTimQueue, struct timer_list, entry);
 
+    if( (uint32_t)ut < actTim->expires ){
+      return -1;
+    }
     rtcTimDetach(actTim, true);
 
     if (actTim->function != NULL) {
       actTim->function(actTim->data);
     }
   }
+  return 0;
 }
 
 

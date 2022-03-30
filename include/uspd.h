@@ -14,8 +14,24 @@
 #include "eeprom.h"
 #include "mqtt.h"
 
-#define USPD_CFG_ADDR      (EE_CFG_ADDR - FLASH_EEPROM_BASE)
+#define USPD_CFG_ADDR       (EE_CFG_ADDR - FLASH_EEPROM_BASE)
 #define USPD_SENS_ADDR      (EE_SENS_ADDR - FLASH_EEPROM_BASE)
+
+typedef enum {
+  RUN_MODE_NULL,
+  RUN_MODE_FIRST,
+  RUN_MODE_KEY,
+  RUN_MODE_SENS_WRITE,
+  RUN_MODE_SENS_SEND
+} eRunMode;
+
+typedef enum {
+  PUB_CFGO,
+  PUB_ANNOUNCE,
+  PUB_ARCH,
+  PUB_CMD,
+  PUB_BYE
+} ePubType;
 
 typedef enum {
   SENS_TYPE_COUNT,
@@ -27,13 +43,6 @@ typedef enum {
   OUT_UPDOWN,
   OUT_PWM,
 } eOutState;
-
-typedef struct {
-  uint8_t min;
-  uint8_t hour;
-  uint8_t day[5];
-  uint8_t mon;
-} sArxCal;
 
 typedef enum {
   SIM_SEL_AUTO,
@@ -70,7 +79,7 @@ typedef struct __aligned(4) uspdCfg{
  eOutState outState;                  // UP/DOWN вывода Выхода
  uint32_t arxTout;                    // Период записи данных в архив
  FlagStatus arxSend;                  // Флаг разрешения отправки архива на сервер
- sArxCal arxCalend;                   // Календарь отправки архива
+ char arxCalStr[22];                   // Календарь отправки архива
  FlagStatus autonamur;                // Автоматическое определение уровней срабатывания по сопротивлению
  eSimSelect simSel __aligned(4);      // Режим выбора SIM
  eGprsClass gprsClass __aligned(4);                // Класс GPRS
@@ -84,23 +93,29 @@ typedef struct __aligned(4) uspdCfg{
 } sUspdCfg;
 
 typedef struct {
-  uint16_t announcePktId;
+  eRunMode runMode;
   uint16_t cfgoPktId;
+  uint16_t annPktId;
+  uint16_t archPktId;
+  uint16_t cmdPktId;
+  uint16_t byePktId;
   FlagStatus archWrFlag;              // Флаг запуска сохранения среза данных в Архив
-  FlagStatus archSendFlag;            // Флаг запуска отправки Архива на сервер
   FlagStatus readArchSensQuery;       // Запрос на чтение журнала счетчиков
   FlagStatus readArchEvntQuery;       // Запрос на чтение журнала событий
   FlagStatus defCfgFlag;              // Флаг Установки конфига USPD по умолчанию
+  sCalend arxCal;                   // Календарь отправки архива
 } sUspd;
-
+// ---------------------------------------------------------------------------------
 
 extern sUspd uspd;
 extern sUspdCfg uspdCfg;
 extern FlagStatus cfgUpdateFinal;
 
 void uspdCfgProc( sUartRxHandle * rxh, SIM800_t * sim );
+FlagStatus cfgCalProc( sCalend * cal, char * newstr, char * oldstr );
 // Формируем сообщение для топика "TOPIC_CFG_I"
 char * cfgoMsgCreate( void );
+void uspdCfgInit( FlagStatus * ee );
 void uspdInit( void );
 
 #endif /* USPD_H_ */

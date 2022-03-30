@@ -62,7 +62,7 @@ void SystemClock_Config(void) {
 //  Переключаем тактирование на MSI
 void rccMsiSw( void ){
   // MSI = 4.194MHz
-  RCC->ICSCR = (RCC->ICSCR & ~RCC_ICSCR_MSIRANGE) | RCC_ICSCR_MSIRANGE_2;
+  RCC->ICSCR = (RCC->ICSCR & ~RCC_ICSCR_MSIRANGE) | RCC_ICSCR_MSIRANGE_4;
   RCC->CR |= RCC_CR_MSION;
   while( (RCC->CR & RCC_CR_MSIRDY) == 0 )
   {}

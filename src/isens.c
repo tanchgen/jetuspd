@@ -63,7 +63,7 @@ sISens iSens[ISENS_NUM] = {
 };
 
 // ======================= Клендарь отправки архива сенсоров ======================================
-char * defCal = "7,8,9 10-12 1,11,21 * *";
+char * defCal = "45 0-21 6,11 * *";
 
 tRtc oldCalAlrm = {0};
 
@@ -79,9 +79,26 @@ const struct limit {
 eTimeSect tsect;
 // ================================================================================================
 
+// XXX: !!! FOR TEST SENSOR SEND !!!
+/*
+void sensSendTout( uintptr_t arg ){
+  (void)arg;
+
+  if( (uspd.readArchEvntQuery == RESET)
+      && (uspd.readArchSensQuery == RESET) ){
+    trace_puts( "SENS send");
+    SIM800.mqttClient.pubFlags.archPubEnd = SET;
+  }
+  else {
+    timerMod( &sensSendTimer, 200 );
+  }
+}
+*/
+
 void isArchTout( uintptr_t arg ){
   uint32_t tout = *((uint32_t *)arg);
   uspd.archWrFlag = SET;
+  uspd.runMode = RUN_MODE_SENS_WRITE;
   rtcTimMod( &tIsArchTimer, tout );
 }
 
@@ -361,6 +378,8 @@ void sensPubAlrmSet( sCalend * cal ){
   trace_printf( "a0:%d\n", ut );
   ut -= getRtcTime();
   rtcTimMod( &tArchPubTimer, ut );
+  // Делаем установленный будильник "старым"
+  oldCalAlrm = tmpalrm;
 }
 
 
@@ -556,7 +575,12 @@ void ISENS_IRQHandler( void ){
 //  }
 }
 
-
+// Переустановка на новое время при переводе часов
+void isensTimCorr( void ){
+  // Переустанавливаем RTC-таймеры
+  sensPubAlrmSet( &(uspd.arxCal) );
+  rtcTimMod( &tIsArchTimer, uspdCfg.arxTout );
+}
 
 
 /**
@@ -648,11 +672,6 @@ void isensInit( void ){
 
   rtcTimSetup( &tArchPubTimer, calWkupFunc, (uintptr_t)&(uspd.arxCal) );
   rtcTimSetup( &tIsArchTimer, isArchTout, (uintptr_t)&(uspdCfg.arxTout) );
-
-  // ДЛЯ ТЕСТА
-  // XXX: Для теста сенсоров
-//  timerSetup( &isArchTimer, isArchTout, (uintptr_t)&(uspdCfg.arxTout) );
-
 }
 
 
@@ -684,6 +703,9 @@ void isensEnable( void ){
       iSens[i].isensCount = (i + 1) * 11;
     }
   }
+
+  // XXX: !!! FOR TEST ONLY !!!
+  uspdCfg.arxTout = 360;
 
   rtcTimMod( &tIsArchTimer, uspdCfg.arxTout );
 }

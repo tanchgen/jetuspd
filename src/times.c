@@ -444,9 +444,9 @@ void timersProcess( void ) {
 #if 1
 // Задержка по SysTick без прерывания
 void mDelay( uint32_t t_ms ){
-    while ( !( SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk ) ) // wait for underflow
 //  SysTick->VAL = 0;
   while ( t_ms > 0 ){
+    while ( !( SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk ) ) // wait for underflow
     {}
     t_ms--;
   }
@@ -766,7 +766,7 @@ void timerStack( struct timer_list *timer, uint32_t tout, eTimStack ts ){
     struct timer_list *timer;
     uint32_t tout;
     eTimStack ts;
-  } timPr[5];
+  } timPr[8];
   static uint8_t timCount;
 
   if( timer != NULL ){
@@ -775,7 +775,7 @@ void timerStack( struct timer_list *timer, uint32_t tout, eTimStack ts ){
     timPr[timCount].tout = tout;
     timPr[timCount].ts = ts;
     timCount++;
-    assert_param( timCount < 5 );
+    assert_param( timCount < 8 );
   }
   else {
     for(; timCount; ){
@@ -904,26 +904,6 @@ bool rtcTimDel(struct timer_list *rtctim) {
 }
 
 
-// Переустановка на новое время при переводе часов
-void rtcTimCorr( int32_t timediff ){
-  struct list_head   *curr, *next;
-  struct timer_list  *rtcTim;
-
-  list_for_each_safe(curr, next, &actRtcTimQueue) {
-    rtcTim = list_entry(curr, struct timer_list, entry);
-    // Вносим поправку на новое время
-    rtcTim->expires += timediff;
-    // Возвращаем таймеры из списка "Активных таймеров" в основной
-    list_move_tail( &(rtcTim->entry), &rtcTimQueue );
-  }
-  list_for_each_safe(curr, next, &rtcTimQueue) {
-    rtcTim = list_entry(curr, struct timer_list, entry);
-    // Вносим поправку на новое время
-    rtcTim->expires += timediff;
-  }
-}
-
-
 // Составляем список "Активных" таймеров из ближайших таймеров
 uint32_t rtc2ActTimProc( tUxTime ut ){
   struct list_head   *curr, *next;
@@ -971,7 +951,7 @@ uint32_t rtc2ActTimProc( tUxTime ut ){
     list_move_tail( &(tmptim[tcount]->entry), &actRtcTimQueue );
   }
 
-  return sec0;
+  return sec;
 }
 
 

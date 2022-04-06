@@ -84,7 +84,7 @@ int ntpInit(void);
 int TCP_Connect(void);
 int clkSet( void );
 void ip4Parse( char * str );
-void rtcTimCorr( int32_t timediff );
+void isensTimCorr( void );
 // ----------------------------------------------------------------------------
 
 // Выполняется при просыпании по будильнику
@@ -92,6 +92,8 @@ void rtcAlrmCb( void ){
   if( sleepFlag ){
     simSleepCount = 0;
   }
+  ssleep = 0;
+  trace_printf("t:%d\n", getRtcTime() );
 }
 
 static void gsmOnSleep( uintptr_t arg ){
@@ -379,24 +381,25 @@ int simWaitReady( void ){
  */
 int clkSet( void ) {
   uint8_t errCount;
-  uint32_t oldtime;
 
   for( errCount = 0; errCount < 4; errCount++ ){
     simHnd.rxh->replyBuf = mqtt_buffer;
     *mqtt_buffer = '\0';
     if( gsmSendCommand("AT+CCLK?\r\n", "+CCLK: \"", CMD_DELAY_30, saveSimReply ) == 0){
       int8_t tz;
+
       // Получили дату-время
       sscanf(mqtt_buffer, "+CCLK: \"%d/%d/%d,%d:%d:%d%d\"", \
                         (int*)&rtc.year, (int*)&rtc.month, (int*)&rtc.date, \
                          (int*)&rtc.hour, (int*)&rtc.min, (int*)&rtc.sec, (int *)&tz );
 //      tz /= 4;
-      // Переходим в Локальное время
-      oldtime = getRtcTime();
-      uxTime = xTm2Utime( &rtc ) + tz * 3600;
+//      // Переходим в Локальное время
+//      uxTime = xTm2Utime( &rtc ) + tz * 3600;
+      // Уже в Локальном времени
+      uxTime = xTm2Utime( &rtc );
       setRtcTime( uxTime );
       // Переустанавливаем RTC-таймеры
-      rtcTimCorr( uxTime - oldtime );
+      isensTimCorr();
       return RESET;
     }
     else {
@@ -546,6 +549,7 @@ int gsmWorkProc( void ){
       if( (uspd.readArchEvntQuery == RESET)
           && SIM800.mqttClient.pubFlags.archPubEnd ){
         // Засыпаем до следующего включения по календарю
+        trace_puts( "SENS send sleep ");
         toSleep( SET );
       }
       else {
@@ -630,6 +634,7 @@ void gsmOffFunc( void ){
               // Все записи в журнал сделаны, операции с флеш закончены
               timerDel( &gsmOnToutTimer );
               timerDel( &bigOnToutTimer );
+              uspd.runMode = RUN_MODE_NULL;
               gsmReset = SIM_RESET;
               toSleep( RESET );
             }

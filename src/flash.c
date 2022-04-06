@@ -331,6 +331,8 @@ void flashSensRxCb( void ){
   }
   // Освобождаем Флеш
   flashDev.state = FLASH_READY;
+  assert_param( logRdBufFill );
+  SIM800.mqttClient.pubFlags.archPub = SET;
 }
 
 // Коллбек по окончании счивания паетов из Буфера Журнала Событий
@@ -343,6 +345,8 @@ void flashEvntRxCb( void ){
   }
   // Освобождаем Флеш
   flashDev.state = FLASH_READY;
+  assert_param( logRdBufFill );
+  SIM800.mqttClient.pubFlags.archPub = SET;
 }
 
 
@@ -543,6 +547,7 @@ eLogBufType flashReadProbe( void ){
 // ----------- Журнал Датчиков -------------------------
   if( uspd.readArchSensQuery ){
     quant = logBuf_GetFull( &flashSensBuffer );
+    trace_printf("quant %d\n", quant);
     if(quant == 0){
       uspd.readArchSensQuery = RESET;
     }
@@ -555,7 +560,7 @@ eLogBufType flashReadProbe( void ){
         return LOG_BUF_SENS;
       }
     }
-    SIM800.mqttClient.pubFlags.archPub = SET;
+//    SIM800.mqttClient.pubFlags.archPub = SET;
   }
 
 // ----------- Журнал Событий -------------------------
@@ -573,7 +578,7 @@ eLogBufType flashReadProbe( void ){
         return LOG_BUF_EVNT;
       }
     }
-    SIM800.mqttClient.pubFlags.archPub = SET;
+//    SIM800.mqttClient.pubFlags.archPub = SET;
   }
 
   return LOG_BUF_NULL;

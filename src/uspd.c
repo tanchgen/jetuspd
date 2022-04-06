@@ -658,7 +658,10 @@ void uspdInit( void ){
   // Флаг включения USPD
   evntFlags.uspdOn = SET;
 
-  cfgCalProc( &(uspd.arxCal), uspdCfg.arxCalStr, NULL );
+  // XXX: !!! FOR TEST ONLY !!!
+  uspdCfg.arxTout = 360;
+  cfgCalProc( &(uspd.arxCal), defCal, uspdCfg.arxCalStr );
+//  cfgCalProc( &(uspd.arxCal), uspdCfg.arxCalStr, NULL );
 
 }
 

@@ -282,6 +282,7 @@ int archPubFunc( void ){
           if( (uspd.readArchSensQuery == RESET) && (uspd.readArchEvntQuery == RESET) ){
             // Это публикация последнего сенсора и событий для публикации нет.
             uspd.archPktId = SIM800.mqttReceive.pktIdo;
+            trace_printf("ArchPktId %d", uspd.archPktId);
             SIM800.mqttClient.pubFlags.archPub = RESET;
           }
         }

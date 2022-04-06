@@ -34,7 +34,7 @@ extern eGsmRunPhase gsmRunPhase;
 //extern struct timer_list tIsArchTimer;
 
 //extern uint32_t tmpCount;
-//static uint32_t tmpTick = 0;
+//static uint32_t tmpTick;
 
 RCC_ClocksTypeDef RCC_Clocks;
 
@@ -48,6 +48,7 @@ void Check_IWDG_Reset(void);
 //void rtcTimProcess( void );
 
 //void mqttCtlProc( SIM800_t * sim );
+//void isensTimCorr( void );
 
 void pwrInit( void );
 
@@ -58,7 +59,6 @@ void pwrInit( void );
   * @retval int
   */
 int main(void) {
-
   // Tiny memory allocated init
 //  ta_init( tallocArray, tallocArray+TALLOC_ARRAY_SIZE, 256, 16, sizeof(int) );
 //  (void)_fw_ver;
@@ -86,12 +86,12 @@ int main(void) {
 //    Configure_IWDG();
 //    SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
 
-//    setRtcTime( 1648373911 );
 //    uspdCfgInit( RESET );
 //    mqttPubInit();
-    gsmState = GSM_WORK;
-    SIM800.mqttServer.mqttconn = SET;
-    SIM800.mqttServer.tcpconn = SET;
+
+//    gsmState = GSM_WORK;
+//    SIM800.mqttServer.mqttconn = SET;
+//    SIM800.mqttServer.tcpconn = SET;
 
     ledOn( LED_R, 0 );
     mDelay( 5000 );
@@ -99,10 +99,14 @@ int main(void) {
     timerModArg( &gsmOnToutTimer, SEC_10*1e3, GSM_MQTT_START );
 
 //    SIM800.mqttClient.pubFlags.announceEnd = RESET;
-
+//    uspdCfg.arxTout = 360;    // Интервал записи сенсоров
 //    cfgCalProc( &(uspd.arxCal), defCal, uspdCfg.arxCalStr );
-    cfgCalProc( &(uspd.arxCal), "0 8,9,10 1,11,21 * *", uspdCfg.arxCalStr );
-    sensPubAlrmSet( &(uspd.arxCal) );
+//    cfgCalProc( &(uspd.arxCal), "3,15,25 12,13 3,11,30 * *", uspdCfg.arxCalStr );
+//    sensPubAlrmSet( &(uspd.arxCal) );
+
+//    setRtcTime( 1649102426 );
+    // Переустанавливаем RTC-таймеры
+//    isensTimCorr();
 
     /* USER CODE END 2 */
 

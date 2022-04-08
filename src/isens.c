@@ -63,7 +63,7 @@ sISens iSens[ISENS_NUM] = {
 };
 
 // ======================= Клендарь отправки архива сенсоров ======================================
-char * defCal = "45 0-21 6,11 * *";
+char * defCal = "0-50/10 0-23 7, * *";
 
 tRtc oldCalAlrm = {0};
 
@@ -150,6 +150,7 @@ int calPars( struct list_head * head, char ** pstr ){
         pnum = &(pxc->end);
       }
       else if( *str == '/' ){
+        str++;
         pnum = &(pxc->step);
       }
       else {

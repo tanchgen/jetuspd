@@ -421,9 +421,9 @@ void simUartRxProc( sUartRxHandle * handle, uint8_t byte ){
         }
         return;
       }
-      else {
-        SIM800.mqttServer.disconnFlag = RESET;
-      }
+//      else {
+//        SIM800.mqttServer.disconnFlag = RESET;
+//      }
     }
 
     // Пытаемся принять MQTT-сообщение

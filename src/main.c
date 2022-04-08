@@ -48,7 +48,7 @@ void Check_IWDG_Reset(void);
 //void rtcTimProcess( void );
 
 //void mqttCtlProc( SIM800_t * sim );
-//void isensTimCorr( void );
+void isensTimCorr( void );
 
 void pwrInit( void );
 
@@ -84,33 +84,34 @@ int main(void) {
   // Запускаем watchdog на случай зависания прошивки
 //    Check_IWDG_Reset();
 //    Configure_IWDG();
-//    SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
-
-//    uspdCfgInit( RESET );
-//    mqttPubInit();
-
-//    gsmState = GSM_WORK;
-//    SIM800.mqttServer.mqttconn = SET;
-//    SIM800.mqttServer.tcpconn = SET;
 
     ledOn( LED_R, 0 );
     mDelay( 5000 );
 
-    timerModArg( &gsmOnToutTimer, SEC_10*1e3, GSM_MQTT_START );
+//    timerModArg( &gsmOnToutTimer, SEC_10*1e3, GSM_MQTT_START );
+
+//-----------------------
+//    SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
+
+    uspdCfgInit( RESET );
+    mqttPubInit();
+
+    gsmState = GSM_WORK;
+    SIM800.mqttServer.mqttconn = SET;
+    SIM800.mqttServer.tcpconn = SET;
 
 //    SIM800.mqttClient.pubFlags.announceEnd = RESET;
 //    uspdCfg.arxTout = 360;    // Интервал записи сенсоров
-//    cfgCalProc( &(uspd.arxCal), defCal, uspdCfg.arxCalStr );
+    cfgCalProc( &(uspd.arxCal), defCal, uspdCfg.arxCalStr );
 //    cfgCalProc( &(uspd.arxCal), "3,15,25 12,13 3,11,30 * *", uspdCfg.arxCalStr );
-//    sensPubAlrmSet( &(uspd.arxCal) );
+    sensPubAlrmSet( &(uspd.arxCal) );
 
-//    setRtcTime( 1649102426 );
+    setRtcTime( 1649356639 );
     // Переустанавливаем RTC-таймеры
-//    isensTimCorr();
+    isensTimCorr();
+    SIM800.mqttClient.pubFlags.archPubEnd = SET;
+//------------------------------
 
-    /* USER CODE END 2 */
-
-  /* Infinite loop */
     while (1) {
       /* Refresh IWDG down-counter to default value */
       LL_IWDG_ReloadCounter(IWDG);

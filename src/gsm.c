@@ -546,8 +546,12 @@ int gsmWorkProc( void ){
       break;
     case RUN_MODE_SENS_SEND:
       // Проверка на "Опубликовали все!"
-      if( (uspd.readArchEvntQuery == RESET)
-          && SIM800.mqttClient.pubFlags.archPubEnd ){
+//      if( (uspd.readArchEvntQuery == RESET)
+//          && SIM800.mqttClient.pubFlags.archPubEnd ){
+//        // Засыпаем до следующего включения по календарю
+//        trace_puts( "SENS send sleep ");
+//        toSleep( SET );
+      if( SIM800.mqttClient.pubFlags.announceEnd ){
         // Засыпаем до следующего включения по календарю
         trace_puts( "SENS send sleep ");
         toSleep( SET );
@@ -583,21 +587,21 @@ void gsmOffFunc( void ){
         uspdCfgInit( &uspd.defCfgFlag );
         // On SIM800 power if use
         gpioPinResetNow( &gpioPinSimPwr );
-        gpioPinSetNow( &gpioPinPwrKey );
         gsmRunPhase = PHASE_ON;
-        wutSleep( 1600 * 1e3 );
+        wutSleep( 500 * 1e3 );
         break;
       case PHASE_ON:
-        gpioPinResetNow( &gpioPinPwrKey );
+        gpioPinSetNow( &gpioPinPwrKey );
+        wutSleep( 1200 * 1e3 );
         gsmRunPhase = PHASE_ON_OK;
-//        gsmSleep( SEC_10 );
         break;
       case PHASE_ON_OK:
         // Две вспышки красного цвета с интервалом в 3 сек
+        gpioPinResetNow( &gpioPinPwrKey );
         ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_TOGGLE_TOUT, 2, TOUT_3000);
         gsmState++;
         gsmRunPhase = PHASE_NON;
-        wutSleep( 1000 * 1e3 );
+        wutSleep( 1500 * 1e3 );
         break;
       default:
         break;
@@ -612,24 +616,25 @@ void gsmOffFunc( void ){
 #endif
 
         gpioPinSetNow( &gpioPinPwrKey );
-        wutSleep( TOUT_1500 * 1e3 );
+        wutSleep( 1700 * 1e3 );
         gsmRunPhase = PHASE_OFF;
         break;
       case PHASE_OFF:
         gpioPinResetNow( &gpioPinPwrKey );
-        mDelay(60);
-        gpioPinSetNow( &gpioPinSimPwr );
+        wutSleep( 2000 * 1e3 );
         gsmRunPhase = PHASE_OFF_OK;
         break;
       case PHASE_OFF_OK:
         switch( gsmReset ){
           case MCU_RESET:
+            gpioPinSetNow( &gpioPinSimPwr );
             if( (logRdBufFill == 0) && (flashDev.state == FLASH_READY) ){
               // Все записи в журнал сделаны, операции с флеш закончены
               NVIC_SystemReset();
             }
             break;
           case MCU_SLEEP:
+            gpioPinSetNow( &gpioPinSimPwr );
             if( (logRdBufFill == 0) && (flashDev.state == FLASH_READY) ){
               // Все записи в журнал сделаны, операции с флеш закончены
               timerDel( &gsmOnToutTimer );
@@ -880,6 +885,7 @@ void gsmNtpInitFunc( void ){
       gsmState++;
       // Таймаут для TCP-connect to MQTT-broker
       timerModArg( &gsmOnToutTimer, SEC_20*1e3, gsmState );
+      tmpTick = 0;
     }
   }
   else {
@@ -938,7 +944,9 @@ void gsmMqttStartFunc( void ){
           TCP_Connect();
         }
         else if( SIM800.mqttServer.mqttconn == 0 ){
-          timerModArg( &gsmOnToutTimer, SEC_60*1e3, gsmState );
+          if( tmpTick == 0 ){
+            timerModArg( &gsmOnToutTimer, SEC_60*1e3, gsmState );
+          }
           MQTT_Connect();
           tmpTick = mTick + 5000;
           gsmRunPhase = PHASE_ON;
@@ -953,7 +961,7 @@ void gsmMqttStartFunc( void ){
         }
         else if(tmpTick < mTick ){
           // Не дождались соединения MQTT
-          wutSleep( 1e6 );
+//          wutSleep( 1e6 );
           gsmRunPhase = PHASE_NON;
         }
         break;

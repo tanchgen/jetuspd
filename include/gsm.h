@@ -84,7 +84,11 @@ extern eGsmState gsmState;
 extern eGsmState gsmStRestart;
 extern eGsmReset gsmReset;
 
+extern eGsmRunPhase gsmRunPhase;
+
 extern struct timer_list mqttPingTimer;
+extern struct timer_list mqttPubTimer;
+
 // Таймер усыпления контроллера при включении GSM_PROC
 extern struct timer_list tGsmOnSleepTimer;
 extern struct timer_list gsmOnToutTimer;

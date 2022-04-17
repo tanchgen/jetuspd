@@ -48,7 +48,7 @@ void Check_IWDG_Reset(void);
 //void rtcTimProcess( void );
 
 //void mqttCtlProc( SIM800_t * sim );
-void isensTimCorr( void );
+//void isensTimCorr( void );
 
 void pwrInit( void );
 
@@ -93,6 +93,7 @@ int main(void) {
 //-----------------------
 //    SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
 
+/*
     uspdCfgInit( RESET );
     mqttPubInit();
 
@@ -100,16 +101,18 @@ int main(void) {
     SIM800.mqttServer.mqttconn = SET;
     SIM800.mqttServer.tcpconn = SET;
 
-//    SIM800.mqttClient.pubFlags.announceEnd = RESET;
-//    uspdCfg.arxTout = 360;    // Интервал записи сенсоров
-    cfgCalProc( &(uspd.arxCal), defCal, uspdCfg.arxCalStr );
-//    cfgCalProc( &(uspd.arxCal), "3,15,25 12,13 3,11,30 * *", uspdCfg.arxCalStr );
+    SIM800.mqttClient.pubFlags.announceEnd = RESET;
+    uspdCfg.arxTout = 360;    // Интервал записи сенсоров
+//    cfgCalProc( &(uspd.arxCal), defCal, uspdCfg.arxCalStr );
+    cfgCalProc( &(uspd.arxCal), "0-50/10 0-23 9 * *", uspdCfg.arxCalStr );
     sensPubAlrmSet( &(uspd.arxCal) );
 
     setRtcTime( 1649356639 );
     // Переустанавливаем RTC-таймеры
     isensTimCorr();
     SIM800.mqttClient.pubFlags.archPubEnd = SET;
+*/
+
 //------------------------------
 
     while (1) {

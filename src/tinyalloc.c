@@ -273,19 +273,19 @@ bool ta_check() {
     return heap_max_blocks == ta_num_free() + ta_num_used() + ta_num_fresh();
 }
 
-void * my_alloc( size_t num ){
-  void * ptr;
-
-  ptr = malloc( num );
+//void * my_alloc( size_t num ){
+//  void * ptr;
+//
+//  ptr = malloc( num );
 //  trace_printf( "a_%x\n", ptr );
-
-  return ptr;
-}
-
-void my_free( void * ptr ){
+//
+//  return ptr;
+//}
+//
+//void my_free( void * ptr ){
 //  trace_printf( "f_%x\n", ptr );
-
-  free( ptr );
-  ptr = NULL;
-}
+//
+//  free( ptr );
+//  ptr = NULL;
+//}
 

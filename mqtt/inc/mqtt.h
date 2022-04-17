@@ -41,6 +41,13 @@ typedef struct Mqtt sMqtt;
 
 //typedef void (*msgReceived)(sMqtt *this, uint8_t *topic, uint8_t topicLen, uint8_t *data, uint32_t dataLen);
 
+//typedef enum {
+//  SUB_NONE,
+//  SUB_TIM_DEL,
+////  SUB_TIM_MOD,        // Включить таймер на стандартный интевал подписки
+//  SUB_SET
+//} eSubState;
+
 typedef enum {
   MSG_NULL,
   MSG_TYPE,
@@ -172,6 +179,7 @@ extern SIM800_t SIM800;
 extern char mqtt_buffer[1460];
 extern uint16_t mqtt_index;
 
+//extern eSubState mqttSubFlag;
 extern FlagStatus mqttSubFlag;
 extern FlagStatus mqttPingFlag;
 

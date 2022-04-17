@@ -70,11 +70,11 @@ typedef struct {
 
 #define SENS_FLASH_SIZE         ((uint32_t)512 * 1024)
 #define SENS_LOG_START_ADDR     0
-#define SENS_LOG_SIZE           (((SENS_FLASH_SIZE - SENS_LOG_START_ADDR) + (sizeof(logBuf_t) - 1)) / sizeof(logBuf_t))
+#define SENS_LOG_SIZE           (((SENS_FLASH_SIZE - SENS_LOG_START_ADDR) + (sizeof(sLogRec) - 1)) / sizeof(sLogRec))
 
-#define EVNT_LOG_START_ADDR     (SENS_LOG_SIZE * sizeof(logBuf_t))
+#define EVNT_LOG_START_ADDR     (SENS_LOG_SIZE * sizeof(sLogRec))
 #define EVNT_FLASH_SIZE         (((uint32_t)1024 * 1024) - SENS_LOG_SIZE)
-#define EVNT_LOG_SIZE           (((EVNT_FLASH_SIZE - EVNT_LOG_START_ADDR) + (sizeof(logBuf_t) - 1)) / sizeof(logBuf_t))
+#define EVNT_LOG_SIZE           (((EVNT_FLASH_SIZE - EVNT_LOG_START_ADDR) + (sizeof(sLogRec) - 1)) / sizeof(sLogRec))
 
 
 extern sFlashDev flashDev;

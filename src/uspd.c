@@ -659,7 +659,7 @@ void uspdInit( void ){
   evntFlags.uspdOn = SET;
 
   // XXX: !!! FOR TEST ONLY !!!
-  uspdCfg.arxTout = 360;
+  uspdCfg.arxTout = 180;
   cfgCalProc( &(uspd.arxCal), defCal, uspdCfg.arxCalStr );
 //  cfgCalProc( &(uspd.arxCal), uspdCfg.arxCalStr, NULL );
 

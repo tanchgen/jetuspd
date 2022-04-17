@@ -791,6 +791,17 @@ void timerStack( struct timer_list *timer, uint32_t tout, eTimStack ts ){
 }
 
 
+void timerListClear( void ){
+  struct list_head  * curr, *next;
+  struct timer_list *timer;
+
+  list_for_each_safe(curr, next, &msTimersQueue) {
+    timer = list_entry(curr, struct timer_list, entry);
+    timerDetach(timer, true);
+  }
+}
+
+
 /**
   * @brief  Обработка данных подсистемы таймеров.
   *
@@ -799,14 +810,19 @@ void timerStack( struct timer_list *timer, uint32_t tout, eTimStack ts ){
   * @retval none
   */
 void timersClock( void ){
+  static uint32_t prevTick;
 
-  static uint32_t     _prev_jiffies;
   struct list_head    work_list;
   struct list_head   *curr, *next;
   struct timer_list  *timer;
 
-  if (time_after(mTick, _prev_jiffies)) {
-    _prev_jiffies = mTick;
+  if( prevTick > mTick ){
+    prevTick = mTick;
+    return;
+  }
+
+  if ( mTick > prevTick ) {
+    prevTick = mTick;
 
     timerStack( NULL, 0, 0 );
 
@@ -815,8 +831,9 @@ void timersClock( void ){
     list_for_each_safe(curr, next, &msTimersQueue) {
       timer = list_entry(curr, struct timer_list, entry);
 
-      if (time_after(_prev_jiffies, timer->expires))
+      if ( prevTick > timer->expires ){
         list_move_tail(&timer->entry, &work_list);
+      }
     }
 
     while (!list_empty(&work_list)) {

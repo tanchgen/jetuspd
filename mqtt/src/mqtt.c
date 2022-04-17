@@ -24,6 +24,7 @@ extern struct timer_list bigOnToutTimer;
 
 extern sFwHandle fwHandle;
 extern FlagStatus fwUpdFlag;
+//extern FlagStatus fwUpdTimFlag;
 
 extern struct timer_list mqttSubTimer;
 extern uint16_t logRdBufFill;
@@ -96,9 +97,42 @@ void mqttSubTout( uintptr_t arg ){
   (void)arg;
 
   if( SIM800.mqttServer.mqttconn == 1 ) {
+//    mqttSubFlag = SUB_SET;
     mqttSubFlag = SET;
   }
+//  else {
+//    mqttSubFlag = SUB_NONE;
+//  }
   timerMod( &mqttSubTimer, MQTT_SUB_TOUT );
+}
+
+
+// Таймаут: не приняли отклик на публикацию с QOS != 0
+void mqttPubTout( uintptr_t arg ){
+  (void)arg;
+
+  switch( uspd.runMode ){
+    case RUN_MODE_FIRST:
+      gsmStRestart = GSM_OFF;
+      break;
+    case RUN_MODE_KEY:
+      // TODO: Организовать ожидание, прием, выполнение команд и последующее выключение
+      break;
+    case RUN_MODE_SENS_SEND:
+      // Засыпаем до следующего включения по календарю
+      gsmStRestart = GSM_OFF;
+      trace_puts( "SENS send sleep ");
+      toSleep( SET );
+      break;
+    default:
+      break;
+  }
+
+  gsmRunPhase = PHASE_NON;
+  // Все сделано - засыпаем до следующего раза
+  sensPubAlrmSet( &(uspd.arxCal) );
+  gsmReset = MCU_SLEEP;
+  gsmRun = RESET;
 }
 
 
@@ -124,7 +158,7 @@ FlagStatus cfgoPubFunc( void ){
     }
     // Передали на отправку в UART. Удачно-нет - освобождаем;
 //    trace_printf( "f_cfgo_%x\n", cfgomsg );
-    my_free( cfgomsg );
+    free( cfgomsg );
   }
 
   return rc;
@@ -228,85 +262,98 @@ int archPubFunc( void ){
   char tpc[32];
   char pay[11 + 36*8];
   sLogRec rec[8];
-  uint8_t quant = 8;
-  uint8_t quantEv = 4;
+//  uint8_t quant = 8;
+//  uint8_t quantEv = 4;
 
-  quantEv = logBuf_Read( &logRdEvntBuffer, rec, 1 );
-  if( quantEv ){
-    for( uint8_t qu = 0; qu < quantEv; qu++){
+  uspd.pubEvQuant = logBuf_Read( &logRdEvntBuffer, rec, 1 );
+  if( uspd.pubEvQuant ){
+    for( uint8_t qu = 0; qu < uspd.pubEvQuant; qu++){
       logRdBufFill--;
-//      if( (logRdBufFill == 0)
-//          && (uspd.readArchSensQuery == RESET)
-//          && (uspd.readArchEvntQuery == RESET) )
-//      {
-//        // Это публикация последнего сенсора и событий для публикации нет.
-//        uspd.archPktId = SIM800.mqttReceive.pktIdo;
-//      }
-      evntPubProc( rec );
-    }
-  }
-  else {
-    quant = logBuf_Read( &logRdSensBuffer, rec, quant);
-    if( quant ){
-      // Есть запись из архива
-      logRdBufFill -= quant;
-      for( eIsens is = ISENS_1; is < ISENS_NUM; ){
-        uint8_t l;
-
-        sprintf( tpc, tpcTempl[TOPIC_ISENS_ARX], SIM800.sim.imei, is + 1);
-        // Начало сообщения
-        strcpy( pay, "{\"arch\":" );
-        for( uint8_t qu = 0; qu < quant; qu++){
-          char d[11];
-
-          // Данные датчика
-          assert_param( rec[qu].devid <= DEVID_ISENS_4 );
-
-          strcat( pay, "[\"time\":" );
-          memset(d, 0, 11);
-          itoa( rec[qu].utime, d, 10 );
-          strcat( pay, d);
-          strcat( pay, ",\"pls\":" );
-          memset(d, 0, 11);
-          itoa( rec[qu].data[is], d, 10 );
-          strcat( pay, d);
-          strcat(pay, "],");
-        }
-        // Убираем последнюю ','
-        l = strlen( pay ) - 1;
-        pay[l++] = '}';
-        pay[l] = '\0';
-        // ----------- Публикуем -----------------------
-        is++;
-        if( (is == ISENS_NUM) && (logRdBufFill == 0) ){
-          if( (uspd.readArchSensQuery == RESET) && (uspd.readArchEvntQuery == RESET) ){
-            // Это публикация последнего сенсора и событий для публикации нет.
-            uspd.archPktId = SIM800.mqttReceive.pktIdo;
-            trace_printf("ArchPktId %d", uspd.archPktId);
-            SIM800.mqttClient.pubFlags.archPub = RESET;
-          }
-        }
-        if( MQTT_Pub( tpc, pay, QOS2, SIM800.mqttReceive.pktIdo ) == 0 ){
-          ErrHandler( NON_STOP );
-          return 0;
-        }
-        SIM800.mqttReceive.pktIdo++;
-      }
-      mDelay(1000);
-    }
-    else {
-      // Больше записей не осталось
-      quant = -1;
-      assert_param( logRdBufFill == 0);
-      if( uspd.archPktId == 0 ){
-        // ARCH не  отправляли.
-        SIM800.mqttClient.pubFlags.archPubEnd = SET;
+      if( logRdBufFill == 0 ){
         SIM800.mqttClient.pubFlags.archPub = RESET;
+        if( (uspd.readArchSensQuery == RESET)
+            && (uspd.readArchEvntQuery == RESET) )
+        {
+          // Это публикация последнего сенсора и событий для публикации нет.
+          uspd.archPktId = SIM800.mqttReceive.pktIdo;
+          trace_printf("ArchPktId %d", uspd.archPktId);
+        }
+      }
+      if( (evntPubProc( rec ) == -1)
+          && (uspd.archPktId == SIM800.mqttReceive.pktIdo) ){
+        // Отправка последней записи безуспешная
+        SIM800.mqttClient.pubFlags.archPubEnd = SET;
       }
     }
+
+    return uspd.pubEvQuant;
   }
 
-  return quant;
+  uspd.pubQuant = logBuf_Read( &logRdSensBuffer, rec, 8);
+  if( uspd.pubQuant ){
+    // Есть запись из архива
+    logRdBufFill -= uspd.pubQuant;
+    for( eIsens is = ISENS_1; is < ISENS_NUM; ){
+      uint8_t l;
+
+      sprintf( tpc, tpcTempl[TOPIC_ISENS_ARX], SIM800.sim.imei, is + 1);
+      // Начало сообщения
+      strcpy( pay, "{\"arch\":" );
+      for( uint8_t qu = 0; qu < uspd.pubQuant; qu++){
+        char d[11];
+
+        // Данные датчика
+        assert_param( rec[qu].devid <= DEVID_ISENS_4 );
+
+        strcat( pay, "[\"time\":" );
+        memset(d, 0, 11);
+        itoa( rec[qu].utime, d, 10 );
+        strcat( pay, d);
+        strcat( pay, ",\"pls\":" );
+        memset(d, 0, 11);
+        itoa( rec[qu].data[is], d, 10 );
+        strcat( pay, d);
+        strcat(pay, "],");
+      }
+      // Убираем последнюю ','
+      l = strlen( pay ) - 1;
+      pay[l++] = '}';
+      pay[l] = '\0';
+      // ----------- Публикуем -----------------------
+      is++;
+      if( (is == ISENS_NUM) && (logRdBufFill == 0) ){
+        if( (uspd.readArchSensQuery == RESET)
+            && (uspd.readArchEvntQuery == RESET)){
+          // Это публикация последнего сенсора и событий для публикации нет.
+          uspd.archPktId = SIM800.mqttReceive.pktIdo;
+          trace_printf("ArchPktId %d", uspd.archPktId);
+          SIM800.mqttClient.pubFlags.archPub = RESET;
+        }
+      }
+      if( MQTT_Pub( tpc, pay, QOS2, SIM800.mqttReceive.pktIdo ) == 0 ){
+        ErrHandler( NON_STOP );
+        return 0;
+      }
+      SIM800.mqttReceive.pktIdo++;
+    }
+    mDelay(1000);
+
+    return uspd.pubQuant;
+  }
+
+  // Больше записей не осталось
+  assert_param( logRdBufFill == 0);
+  if( (uspd.archPktId == 0)
+      && (uspd.readArchSensQuery == RESET)
+      && (uspd.readArchEvntQuery == RESET))
+  {
+    // ARCH не  отправляли.
+    trace_puts("PubArch0 end");
+    SIM800.mqttClient.pubFlags.archPubEnd = SET;
+    SIM800.mqttClient.pubFlags.archPub = RESET;
+  }
+
+  return -1;
 }
 
 
@@ -315,12 +362,16 @@ int archPubFunc( void ){
 int mqttSubProcess(void){
   uint8_t sc = SIM800.mqttClient.subCount;
 
+//  if( mqttSubFlag == SUB_SET ){
   if( mqttSubFlag ){
     char topicstr[23];
     if( sc == ARRAY_SIZE(subList) ){
       timerDel( &mqttSubTimer );
       return 0;
     }
+//    else {
+//      timerMod( &mqttSubTimer, MQTT_SUB_TOUT );
+//    }
     sprintf(topicstr, subList[sc].subtpc, SIM800.sim.imei);
     // Подписываемся, пока не получим подтверждение на ВСЕ подписки
     MQTT_Sub( topicstr, subList[sc].qos );
@@ -352,6 +403,7 @@ void mqttCtlProc( SIM800_t * sim ){
     case MQTT_SUBACK:
       // TODO: Сбросить таймер сообветствующей подписки
       sim->mqttClient.subCount++;
+//      mqttSubFlag = SUB_SET;
       timerStack( &mqttSubTimer, 0, TIMER_MOD );
       trace_printf( "SUBACK: %d\n", pktid );
       break;
@@ -380,14 +432,14 @@ void mqttCtlProc( SIM800_t * sim ){
         timerDel( &bigOnToutTimer );
         uspd.annPktId = -1;
       }
-//      else if( uspd.archPktId == pktid ){
-//        uspd.archPktId = -1;
-//#if DEBUG_GSM_TRACE
-//        trace_puts("PubArch end");
-//        SIM800.mqttClient.pubFlags.archPubEnd = SET;
-//        // trace_puts("Del BIG_TOUT");
-//#endif
-//      }
+      else if( uspd.archPktId == pktid ){
+        uspd.archPktId = -1;
+#if DEBUG_GSM_TRACE
+        trace_puts("PubArch end");
+        SIM800.mqttClient.pubFlags.archPubEnd = SET;
+        // trace_puts("Del BIG_TOUT");
+#endif
+      }
       // Отключить таймер для пакета с этим PKT_ID
       break;
     case MQTT_PUBREC:
@@ -563,6 +615,7 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
 
             if( (sim->mqttReceive.topicId = subList[tp].tpid) == TOPIC_FW_BIN ){
               // Это обновление прошивки - запускаем таймер таймаута получения прошивки
+//              fwUpdTimFlag = SET;
               timerStack( &fwUpdTimer, TOUT_1000 * 120, TIMER_MOD );  // 2 минуты
               fwUpdFlag = SET;
             }
@@ -755,6 +808,7 @@ void mqttInit(void) {
 
   timerSetup( &mqttPingTimer, mqttPingTout, (uintptr_t)NULL );
   timerSetup( &mqttSubTimer, mqttSubTout, (uintptr_t)NULL );
+  timerSetup( &mqttPubTimer, mqttPubTout, (uintptr_t)NULL );
 }
 
 
@@ -772,6 +826,19 @@ int mqttStart(void) {
 void mqttProcess( void ){
   uPubFlags * pubfl;
 
+/*
+  // Удаляем таймер таймаута подписки
+  if( mqttSubFlag == SUB_TIM_DEL ){
+    timerDel( &mqttSubTimer );
+    mqttSubFlag = SUB_NONE;
+  }
+
+  // Заводим таймер таймаута обновления прошивки
+  if( fwUpdTimFlag ){
+    timerMod( &fwUpdTimer, TOUT_1000 * 120 );  // 2 минуты
+    fwUpdTimFlag = RESET;
+  }
+*/
   if( SIM800.mqttServer.disconnFlag && (SIM800.mqttServer.disconnTout < mTick)){
     // Закрыто соединение TCP
 #if DEBUG_GSM_TRACE
@@ -780,8 +847,11 @@ void mqttProcess( void ){
     SIM800.mqttServer.disconnFlag = RESET;
     SIM800.mqttServer.tcpconn = RESET;
     SIM800.mqttServer.mqttconn = RESET;
-    evntFlags.mqttClose = SET;
     mqttConnectCb( SIM800.mqttServer.tcpconn );
+    if( gsmRun != RESET ){
+      // Это не штатное выключение системы
+      evntFlags.mqttClose = SET;
+    }
     // Получили и обработали строку - если и принимали что-то, но не до конца - все потеряли
     mqttMsgReset( simHnd.rxh, &SIM800 );
   }
@@ -794,17 +864,16 @@ void mqttProcess( void ){
   if( (SIM800.mqttClient.pubReady < 4)
       && (pubfl->u16pubFlags & PUB_FLAG_MASK) ){
     mqttPubProc( pubfl );
-    timerMod( &mqttPingTimer, MQTT_PUB_TOUT );
+    timerMod( &mqttPingTimer, MQTT_PING_TOUT );
   }
   else if( mqttPingFlag ) {
     mqttPingFlag = RESET;
     MQTT_PingReq();
-    timerMod( &mqttPingTimer, MQTT_PUB_TOUT );
+    timerMod( &mqttPingTimer, MQTT_PING_TOUT );
   }
 
   // Обработка принятых сообщений
   mqttPubRecvProc( simHnd.rxh );
-
 
 // ----------------- ISENS PUBLIC -------------------------------------------
 //      if( iSens[ISENS_1].isensFlag ){

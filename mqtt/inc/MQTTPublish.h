@@ -19,8 +19,9 @@
 #define MQTTPUBLISH_H_
 
 
-#define MQTT_PUB_TOUT     (uint32_t)(TOUT_1000 * 45)
 #define MQTT_SUB_TOUT     (uint32_t)(TOUT_1000 * 20)
+#define MQTT_PUB_TOUT     (uint32_t)(TOUT_1000 * 30)
+#define MQTT_PING_TOUT     (uint32_t)(TOUT_1000 * 45)
 
 int MQTTSerialize_publish(unsigned char* buf, int buflen, unsigned char dup, int qos, unsigned char retained, unsigned short packetid,
 		MQTTString topicName, unsigned char* payload, int payloadlen);

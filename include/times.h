@@ -337,6 +337,7 @@ static inline bool rtcTimPending(const struct timer_list *rtctim){
 void timerStack( struct timer_list *timer, uint32_t tout, eTimStack ts );
 
 uint8_t timPscSet( TIM_TypeDef * tim, uint32_t tim_frequency, uint16_t * psc);
+void timerListClear( void );
 void timersClock( void );
 
 void rtcTimSetup(struct timer_list *rtctim, void (*function)(uintptr_t), uintptr_t arg );

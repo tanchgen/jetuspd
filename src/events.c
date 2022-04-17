@@ -166,7 +166,7 @@ int8_t evntPubProc( sLogRec * rec ){
       sprintf( pay, "{\"arch\":[\"time\":%lu,\"state\":%lu]}", rec->utime, rec->data[is] );
       break;
     }
-// --------------------- Польховательские события ----------------------------
+// --------------------- Пользовательские события ----------------------------
     case DEVID_ISENS_6:
       sprintf( tpc, tpcTempl[TOPIC_ALRM], SIM800.sim.imei );
       sprintf( pay, "{\"time\":%lu,\"alrm\":\"leak\", \"i\":6}", rec[0].utime );

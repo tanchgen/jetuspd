@@ -65,7 +65,7 @@ struct timer_list  sb2KeyDebounceTimer;
 ///** Структура дескриптора таймера таймаута восстановления после ошибки */
 struct timer_list  pwrOnCanTimer;
 
-struct timer_list  sb2Timer;
+struct timer_list  sb1Timer;
 
 // =================== Прототипы функций ====================================
 // ==========================================================================
@@ -92,7 +92,7 @@ static void pwrOnCan(uintptr_t arg){
   *
   * @retval none
   */
-static void sb2Tout(uintptr_t arg){
+static void sb1Tout(uintptr_t arg){
   (void)arg;
 // Включаем на постоянно светодиод LED_PWR_FAULE
 //  trace_puts("PWR_TOUT");
@@ -297,9 +297,9 @@ void gpioClock( void ){
     if( extiPinSb2Key.state == Bit_RESET ){
       evntFlags.sb2 =SET;
     }
-    else if( timerPending( &sb2Timer ) ){
+    else if( timerPending( &sb1Timer ) ){
       // Отпустили раньше 10сек
-      timerDel( &sb2Timer );
+      timerDel( &sb1Timer );
       uspd.runMode = RUN_MODE_KEY;
     }
   }
@@ -315,8 +315,8 @@ void gpioClock( void ){
 void gpioEnable( void ) {
 
   // Кнопка сброса конфигурации
-  if( gpioPinReadNow( &extiPinSb2Key ) == Bit_SET ){
-    timerMod( &sb2Timer, TOUT_1000 * 10 );
+  if( gpioPinReadNow( &extiPinSb1Key ) == Bit_SET ){
+    timerMod( &sb1Timer, TOUT_1000 * 10 );
     // Перемигивание Красный светодиод
     ledToggleSet( LED_R, LED_TOGGLE_TOUT, LED_TOGGLE_TOUT, 0, 0 );
     // Зеленый светодиод
@@ -403,7 +403,7 @@ void gpioInit( void ){
 //  timerSetup( &pwrToutTimer, pwrTimeout, (uintptr_t)mcuState );
 
   timerSetup( &pwrOnCanTimer, pwrOnCan, (uintptr_t)NULL );
-  timerSetup( &sb2Timer, sb2Tout, (uintptr_t)NULL );
+  timerSetup( &sb1Timer, sb1Tout, (uintptr_t)NULL );
 }
 
 

@@ -221,11 +221,21 @@ void sleepStop( void ){
   * @retval none
   */
 static inline void sleepProcess( void ){
+//  uint32_t tmptick;
   // TODO: Заменить на реальное засыпание
   sleepStart();
-//  __WFI();
+  __WFI();
   while(sleepFlag)
   {}
+//  sleepFlag = SET;
+//  tmptick = mTick + 10000;
+//  while( sleepFlag ){
+//    if( tmptick < mTick ){
+//      rtcAlrmCb();
+////      sleepStop();
+//      sleepFlag = RESET;
+//    }
+//  }
 }
 
 

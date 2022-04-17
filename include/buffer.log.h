@@ -26,6 +26,9 @@
 #define logBuf_MALLOC          0x02 /*!< Buffer uses malloc for memory */
 #define logBuf_OVER            0x04
 
+//void * my_alloc( size_t num );
+//void my_free( void * ptr );
+
 /* Custom allocation and free functions if needed */
 #ifndef LIB_ALLOC_FUNC
 #define LIB_ALLOC_FUNC         malloc

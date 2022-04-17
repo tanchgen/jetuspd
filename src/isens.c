@@ -7,6 +7,7 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "list.h"
 #include "times.h"
 #include "logger.h"
 #include "flash.h"
@@ -63,7 +64,7 @@ sISens iSens[ISENS_NUM] = {
 };
 
 // ======================= Клендарь отправки архива сенсоров ======================================
-char * defCal = "0-50/10 0-23 7, * *";
+char * defCal = "0-59/10 0-23 16 * *"; //"0 8 1,11,21 * *";
 
 tRtc oldCalAlrm = {0};
 
@@ -98,7 +99,9 @@ void sensSendTout( uintptr_t arg ){
 void isArchTout( uintptr_t arg ){
   uint32_t tout = *((uint32_t *)arg);
   uspd.archWrFlag = SET;
-  uspd.runMode = RUN_MODE_SENS_WRITE;
+  if( uspd.runMode == RUN_MODE_NULL ){
+    uspd.runMode = RUN_MODE_SENS_WRITE;
+  }
   rtcTimMod( &tIsArchTimer, tout );
 }
 
@@ -387,9 +390,12 @@ void sensPubAlrmSet( sCalend * cal ){
 // Выполняется по календарю, когда надо передавать данные из архива
 void calWkupFunc( uintptr_t arg ){
   (void)arg;
+
   mTick = 0;
   // Предварительное разрешение передачи записей архива
   uspd.runMode = RUN_MODE_SENS_SEND;
+  // Очищаем список таймеров
+  timerListClear();
 }
 
 
@@ -456,7 +462,6 @@ void calStrCreate( char str[], sCalend * cal ){
 
 void isensProcess( void ){
 
-  if( uspd.runMode == RUN_MODE_SENS_WRITE ){
     // Работаем только если надо записать датчики во флеш
     if( uspd.archWrFlag ){
       // Настало время записи датчиков в Архив
@@ -480,14 +485,16 @@ void isensProcess( void ){
         ErrHandler( NON_STOP );
       }
     }
-    else if( flashDev.state == FLASH_READY ){
-      // Запись датчиков окончена
-      gsmReset = SIM_RESET;
-      gsmRun = RESET;
-      gsmRunPhase = PHASE_OFF_OK;
-      toSleep( RESET );
+    else if( uspd.runMode == RUN_MODE_SENS_WRITE ){
+      // Запись датчиков - основной режим. Засыпаем.
+      if( flashDev.state == FLASH_READY ){
+        // Запись датчиков окончена
+        gsmReset = SIM_RESET;
+        gsmRun = RESET;
+        gsmRunPhase = PHASE_OFF_OK;
+        toSleep( RESET );
+      }
     }
-  }
 }
 
 
@@ -706,7 +713,7 @@ void isensEnable( void ){
   }
 
   // XXX: !!! FOR TEST ONLY !!!
-  uspdCfg.arxTout = 360;
+  uspdCfg.arxTout = 60;
 
   rtcTimMod( &tIsArchTimer, uspdCfg.arxTout );
 }

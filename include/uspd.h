@@ -104,6 +104,10 @@ typedef struct {
   FlagStatus readArchEvntQuery;       // Запрос на чтение журнала событий
   FlagStatus defCfgFlag;              // Флаг Установки конфига USPD по умолчанию
   sCalend arxCal;                   // Календарь отправки архива
+  uint16_t flashEvQuant;
+  uint16_t flashQuant;
+  uint16_t pubEvQuant;
+  uint16_t pubQuant;
 } sUspd;
 // ---------------------------------------------------------------------------------
 

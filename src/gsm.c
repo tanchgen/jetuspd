@@ -20,7 +20,7 @@
 
 extern SIM800_t SIM800;
 //extern const uint32_t baudrate[BAUD_NUM];
-extern struct timer_list tArchPubTimer;
+//extern struct timer_list tArchPubTimer;
 
 static uint32_t tmpTick;
 
@@ -85,6 +85,8 @@ int TCP_Connect(void);
 int clkSet( void );
 void ip4Parse( char * str );
 void isensTimCorr( void );
+
+int8_t flashArchFill( void );
 // ----------------------------------------------------------------------------
 
 // Выполняется при просыпании по будильнику
@@ -123,27 +125,29 @@ static void bigOnTout( uintptr_t arg ){
 
   trace_printf( "BIG_Tout\n" );
   // XXX: !!!
-  return;
+//  return;
 
-  if( simSleepCount > uspdCfg.simcfg[0].simActivMax ){
+//  if( simSleepCount > uspdCfg.simcfg[0].simActivMax ){
     simSleepCount = 0;
     // Засыпаем до следующего включения по календарю
+    gsmStRestart = GSM_OFF;
     toSleep( SET );
     gsmReset = MCU_SLEEP;
-  }
-  else {
-    // Переносим публикацию сенсоров если это раньше следующей попытки
-    if( timerPending( &tArchPubTimer ) ){
-      tUxTime ut = getRtcTime();
-      if( (tArchPubTimer.expires) < (ut + simFaultSleep[ simSleepCount++]) ){
-        rtcTimMod( &tArchPubTimer, simFaultSleep[ simSleepCount++] + 1 );
-      }
-    }
-    // Засыпаем на 1, 2, 4, 24 часа до следующей попытки
-    gsmSleep( simFaultSleep[ simSleepCount++], SET );
-    gsmReset = MCU_SLEEP;
-    return;
-  }
+    gsmRun = RESET;
+//  }
+//  else {
+//    // Переносим публикацию сенсоров если это раньше следующей попытки
+//    if( timerPending( &tArchPubTimer ) ){
+//      tUxTime ut = getRtcTime();
+//      if( (tArchPubTimer.expires) < (ut + simFaultSleep[ simSleepCount++]) ){
+//        rtcTimMod( &tArchPubTimer, simFaultSleep[ simSleepCount++] + 1 );
+//      }
+//    }
+//    // Засыпаем на 1, 2, 4, 24 часа до следующей попытки
+//    gsmSleep( simFaultSleep[ simSleepCount++], SET );
+//    gsmReset = MCU_SLEEP;
+//    return;
+//  }
 }
 
 
@@ -380,9 +384,9 @@ int simWaitReady( void ){
  * @return error status, 0 - OK
  */
 int clkSet( void ) {
-  uint8_t errCount;
+//  uint8_t errCount;
 
-  for( errCount = 0; errCount < 4; errCount++ ){
+//  for( errCount = 0; errCount < 4; errCount++ ){
     simHnd.rxh->replyBuf = mqtt_buffer;
     *mqtt_buffer = '\0';
     if( gsmSendCommand("AT+CCLK?\r\n", "+CCLK: \"", CMD_DELAY_30, saveSimReply ) == 0){
@@ -402,14 +406,14 @@ int clkSet( void ) {
       isensTimCorr();
       return RESET;
     }
-    else {
-      if( errCount >= 2) {
-        // Никак не получается включить GPRS
-        gsmSendCommand("AT+CFUN=1,1\r\n", "OK\r\n", CMD_DELAY_50, NULL );
-        wutSleep( TOUT_3000 * 1e3 );
-      }
-    }
-  }
+//    else {
+//      if( errCount >= 2) {
+//        // Никак не получается включить GPRS
+//        gsmSendCommand("AT+CCLK\r\n", "OK\r\n", CMD_DELAY_50, NULL );
+//        wutSleep( TOUT_3000 * 1e3 );
+//      }
+//    }
+//  }
 
   return SET;
 }
@@ -546,14 +550,12 @@ int gsmWorkProc( void ){
       break;
     case RUN_MODE_SENS_SEND:
       // Проверка на "Опубликовали все!"
-//      if( (uspd.readArchEvntQuery == RESET)
-//          && SIM800.mqttClient.pubFlags.archPubEnd ){
-//        // Засыпаем до следующего включения по календарю
-//        trace_puts( "SENS send sleep ");
-//        toSleep( SET );
-      if( SIM800.mqttClient.pubFlags.announceEnd ){
+      if( (uspd.readArchEvntQuery == RESET)
+          && SIM800.mqttClient.pubFlags.archPubEnd ){
         // Засыпаем до следующего включения по календарю
+        gsmStRestart = GSM_OFF;
         trace_puts( "SENS send sleep ");
+        assert_param( flashArchFill() == 0 );
         toSleep( SET );
       }
       else {
@@ -578,11 +580,11 @@ void gsmOffFunc( void ){
   trace_puts("SIM_On");
 #endif
 
-        if( timerPending( &sb2Timer ) ){
+        if( timerPending( &sb1Timer ) ){
           return;
         }
 
-        timerMod( &bigOnToutTimer, SEC_120 * 1e3 );
+        timerMod( &bigOnToutTimer, SEC_180 * 1e3 );
         simUartBaud(9600);
         uspdCfgInit( &uspd.defCfgFlag );
         // On SIM800 power if use
@@ -635,13 +637,13 @@ void gsmOffFunc( void ){
             break;
           case MCU_SLEEP:
             gpioPinSetNow( &gpioPinSimPwr );
-            if( (logRdBufFill == 0) && (flashDev.state == FLASH_READY) ){
+            if( flashDev.state == FLASH_READY ){
               // Все записи в журнал сделаны, операции с флеш закончены
               timerDel( &gsmOnToutTimer );
               timerDel( &bigOnToutTimer );
-              uspd.runMode = RUN_MODE_NULL;
               gsmReset = SIM_RESET;
               toSleep( RESET );
+              uspd.runMode = RUN_MODE_NULL;
             }
             break;
           case SIM_RESET:
@@ -689,6 +691,7 @@ void gsmSimOnFunc( void ){
   }
   else {
     // Выключаем питание GSM
+    trace_puts("sim->off");
     gsmState--;
     gsmRunPhase = PHASE_NON;
   }
@@ -752,6 +755,7 @@ void gsmInitFunc( void ){
       gsmRunPhase = PHASE_NON;
     }
     else {
+      trace_puts("init->sim");
       gsmState--;
     }
   }
@@ -833,6 +837,7 @@ void gsmStartInitFunc( void ){
     else {
       // Продолжаем выключать
       gprsConnBreak();
+      trace_puts("start->init");
       gsmState--;
     }
 
@@ -872,6 +877,7 @@ void gsmGprsConnFunc( void ){
   }
   else {
     // Выключаем питание GSM
+    trace_puts("gprs->start");
     gsmState--;
   }
 }
@@ -889,7 +895,18 @@ void gsmNtpInitFunc( void ){
     }
   }
   else {
+    if( SIM800.mqttServer.tcpconn == 0 ){
+      gsmRunPhase = PHASE_OFF_OK;
+    }
+    else if ( SIM800.mqttServer.mqttconn == 0 ){
+      gsmRunPhase = PHASE_OFF;
+      tmpTick = mTick + 200;
+    }
     // Продолжаем выключать
+    if( logRdBufFill != 0 ){
+      return;
+    }
+
     if( gsmRunPhase == PHASE_NON ){
       char tpc[32];
       char pay[64] = "{\"imei\":";
@@ -927,6 +944,7 @@ void gsmNtpInitFunc( void ){
     }
     else if( gsmRunPhase == PHASE_OFF_OK ){
       if( MQTT_Deinit() == 0){
+        trace_puts("ntp->gprs");
         gsmState--;
         gsmRunPhase = PHASE_NON;
       }
@@ -970,6 +988,7 @@ void gsmMqttStartFunc( void ){
         mqttPubInit();
         gsmState++;
         gsmRunPhase = PHASE_NON;
+        gsmStRestart = GSM_MQTT_START;
         break;
       default:
         break;
@@ -982,6 +1001,7 @@ void gsmMqttStartFunc( void ){
       gsmRunPhase = PHASE_NON;
     }
     else {
+      trace_puts("mqtt_st->ntp");
       gsmState--;
     }
   }
@@ -1002,7 +1022,8 @@ void gsmMqttConnFunc( void ){
         gsmRunPhase = PHASE_ON;
         break;
       case PHASE_ON:
-        mqttSubFlag = RESET;
+//        mqttSubFlag = SUB_NONE;
+				mqttSubFlag = RESET;
         gsmState++;
         gsmRunPhase = PHASE_NON;
         break;
@@ -1012,6 +1033,7 @@ void gsmMqttConnFunc( void ){
   }
   else {
     // Выключаем питание GSM
+    trace_puts("conn->mqtt_st");
     gsmState--;
   }
 }
@@ -1071,6 +1093,7 @@ void gsmWorkFunc( void ){
   }
   else {
     // Выключаем питание GSM
+    trace_puts("work->conn");
     gsmState--;
     gsmRunPhase = PHASE_NON;
   }

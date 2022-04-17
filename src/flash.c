@@ -58,6 +58,7 @@ void spiIrqHandler( sSpiHandle * hspi );
 void flashHwTest( void ){
   sSpiHandle *hspi = &flashDev.flashSpi;
   SPI_TypeDef *SPIx;
+  uint8_t byte;
 
   gpioPinResetNow( &gpioPinFlashOn );
 
@@ -67,7 +68,7 @@ void flashHwTest( void ){
   while( (SPIx->SR & SPI_SR_BSY) != RESET)
   {}
 
-  flashTxXfer[0] = FLASH_CMD_RDID;    // Send "Read from Memory" instruction
+  flashTxXfer[0] = FLASH_CMD_RDID;
   flashTxXfer[1] = 0;
   spiXfer( hspi, 4, flashTxXfer, flashRxXfer);
   while( (SPIx->SR & SPI_SR_BSY) != RESET)
@@ -77,92 +78,90 @@ void flashHwTest( void ){
     goto errExit;
   }
 
-  flashTxXfer[0] = FLASH_CMD_WREN;    // Send "Read from Memory" instruction
-  spiXfer( hspi, 1, flashTxXfer, NULL);
-  while( (SPIx->SR & SPI_SR_BSY) != RESET)
-  {}
+  for( uint32_t adr = 0; adr < EVNT_FLASH_SIZE; adr += 256){
+    if( (adr & 0xFFF) == 0 ){
+      flashTxXfer[0] = FLASH_CMD_WREN;
+      spiXfer( hspi, 1, flashTxXfer, NULL);
+      while( (SPIx->SR & SPI_SR_BSY) != RESET)
+      {}
 
-  flashTxXfer[0] = FLASH_CMD_RDSR;    // Send "Read from Memory" instruction
-  flashTxXfer[1] = 0;
-  spiXfer( hspi, 2, flashTxXfer, flashRxXfer);
-  while( (SPIx->SR & SPI_SR_BSY) != RESET)
-  {}
+      flashTxXfer[0] = FLASH_CMD_RDSR;
+      flashTxXfer[1] = 0;
+      spiXfer( hspi, 2, flashTxXfer, flashRxXfer);
+      while( (SPIx->SR & SPI_SR_BSY) != RESET)
+      {}
 
-  // Стираем сектор
-  flashTxXfer[0] = FLASH_CMD_SE;    // Send "Read from Memory" instruction
-  flashTxXfer[1] = 0x00;
-  flashTxXfer[2] = 0x01;
-  flashTxXfer[3] = 0x00;
-  spiXfer( hspi, 4, flashTxXfer, flashRxXfer);
-  while( (SPIx->SR & SPI_SR_BSY) != RESET)
-  {}
-
-  tmpTick = mTick;
-  flashTxXfer[0] = FLASH_CMD_RDSR;    // Send "Read from Memory" instruction
-  flashTxXfer[1] = 0;
-  do{
-    spiXfer( hspi, 2, flashTxXfer, flashRxXfer);
+      // Стираем сектор
+      flashTxXfer[0] = FLASH_CMD_SE;
+      flashTxXfer[1] = (adr >> 16) & 0xFF;
+      flashTxXfer[2] = (adr >> 8) & 0xFF;
+      flashTxXfer[3] = adr & 0xFF;
+      spiXfer( hspi, 4, flashTxXfer, flashRxXfer);
+      while( (SPIx->SR & SPI_SR_BSY) != RESET)
+      {}
+      // Wait while end of opp
+      flashTxXfer[0] = FLASH_CMD_RDSR;    // Send "Read from Memory" instruction
+      flashTxXfer[1] = 0;
+      do{
+        spiXfer( hspi, 2, flashTxXfer, flashRxXfer);
+        while( (SPIx->SR & SPI_SR_BSY) != RESET)
+        {}
+      } while ( flashRxXfer[1] & FLASH_WIP_FLAG );
+    }
+    // Write enable
+    flashTxXfer[0] = FLASH_CMD_WREN;    // Send "Read from Memory" instruction
+    spiXfer( hspi, 1, flashTxXfer, NULL);
     while( (SPIx->SR & SPI_SR_BSY) != RESET)
     {}
-  } while ( flashRxXfer[1] & FLASH_WIP_FLAG );
 
-  tmpTick = mTick - tmpTick;
+    if( (byte = adr) == 0 ){
+      byte = 0xAA;
+    }
+    else if( byte == 0xFF ){
+      byte = 0x55;
+    }
 
-  flashTxXfer[0] = FLASH_CMD_READ;    // Send "Read from Memory" instruction
-  flashTxXfer[1] = 0x00;
-  flashTxXfer[2] = 0x01;
-  flashTxXfer[3] = 0x00;
-  spiXfer( hspi, 4 + sizeof( sLogRec ) * 8, flashTxXfer, flashRxXfer);
-  while( (SPIx->SR & SPI_SR_BSY) != RESET)
-  {}
+    // Запись
+    memset( &flashTxXfer[4], byte, 254 );
 
-  if ( flashRxXfer[3 + sizeof( sLogRec ) * 8] != 0xFF ){
-    goto errExit;
-  }
-  flashTxXfer[0] = FLASH_CMD_WREN;    // Send "Read from Memory" instruction
-  spiXfer( hspi, 1, flashTxXfer, NULL);
-  while( (SPIx->SR & SPI_SR_BSY) != RESET)
-  {}
-
-// Запись
-  flashTxXfer[4] = 0x11;
-  memset( &flashTxXfer[5], 0xAA, 254 );
-  flashTxXfer[259] = 0x22;
-
-  flashTxXfer[0] = FLASH_CMD_WRITE;    // Send "Read from Memory" instruction
-  flashTxXfer[1] = 0x00;
-  flashTxXfer[2] = 0x01;
-  flashTxXfer[3] = 0x00;
-  spiXfer( hspi, 4 + 256, flashTxXfer, NULL);
-  while( (SPIx->SR & SPI_SR_BSY) != RESET)
-  {}
-
-  tmpTick = mTick;
-  flashTxXfer[0] = FLASH_CMD_RDSR;    // Send "Read from Memory" instruction
-  flashTxXfer[1] = 0;
-  do{
-    spiXfer( hspi, 2, flashTxXfer, flashRxXfer);
+    flashTxXfer[0] = FLASH_CMD_WRITE;
+    flashTxXfer[1] = (adr >> 16) & 0xFF;
+    flashTxXfer[2] = (adr >> 8) & 0xFF;
+    flashTxXfer[3] = adr & 0xFF;
+    spiXfer( hspi, 4 + 256, flashTxXfer, NULL);
     while( (SPIx->SR & SPI_SR_BSY) != RESET)
     {}
-  } while ( flashRxXfer[1] & FLASH_WIP_FLAG );
 
-  tmpTick = mTick - tmpTick;
+    tmpTick = mTick;
+    flashTxXfer[0] = FLASH_CMD_RDSR;    // Send "Read from Memory" instruction
+    flashTxXfer[1] = 0;
+    do{
+      spiXfer( hspi, 2, flashTxXfer, flashRxXfer);
+      while( (SPIx->SR & SPI_SR_BSY) != RESET)
+      {}
+    } while ( flashRxXfer[1] & FLASH_WIP_FLAG );
 
-  flashTxXfer[0] = FLASH_CMD_READ;    // Send "Read from Memory" instruction
-  flashTxXfer[1] = 0x00;
-  flashTxXfer[2] = 0x01;
-  flashTxXfer[3] = 0x00;
-  spiXfer( hspi, 4 + 256, flashTxXfer, flashRxXfer);
-  while( (SPIx->SR & SPI_SR_BSY) != RESET)
-  {}
+    tmpTick = mTick - tmpTick;
 
-  if( memcmp( &flashTxXfer[4], &(flashRxXfer[4]), sizeof( sLogRec )* 8 ) == 0 ){
-    trace_puts( "MRAM OK" );
-    return;
+    flashTxXfer[0] = FLASH_CMD_READ;    // Send "Read from Memory" instruction
+    flashTxXfer[1] = (adr >> 16) & 0xFF;
+    flashTxXfer[2] = (adr >> 8) & 0xFF;
+    flashTxXfer[3] = adr & 0xFF;
+    spiXfer( hspi, 4 + 256, flashTxXfer, flashRxXfer);
+    while( (SPIx->SR & SPI_SR_BSY) != RESET)
+    {}
+
+    if( memcmp( &flashTxXfer[4], &(flashRxXfer[4]), sizeof( sLogRec )* 8 ) != 0 ){
+      goto errExit;
+    }
+
   }
+
+  trace_puts( "MRAM OK" );
+  return;
 
 errExit:
-  trace_puts( "MRAM ERR" );
+  trace_puts( "MRAM write-read error!" );
   return;
   // -------------------------------------------------
 }
@@ -328,6 +327,9 @@ void flashSensRxCb( void ){
   logRdBufFill += logBuf_Write( &logRdSensBuffer, (sLogRec*)(flashRxXfer+4), flashDev.quant );
   if( logBuf_GetFull( &flashSensBuffer ) == 0 ){
     uspd.readArchSensQuery = RESET;
+    if( uspd.readArchEvntQuery && (logBuf_GetFull( &flashEvntBuffer ) == 0) ){
+      uspd.readArchEvntQuery = RESET;
+    }
   }
   // Освобождаем Флеш
   flashDev.state = FLASH_READY;
@@ -342,6 +344,9 @@ void flashEvntRxCb( void ){
   logRdBufFill += logBuf_Write( &logRdEvntBuffer, (sLogRec*)(flashRxXfer+4), flashDev.quant );
   if( logBuf_GetFull( &flashEvntBuffer ) == 0 ){
     uspd.readArchEvntQuery = RESET;
+    if( uspd.readArchSensQuery && (logBuf_GetFull( &flashSensBuffer ) == 0) ){
+      uspd.readArchSensQuery = RESET;
+    }
   }
   // Освобождаем Флеш
   flashDev.state = FLASH_READY;
@@ -538,47 +543,64 @@ void flashWriteOkProbe( sSpiHandle * spi ){
 
 
 // =================================================================================
+// Проверка на пустоту Архива
+int8_t flashArchFill( void ){
+  int8_t quant;
+
+  if( flashDev.state == FLASH_READY ){
+    quant = logBuf_GetFull( &flashEvntBuffer );
+    quant += logBuf_GetFull( &flashSensBuffer );
+  }
+  else {
+    quant = -1;
+  }
+
+  return quant;
+}
 
 // Обработка запросов
 eLogBufType flashReadProbe( void ){
 //  sLogRec * rec;
   uint16_t quant;
 
-// ----------- Журнал Датчиков -------------------------
-  if( uspd.readArchSensQuery ){
-    quant = logBuf_GetFull( &flashSensBuffer );
-    trace_printf("quant %d\n", quant);
-    if(quant == 0){
-      uspd.readArchSensQuery = RESET;
-    }
-    else {
-      // Чтобы поместилось в буфер чтения SPI и буфер logRdBuffer
-      quant = min( quant, (ARRAY_SIZE(flashRxXfer) - 4) / sizeof(sLogRec) );
-      quant = min( quant, logBuf_GetFree( &logRdSensBuffer) );
-      if( quant ){
-        flashDev.quant = quant;
-        return LOG_BUF_SENS;
-      }
-    }
-//    SIM800.mqttClient.pubFlags.archPub = SET;
-  }
-
 // ----------- Журнал Событий -------------------------
   if( uspd.readArchEvntQuery ){
     quant = logBuf_GetFull( &flashEvntBuffer );
+//    trace_printf("Evquant %d\n", quant);
     if(quant == 0){
       uspd.readArchEvntQuery = RESET;
     }
     else {
       // Чтобы поместилось в буфер чтения SPI и буфер logRdBuffer
       quant = min( quant, (ARRAY_SIZE(flashRxXfer) - 4) / sizeof(sLogRec) );
-      quant = min( quant, logBuf_GetFree( &logRdEvntBuffer) );
-      if( quant ){
-        flashDev.quant = quant;
+      uspd.flashEvQuant = min( quant, logBuf_GetFree( &logRdEvntBuffer) );
+      if( uspd.flashEvQuant ){
+        flashDev.quant = uspd.flashEvQuant;
         return LOG_BUF_EVNT;
       }
     }
-//    SIM800.mqttClient.pubFlags.archPub = SET;
+  }
+
+// ----------- Журнал Датчиков -------------------------
+  if( uspd.readArchSensQuery ){
+    quant = logBuf_GetFull( &flashSensBuffer );
+//    trace_printf("quant %d\n", quant);
+    if(quant == 0){
+      uspd.readArchSensQuery = RESET;
+      if( uspd.readArchEvntQuery == RESET ){
+        // В архиве событий тоже нет
+        SIM800.mqttClient.pubFlags.archPub = SET;
+      }
+    }
+    else {
+      // Чтобы поместилось в буфер чтения SPI и буфер logRdBuffer
+      quant = min( quant, (ARRAY_SIZE(flashRxXfer) - 4) / sizeof(sLogRec) );
+      uspd.flashQuant = min( quant, logBuf_GetFree( &logRdSensBuffer) );
+      if( uspd.flashQuant ){
+        flashDev.quant = uspd.flashQuant;
+        return LOG_BUF_SENS;
+      }
+    }
   }
 
   return LOG_BUF_NULL;
@@ -677,12 +699,12 @@ void flashProcess( void ){
 
       if( flashBuf_Write( &flashDev, buf, flashDev.rec, flashDev.quant ) == flashDev.quant ){
 //        trace_printf( "f_flash_%x\n", flashDev.rec );
-        my_free( flashDev.rec );
       }
       break;
     }
     case FLASH_WRITE_OK:
       flashWriteOkProbe( &(flashDev.flashSpi) );
+      free( flashDev.rec );
       break;
     default:
       break;

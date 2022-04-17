@@ -25,11 +25,13 @@ uint16_t rx_index = 0;
 char mqtt_buffer[MQTT_BUF_SIZE] = {0};
 uint16_t mqtt_index = 0;
 
+//eSubState mqttSubFlag = SUB_NONE;
 FlagStatus mqttSubFlag = RESET;
 FlagStatus mqttPingFlag = RESET;
 
 struct timer_list mqttPingTimer;
 struct timer_list mqttSubTimer;
+struct timer_list mqttPubTimer;
 
 // ------------------- Function prototype ---------------------------
 void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim );
@@ -124,11 +126,13 @@ int MQTT_Deinit(void) {
   trace_puts("GPRS off");
 #endif
 
+  SIM800.mqttServer.tcpconn = 0;
+  SIM800.mqttServer.mqttconn = 0;
+  SIM800.mqttServer.disconnFlag = SET;
+  SIM800.mqttServer.disconnTout = mTick + 30;
   gsmSendCommand("AT+CIPCLOSE=1\r\n", "OK\r\n", CMD_DELAY_5, NULL );
   gsmSendCommand("AT+CIPSHUT\r\n", "SHUT OK\r\n", CMD_DELAY_10, NULL );
   gsmSendCommand("AT+CGATT=0\r\n", "OK\r\n", CMD_DELAY_10, NULL );
-  SIM800.mqttServer.tcpconn = 0;
-  SIM800.mqttServer.mqttconn = 0;
   return error;
 }
 
@@ -206,6 +210,7 @@ uint16_t MQTT_Pub(const char *topic, char *payload, enum QoS qos, uint16_t pktid
     if( (rc = uartSend( simHnd.txh, buf, mqtt_len )) ){
       if( qos ){
         SIM800.mqttClient.pubReady++;
+        timerMod( &mqttPubTimer, MQTT_PUB_TOUT );
       }
     }
   }
@@ -348,13 +353,16 @@ void MQTT_Sub( char const *topic, uint8_t qos){
 
 
 void mqttConnectCb( FlagStatus conn ){
+  SIM800.mqttServer.mqttconn = conn;
   if( conn ){
     // Сначала подпишемся, потом там объявим о себе
+//    mqttSubFlag = SUB_SET;
     timerStack( &mqttSubTimer, 0, TIMER_MOD );
     ledOff( LED_R, 0 );
   }
   else {
     mqttPingFlag = RESET;
+//    mqttSubFlag = SUB_TIM_DEL;
     mqttSubFlag = RESET;
     timerStack( &mqttSubTimer, 0, TIMER_DEL );
     // Две вспышки оранжевого цвета с интервалом в 3 сек
@@ -362,7 +370,6 @@ void mqttConnectCb( FlagStatus conn ){
     ledToggleSet( LED_G, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, 2, TOUT_3000);
     if( gsmState >= GSM_MQTT_START ){
       gsmRun = RESET;
-      gsmStRestart = GSM_MQTT_START;
     }
   }
 }

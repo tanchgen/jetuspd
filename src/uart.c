@@ -214,7 +214,7 @@ void uartTxClock(sUartTxHandle *handle ){
     uartTransmit( handle, tx_node );
     list_del( &(tx_node->node) );
  //   trace_printf( "f_node_%x\n", tx_node );
-    my_free( tx_node );
+    free( tx_node );
   }
 }
 

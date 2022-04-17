@@ -24,7 +24,7 @@ extern struct timer_list bigOnToutTimer;
 
 extern sFwHandle fwHandle;
 extern FlagStatus fwUpdFlag;
-//extern FlagStatus fwUpdTimFlag;
+extern FlagStatus fwUpdTimFlag;
 
 extern struct timer_list mqttSubTimer;
 extern uint16_t logRdBufFill;
@@ -97,13 +97,13 @@ void mqttSubTout( uintptr_t arg ){
   (void)arg;
 
   if( SIM800.mqttServer.mqttconn == 1 ) {
-//    mqttSubFlag = SUB_SET;
-    mqttSubFlag = SET;
+    mqttSubFlag = SUB_SET;
+//    mqttSubFlag = SET;
   }
-//  else {
-//    mqttSubFlag = SUB_NONE;
-//  }
-  timerMod( &mqttSubTimer, MQTT_SUB_TOUT );
+  else {
+    mqttSubFlag = SUB_NONE;
+  }
+//  timerMod( &mqttSubTimer, MQTT_SUB_TOUT );
 }
 
 
@@ -362,22 +362,23 @@ int archPubFunc( void ){
 int mqttSubProcess(void){
   uint8_t sc = SIM800.mqttClient.subCount;
 
-//  if( mqttSubFlag == SUB_SET ){
-  if( mqttSubFlag ){
+  if( mqttSubFlag == SUB_SET ){
+//  if( mqttSubFlag ){
     char topicstr[23];
+
+    mqttSubFlag = SUB_NONE;
     if( sc == ARRAY_SIZE(subList) ){
       timerDel( &mqttSubTimer );
       return 0;
     }
-//    else {
-//      timerMod( &mqttSubTimer, MQTT_SUB_TOUT );
-//    }
+    else {
+      timerMod( &mqttSubTimer, MQTT_SUB_TOUT );
+    }
     sprintf(topicstr, subList[sc].subtpc, SIM800.sim.imei);
     // Подписываемся, пока не получим подтверждение на ВСЕ подписки
     MQTT_Sub( topicstr, subList[sc].qos );
   }
 
-  mqttSubFlag = RESET;
   return 1;
 }
 
@@ -403,8 +404,8 @@ void mqttCtlProc( SIM800_t * sim ){
     case MQTT_SUBACK:
       // TODO: Сбросить таймер сообветствующей подписки
       sim->mqttClient.subCount++;
-//      mqttSubFlag = SUB_SET;
-      timerStack( &mqttSubTimer, 0, TIMER_MOD );
+      mqttSubFlag = SUB_SET;
+//      timerStack( &mqttSubTimer, 0, TIMER_MOD );
       trace_printf( "SUBACK: %d\n", pktid );
       break;
     case MQTT_PUBACK:
@@ -615,8 +616,8 @@ void mqttMsgProc( sUartRxHandle * handle, SIM800_t * sim ){
 
             if( (sim->mqttReceive.topicId = subList[tp].tpid) == TOPIC_FW_BIN ){
               // Это обновление прошивки - запускаем таймер таймаута получения прошивки
-//              fwUpdTimFlag = SET;
-              timerStack( &fwUpdTimer, TOUT_1000 * 120, TIMER_MOD );  // 2 минуты
+              fwUpdTimFlag = SET;
+//              timerStack( &fwUpdTimer, TOUT_1000 * 120, TIMER_MOD );  // 2 минуты
               fwUpdFlag = SET;
             }
           }
@@ -826,7 +827,6 @@ int mqttStart(void) {
 void mqttProcess( void ){
   uPubFlags * pubfl;
 
-/*
   // Удаляем таймер таймаута подписки
   if( mqttSubFlag == SUB_TIM_DEL ){
     timerDel( &mqttSubTimer );
@@ -838,7 +838,7 @@ void mqttProcess( void ){
     timerMod( &fwUpdTimer, TOUT_1000 * 120 );  // 2 минуты
     fwUpdTimFlag = RESET;
   }
-*/
+
   if( SIM800.mqttServer.disconnFlag && (SIM800.mqttServer.disconnTout < mTick)){
     // Закрыто соединение TCP
 #if DEBUG_GSM_TRACE

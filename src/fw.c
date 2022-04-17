@@ -36,7 +36,7 @@ sFwHandle fwHandle;
 //uint32_t * pfa;
 //uint32_t fa;
 struct timer_list fwUpdTimer;
-//FlagStatus fwUpdTimFlag = RESET;
+FlagStatus fwUpdTimFlag = RESET;
 FlagStatus fwUpdFlag = RESET;
 
 //------------------- Function prototype -------------------------

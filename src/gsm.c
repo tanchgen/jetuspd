@@ -1023,7 +1023,7 @@ void gsmMqttConnFunc( void ){
         break;
       case PHASE_ON:
 //        mqttSubFlag = SUB_NONE;
-				mqttSubFlag = RESET;
+//				mqttSubFlag = RESET;
         gsmState++;
         gsmRunPhase = PHASE_NON;
         break;

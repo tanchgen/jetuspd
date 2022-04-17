@@ -25,8 +25,8 @@ uint16_t rx_index = 0;
 char mqtt_buffer[MQTT_BUF_SIZE] = {0};
 uint16_t mqtt_index = 0;
 
-//eSubState mqttSubFlag = SUB_NONE;
-FlagStatus mqttSubFlag = RESET;
+eSubState mqttSubFlag = SUB_NONE;
+//FlagStatus mqttSubFlag = RESET;
 FlagStatus mqttPingFlag = RESET;
 
 struct timer_list mqttPingTimer;
@@ -356,15 +356,15 @@ void mqttConnectCb( FlagStatus conn ){
   SIM800.mqttServer.mqttconn = conn;
   if( conn ){
     // Сначала подпишемся, потом там объявим о себе
-//    mqttSubFlag = SUB_SET;
-    timerStack( &mqttSubTimer, 0, TIMER_MOD );
+    mqttSubFlag = SUB_SET;
+//    timerStack( &mqttSubTimer, 0, TIMER_MOD );
     ledOff( LED_R, 0 );
   }
   else {
     mqttPingFlag = RESET;
-//    mqttSubFlag = SUB_TIM_DEL;
-    mqttSubFlag = RESET;
-    timerStack( &mqttSubTimer, 0, TIMER_DEL );
+    mqttSubFlag = SUB_TIM_DEL;
+//    mqttSubFlag = RESET;
+//    timerStack( &mqttSubTimer, 0, TIMER_DEL );
     // Две вспышки оранжевого цвета с интервалом в 3 сек
     ledToggleSet( LED_R, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, 2, TOUT_3000);
     ledToggleSet( LED_G, LED_BLINK_ON_TOUT, LED_SLOW_TOGGLE_TOUT, 2, TOUT_3000);

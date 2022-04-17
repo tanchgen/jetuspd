@@ -760,35 +760,35 @@ bool timerDel(struct timer_list *timer)
 }
 
 
-// Обработка стека таймеров для добавки
-void timerStack( struct timer_list *timer, uint32_t tout, eTimStack ts ){
-  static struct {
-    struct timer_list *timer;
-    uint32_t tout;
-    eTimStack ts;
-  } timPr[8];
-  static uint8_t timCount;
-
-  if( timer != NULL ){
-    // Добавляем таймер
-    timPr[timCount].timer = timer;
-    timPr[timCount].tout = tout;
-    timPr[timCount].ts = ts;
-    timCount++;
-    assert_param( timCount < 8 );
-  }
-  else {
-    for(; timCount; ){
-      timCount--;
-      if( timPr[timCount].ts == TIMER_MOD ){
-        timerMod( timPr[timCount].timer, timPr[timCount].tout );
-      }
-      else {
-        timerDel( timPr[timCount].timer );
-      }
-    }
-  }
-}
+//// Обработка стека таймеров для добавки
+//void timerStack( struct timer_list *timer, uint32_t tout, eTimStack ts ){
+//  static struct {
+//    struct timer_list *timer;
+//    uint32_t tout;
+//    eTimStack ts;
+//  } timPr[8];
+//  static uint8_t timCount;
+//
+//  if( timer != NULL ){
+//    // Добавляем таймер
+//    timPr[timCount].timer = timer;
+//    timPr[timCount].tout = tout;
+//    timPr[timCount].ts = ts;
+//    timCount++;
+//    assert_param( timCount < 8 );
+//  }
+//  else {
+//    for(; timCount; ){
+//      timCount--;
+//      if( timPr[timCount].ts == TIMER_MOD ){
+//        timerMod( timPr[timCount].timer, timPr[timCount].tout );
+//      }
+//      else {
+//        timerDel( timPr[timCount].timer );
+//      }
+//    }
+//  }
+//}
 
 
 void timerListClear( void ){
@@ -824,7 +824,7 @@ void timersClock( void ){
   if ( mTick > prevTick ) {
     prevTick = mTick;
 
-    timerStack( NULL, 0, 0 );
+//    timerStack( NULL, 0, 0 );
 
     INIT_LIST_HEAD(&work_list);
 

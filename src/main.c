@@ -46,7 +46,7 @@ void Configure_IWDG(void);
 void Check_IWDG_Reset(void);
 
 //void rtcTimProcess( void );
-
+//void isensProcess( void );
 //void mqttCtlProc( SIM800_t * sim );
 //void isensTimCorr( void );
 
@@ -61,7 +61,6 @@ void pwrInit( void );
 int main(void) {
   // Tiny memory allocated init
 //  ta_init( tallocArray, tallocArray+TALLOC_ARRAY_SIZE, 256, 16, sizeof(int) );
-//  (void)_fw_ver;
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
@@ -113,30 +112,49 @@ int main(void) {
     SIM800.mqttClient.pubFlags.archPubEnd = SET;
 */
 
-//------------------------------
+/*
+    GPIOB->BSRR = GPIO_PIN_9 << 16;
+    getRtcTime();
+    for( uint8_t i = 0; i < 10; i++ ){
+      wutSleep( 1000e3 );
+      rtcTimProcess();
+//      GPIOB->ODR ^= GPIO_PIN_9;
+    }
+    trace_printf( "t: %u.%u\n", getRtcTime(), tmpCount );
+    mDelay( 1000 );
+    while(1){
+      trace_printf( "t: %u.%u\n", getRtcTime(), tmpCount );
+      gsmSleep( 10, RESET );
+      rtcTimProcess();
+      trace_printf( "t: %u.%u\n", getRtcTime(), tmpCount );
+      GPIOB->ODR ^= GPIO_PIN_9;
+    }
+*/
 
+//------------------------------
     while (1) {
       /* Refresh IWDG down-counter to default value */
       LL_IWDG_ReloadCounter(IWDG);
       ifaceClock();
+/*
+      if( (mTick >30000) && (SIM800.mqttClient.pubFlags.announceEnd == RESET) ){
+        SIM800.mqttClient.pubFlags.announceEnd = SET;
+        uspd.readArchSensQuery = SET;
+        uspd.readArchEvntQuery = SET;
+      }
 
-//      if( (mTick >30000) && (SIM800.mqttClient.pubFlags.announceEnd == RESET) ){
-//        SIM800.mqttClient.pubFlags.announceEnd = SET;
-//        uspd.readArchSensQuery = SET;
-//        uspd.readArchEvntQuery = SET;
-//      }
-//
-//      if( tmpTick == 0) {
-//        if( (int16_t)uspd.archPktId > 0 ){
-//          tmpTick = mTick + 100;
-//        }
-//      }
-//      else if(tmpTick < mTick ){
-//        SIM800.mqttReceive.pktId = uspd.archPktId;
-//        SIM800.mqttReceive.msgType = MQTT_PUBCOMP;
-//        mqttCtlProc( &SIM800 );
-//        tmpTick = 0;
-//      }
+      if( tmpTick == 0) {
+        if( (int16_t)uspd.archPktId > 0 ){
+          tmpTick = mTick + 100;
+        }
+      }
+      else if(tmpTick < mTick ){
+        SIM800.mqttReceive.pktId = uspd.archPktId;
+        SIM800.mqttReceive.msgType = MQTT_PUBCOMP;
+        mqttCtlProc( &SIM800 );
+        tmpTick = 0;
+      }
+*/
     }
 }
 

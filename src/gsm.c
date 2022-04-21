@@ -940,6 +940,9 @@ void gsmNtpInitFunc( void ){
       else if( tmpTick < mTick ){
         gsmSendCommand("+++", "OK\r\n", CMD_DELAY_10 * 2, NULL );
         gsmRunPhase = PHASE_OFF_OK;
+        if( SIM800.mqttServer.tcpconn ){
+          SIM800.mqttServer.tcpconn = 0;
+        }
       }
     }
     else if( gsmRunPhase == PHASE_OFF_OK ){

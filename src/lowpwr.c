@@ -8,7 +8,7 @@
 #include "lowpwr.h"
 
 
-//uint32_t tmpCount = 0;
+uint32_t tmpCount = 0;
 uint32_t ssleep;
 
 static uint32_t gpioaModer = 0xFFFFFFFF;
@@ -16,21 +16,21 @@ static uint32_t gpioaPupdr;
 static uint32_t gpioaOdr;
 
 //                                 .   .   .   .   .   .   .   .
-const uint32_t gpioaModerSl = 0b11101001111101110111010100000000;
-const uint32_t gpioaOdrSl = 0x80001000;
+const uint32_t gpioaModerSl = 0b11101011111111111111111110101010;
+const uint32_t gpioaOdrSl = 0x00009000;
 
 static uint32_t gpiobModer;
 static uint32_t gpiobPupdr;
 static uint32_t gpiobOdr;
 //                                 .   .   .   .   .   .   .   .
-const uint32_t gpiobModerSl = 0b01011101011101011111010100010000;
-const uint32_t gpiobOdrSl = 0x00001010;
+const uint32_t gpiobModerSl = 0b11111101111111111111010100110000;
+const uint32_t gpiobOdrSl = 0x00001000;
 
 static uint32_t gpiocModer;
 static uint32_t gpiocPupdr;
 static uint32_t gpiocOdr;
 
-const uint32_t gpiocModerSl = 0x00000000;
+const uint32_t gpiocModerSl = 0xFFFFFFFF;
 const uint32_t gpiocOdrSl = 0x00000000;
 
 
@@ -110,6 +110,7 @@ void gpioStore( void ){
  *
  */
 void gpioRestore( void ){
+/*
   if( gpioaModer != 0xFFFFFFFF ){
     // Сохраняем значения GPIO
     GPIOA->MODER = gpioaModer;
@@ -125,7 +126,7 @@ void gpioRestore( void ){
     GPIOC->ODR = gpiocOdr;
     gpioaModer = 0xFFFFFFFF;
   }
-
+*/
 }
 
 
@@ -151,7 +152,7 @@ static void sleepStart( void ){
       | RCC_APB1ENR_USART3EN
   );
   // ----------------- 2 . . . ----------------------------
-  if( sleepPreFlag ){
+  if( sleepPreFlag == 0 ){
     gpioStore();
   }
   // ----------------- 3 . . . ----------------------------
@@ -224,7 +225,7 @@ static inline void sleepProcess( void ){
 //  uint32_t tmptick;
   // TODO: Заменить на реальное засыпание
   sleepStart();
-  __WFI();
+//  __WFI();
   while(sleepFlag)
   {}
 //  sleepFlag = SET;
@@ -250,7 +251,9 @@ void rtcTimProcess( void ){
 // =================== CREATE ACTIVE TIMERS LIST ==============================
   if( actTimListRun ){
 
-    ssleep = rtc2ActTimProc( ut );
+    if( (ssleep = rtc2ActTimProc( ut )) == (uint32_t)-1 ){
+      ssleep = 0;
+    }
     // Заводим будильник на время "Активных таймеров"
 
     if( ssleep ){
@@ -318,7 +321,7 @@ void rtcWakeupCb( void ){
     EXTI->PR = EXTI_IMR_MR17;
     // Проверяем активные таймеры каждую секунду
     actTimRun = SET;
-//    tmpCount++;
+    tmpCount++;
 //    trace_printf( "b: %u\n", getRtcTime() );
   }
   if( (RTC->ISR & RTC_ISR_WUTF) && (RTC->CR & RTC_CR_WUTIE) ){

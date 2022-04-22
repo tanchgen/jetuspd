@@ -94,6 +94,7 @@ typedef struct {
 
 extern char * defCal;
 extern sISens iSens[ISENS_NUM];
+extern struct timer_list tArchPubTimer;
 
 void isensInit( void );
 void isensEnable( void );

@@ -14,17 +14,16 @@ uint32_t ssleep;
 static uint32_t gpioaModer = 0xFFFFFFFF;
 static uint32_t gpioaPupdr;
 static uint32_t gpioaOdr;
-
 //                                 .   .   .   .   .   .   .   .
 const uint32_t gpioaModerSl = 0b11101011111111111111111110101010;
 const uint32_t gpioaOdrSl = 0x00009000;
 
-static uint32_t gpiobModer;
-static uint32_t gpiobPupdr;
-static uint32_t gpiobOdr;
+//static uint32_t gpiobModer;
+//static uint32_t gpiobPupdr;
+//static uint32_t gpiobOdr;
 //                                 .   .   .   .   .   .   .   .
-const uint32_t gpiobModerSl = 0b11111101111111111111010100110000;
-const uint32_t gpiobOdrSl = 0x00001000;
+//const uint32_t gpiobModerSl = 0b11111101111111111111010100010000;
+//const uint32_t gpiobOdrSl = 0x00001000;
 
 static uint32_t gpiocModer;
 static uint32_t gpiocPupdr;
@@ -74,7 +73,7 @@ void pwrInit( void ){
  *
  */
 void gpioStore( void ){
-  /*
+
     // Сохраняем значения GPIO
     gpioaModer = GPIOA->MODER;
     gpioaPupdr = GPIOA->PUPDR;
@@ -85,14 +84,16 @@ void gpioStore( void ){
     // Устанавливаем статическое значение, кроме PA13, PA14
     GPIOA->ODR = (gpioaOdrSl & ~(GPIO_PIN_13 | GPIO_PIN_14)) | (GPIOA->ODR & (GPIO_PIN_13 | GPIO_PIN_14));
 
-    gpiobModer = GPIOB->MODER;
-    gpiobPupdr = GPIOB->PUPDR;
-    gpiobOdr = GPIOB->ODR;
+//    gpiobModer = GPIOB->MODER;
+//    gpiobPupdr = GPIOB->PUPDR;
+//    gpiobOdr = GPIOB->ODR;
 
-    GPIOB->MODER = gpiobModerSl;
-    GPIOB->PUPDR = 0;
-    // Устанавливаем статическое значение, кроме PB5
-    GPIOB->ODR = (gpiobOdrSl & ~GPIO_PIN_5) | (GPIOB->ODR & GPIO_PIN_5);
+//    GPIOB->MODER = gpiobModerSl;
+//    GPIOB->PUPDR = 0;
+//    // Устанавливаем статическое значение, кроме PB5
+//    GPIOB->ODR = (gpiobOdrSl & ~(GPIO_PIN_2 | GPIO_PIN_4 | GPIO_PIN_5)) | (GPIO_PIN_2 | GPIOB->ODR & (GPIO_PIN_4 | GPIO_PIN_5));
+
+    GPIOB->MODER |= (0x3 << (8*2)) | (0x3 << (9*2));
 
     gpiocModer = GPIOC->MODER;
     gpiocPupdr = GPIOC->PUPDR;
@@ -102,7 +103,7 @@ void gpioStore( void ){
     GPIOC->PUPDR = 0;
     // Устанавливаем статическое значение
     GPIOC->ODR = gpiocOdrSl;
-  */
+
 }
 
 
@@ -110,23 +111,24 @@ void gpioStore( void ){
  *
  */
 void gpioRestore( void ){
-/*
+
   if( gpioaModer != 0xFFFFFFFF ){
     // Сохраняем значения GPIO
     GPIOA->MODER = gpioaModer;
     GPIOA->PUPDR = gpioaPupdr;
     GPIOA->ODR = gpioaOdr;
 
-    GPIOB->MODER = gpiobModer;
-    GPIOB->PUPDR = gpiobPupdr;
-    GPIOB->ODR = gpiobOdr;
+//    GPIOB->MODER = gpiobModer;
+//    GPIOB->PUPDR = gpiobPupdr;
+//    GPIOB->ODR = gpiobOdr;
+    GPIOB->MODER |= (0x1 << (8*2)) | (0x1 << (9*2));
 
     GPIOC->MODER = gpiocModer;
     GPIOC->PUPDR = gpiocPupdr;
     GPIOC->ODR = gpiocOdr;
     gpioaModer = 0xFFFFFFFF;
   }
-*/
+
 }
 
 
@@ -225,7 +227,7 @@ static inline void sleepProcess( void ){
 //  uint32_t tmptick;
   // TODO: Заменить на реальное засыпание
   sleepStart();
-//  __WFI();
+  __WFI();
   while(sleepFlag)
   {}
 //  sleepFlag = SET;

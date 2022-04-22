@@ -33,7 +33,7 @@ extern eGsmRunPhase gsmRunPhase;
 //extern const sUartHnd simHnd;
 //extern struct timer_list tIsArchTimer;
 
-//extern uint32_t tmpCount;
+extern uint32_t tmpCount;
 //static uint32_t tmpTick;
 
 RCC_ClocksTypeDef RCC_Clocks;
@@ -85,8 +85,9 @@ int main(void) {
 //    Configure_IWDG();
 
     ledOn( LED_R, 0 );
+#ifdef TRACE
     mDelay( 5000 );
-
+#endif
 //    timerModArg( &gsmOnToutTimer, SEC_10*1e3, GSM_MQTT_START );
 
 //-----------------------
@@ -112,24 +113,22 @@ int main(void) {
     SIM800.mqttClient.pubFlags.archPubEnd = SET;
 */
 
-/*
+
     GPIOB->BSRR = GPIO_PIN_9 << 16;
-    getRtcTime();
-    for( uint8_t i = 0; i < 10; i++ ){
-      wutSleep( 1000e3 );
-      rtcTimProcess();
-//      GPIOB->ODR ^= GPIO_PIN_9;
-    }
-    trace_printf( "t: %u.%u\n", getRtcTime(), tmpCount );
-    mDelay( 1000 );
-    while(1){
-      trace_printf( "t: %u.%u\n", getRtcTime(), tmpCount );
-      gsmSleep( 10, RESET );
-      rtcTimProcess();
-      trace_printf( "t: %u.%u\n", getRtcTime(), tmpCount );
-      GPIOB->ODR ^= GPIO_PIN_9;
-    }
-*/
+//    getRtcTime();
+//    for( uint8_t i = 0; i < 10; i++ ){
+//      wutSleep( 1000e3 );
+//      rtcTimProcess();
+////      GPIOB->ODR ^= GPIO_PIN_9;
+//    }
+//    trace_printf( "t: %u.%u\n", getRtcTime(), tmpCount );
+//    mDelay( 1000 );
+//    trace_printf( "t: %u.%u\n", getRtcTime(), tmpCount );
+//    gsmSleep( 10, RESET );
+//    rtcTimProcess();
+//    trace_printf( "t: %u.%u\n", getRtcTime(), tmpCount );
+//    GPIOB->ODR ^= GPIO_PIN_9;
+
 
 //------------------------------
     while (1) {

@@ -64,7 +64,7 @@ sISens iSens[ISENS_NUM] = {
 };
 
 // ======================= Клендарь отправки архива сенсоров ======================================
-char * defCal = "0-59/10 0-23 21 * *"; //"0 8 1,11,21 * *";
+char * defCal = "0-59/10 0-23 25 * *"; //"0 8 1,11,21 * *";
 
 tRtc oldCalAlrm = {0};
 
@@ -377,7 +377,11 @@ void sensPubAlrmSet( sCalend * cal ){
   assert_param( !list_empty(&(cal->mQ)) );
   rtcGetDate( &tmpalrm );
   cmp = searchAlrm( cal, &tmpalrm, &oldCalAlrm );
+#ifdef  USE_FULL_ASSERT
   assert_param( cmp == GREATER );
+#else
+  (void)cmp;
+#endif // USE_FULL_ASSERT
   ut = xTm2Utime( &tmpalrm );
   trace_printf( "a0:%d\n", ut );
   ut -= getRtcTime();

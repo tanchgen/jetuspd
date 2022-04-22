@@ -127,27 +127,25 @@ static void bigOnTout( uintptr_t arg ){
   // XXX: !!!
 //  return;
 
-//  if( simSleepCount > uspdCfg.simcfg[0].simActivMax ){
+  if( simSleepCount > uspdCfg.simcfg[0].simActivMax ){
     simSleepCount = 0;
     // Засыпаем до следующего включения по календарю
     gsmStRestart = GSM_OFF;
     toSleep( SET );
-    gsmReset = MCU_SLEEP;
-    gsmRun = RESET;
-//  }
-//  else {
-//    // Переносим публикацию сенсоров если это раньше следующей попытки
-//    if( timerPending( &tArchPubTimer ) ){
-//      tUxTime ut = getRtcTime();
-//      if( (tArchPubTimer.expires) < (ut + simFaultSleep[ simSleepCount++]) ){
-//        rtcTimMod( &tArchPubTimer, simFaultSleep[ simSleepCount++] + 1 );
-//      }
-//    }
-//    // Засыпаем на 1, 2, 4, 24 часа до следующей попытки
-//    gsmSleep( simFaultSleep[ simSleepCount++], SET );
-//    gsmReset = MCU_SLEEP;
-//    return;
-//  }
+  }
+  else {
+    // Переносим публикацию сенсоров если это раньше следующей попытки
+    if( timerPending( &tArchPubTimer ) ){
+      tUxTime ut = getRtcTime();
+      if( (tArchPubTimer.expires) < (ut + simFaultSleep[ simSleepCount++]) ){
+        rtcTimMod( &tArchPubTimer, simFaultSleep[ simSleepCount++] + 1 );
+      }
+    }
+    // Засыпаем на 1, 2, 4, 24 часа до следующей попытки
+    gsmSleep( simFaultSleep[ simSleepCount++], SET );
+  }
+  gsmReset = MCU_SLEEP;
+  gsmRun = RESET;
 }
 
 
@@ -895,18 +893,19 @@ void gsmNtpInitFunc( void ){
     }
   }
   else {
-    if( SIM800.mqttServer.tcpconn == 0 ){
-      gsmRunPhase = PHASE_OFF_OK;
+    if( tmpTick == 0 ){
+      if( SIM800.mqttServer.tcpconn == 0 ){
+        gsmRunPhase = PHASE_OFF_OK;
+      }
+      else if ( SIM800.mqttServer.mqttconn == 0 ){
+        gsmRunPhase = PHASE_OFF;
+        tmpTick = mTick + 200;
+      }
+      // Продолжаем выключать
+      if( logRdBufFill != 0 ){
+        return;
+      }
     }
-    else if ( SIM800.mqttServer.mqttconn == 0 ){
-      gsmRunPhase = PHASE_OFF;
-      tmpTick = mTick + 200;
-    }
-    // Продолжаем выключать
-    if( logRdBufFill != 0 ){
-      return;
-    }
-
     if( gsmRunPhase == PHASE_NON ){
       char tpc[32];
       char pay[64] = "{\"imei\":";
@@ -947,6 +946,7 @@ void gsmNtpInitFunc( void ){
         trace_puts("ntp->gprs");
         gsmState--;
         gsmRunPhase = PHASE_NON;
+        tmpTick = 0;
       }
     }
   }
@@ -1003,6 +1003,7 @@ void gsmMqttStartFunc( void ){
     else {
       trace_puts("mqtt_st->ntp");
       gsmState--;
+      tmpTick = 0;
     }
   }
 }

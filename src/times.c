@@ -7,7 +7,7 @@
 #include "times.h"
 #include "uart.h"
 
-#define PREDIV_S      0x128
+#define PREDIV_S      0xFF // 0x128
 
 extern const sUartHnd simHnd;
 

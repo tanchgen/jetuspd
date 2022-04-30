@@ -64,7 +64,7 @@ sISens iSens[ISENS_NUM] = {
 };
 
 // ======================= Клендарь отправки архива сенсоров ======================================
-char * defCal = "0-59/10 0-23 25 * *"; //"0 8 1,11,21 * *";
+char * defCal = "0 14,15 26 * *"; //"0 8 1,11,21 * *";
 
 tRtc oldCalAlrm = {0};
 
@@ -337,13 +337,15 @@ eCmp searchAlrm( sCalend * cal, tRtc * alr, tRtc * old ){
             // Нашли
             return GREATER;
           }
-          else if( (m == cltime.min) && (m > old->min) ){
-            cmp = GREATER;
-            alr->min = m;
-            // На всякий случай на 2 сек вперед
-            alr->sec = cltime.sec + 2;
-            // Нашли
-            return GREATER;
+          else if( m == cltime.min ) {
+            if( xTm2Utime(alr) > xTm2Utime(old) ){
+              cmp = GREATER;
+              alr->min = m;
+              // На всякий случай на 2 сек вперед
+              alr->sec = cltime.sec + 2;
+              // Нашли
+              return GREATER;
+            }
           }
         }
       }
@@ -352,7 +354,7 @@ eCmp searchAlrm( sCalend * cal, tRtc * alr, tRtc * old ){
       // На этот час ничего не нашли. Возвращаемся - ищем следующие часы
       cltime.hour += 1;
       cltime.min = 0;
-      hhead = hcurr->prev;
+      hhead = hcurr;
       curr = TS_HOUR;
       continue;
 //    }

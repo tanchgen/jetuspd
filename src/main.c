@@ -91,9 +91,9 @@ int main(void) {
 //    timerModArg( &gsmOnToutTimer, SEC_10*1e3, GSM_MQTT_START );
 
 //-----------------------
+/*
 //    SIM800.mqttReceive.mqttData = simHnd.rxh->rxFrame;
 
-/*
     uspdCfgInit( RESET );
     mqttPubInit();
 
@@ -104,15 +104,15 @@ int main(void) {
     SIM800.mqttClient.pubFlags.announceEnd = RESET;
     uspdCfg.arxTout = 360;    // Интервал записи сенсоров
 //    cfgCalProc( &(uspd.arxCal), defCal, uspdCfg.arxCalStr );
-    cfgCalProc( &(uspd.arxCal), "0-50/10 0-23 9 * *", uspdCfg.arxCalStr );
+    setRtcTime( 1650981000 );
+    cfgCalProc( &(uspd.arxCal), "0 14,15,16 26 * *", uspdCfg.arxCalStr );
+    sensPubAlrmSet( &(uspd.arxCal) );
+    // Переустанавливаем RTC-таймеры
+//    isensTimCorr();
+    setRtcTime( 1650985200 );
     sensPubAlrmSet( &(uspd.arxCal) );
 
-    setRtcTime( 1649356639 );
-    // Переустанавливаем RTC-таймеры
-    isensTimCorr();
     SIM800.mqttClient.pubFlags.archPubEnd = SET;
-*/
-
 
     GPIOB->BSRR = GPIO_PIN_9 << 16;
 //    getRtcTime();
@@ -128,6 +128,7 @@ int main(void) {
 //    rtcTimProcess();
 //    trace_printf( "t: %u.%u\n", getRtcTime(), tmpCount );
 //    GPIOB->ODR ^= GPIO_PIN_9;
+*/
 
 
 //------------------------------

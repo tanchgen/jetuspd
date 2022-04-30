@@ -137,8 +137,8 @@ static void bigOnTout( uintptr_t arg ){
     // Переносим публикацию сенсоров если это раньше следующей попытки
     if( timerPending( &tArchPubTimer ) ){
       tUxTime ut = getRtcTime();
-      if( (tArchPubTimer.expires) < (ut + simFaultSleep[ simSleepCount++]) ){
-        rtcTimMod( &tArchPubTimer, simFaultSleep[ simSleepCount++] + 1 );
+      if( (tArchPubTimer.expires) < (ut + simFaultSleep[ simSleepCount]) ){
+        rtcTimMod( &tArchPubTimer, simFaultSleep[ simSleepCount] + 1 );
       }
     }
     // Засыпаем на 1, 2, 4, 24 часа до следующей попытки
